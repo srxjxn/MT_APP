@@ -6,6 +6,7 @@ import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityI
 import { useAuthStore } from '@/lib/stores/authStore';
 import { useDashboardStats } from '@/lib/hooks/useDashboard';
 import { useUnreadCount } from '@/lib/hooks/useNotifications';
+import { useAuth } from '@/lib/hooks/useAuth';
 import { LoadingScreen } from '@/components/ui';
 import { COLORS, SPACING } from '@/constants/theme';
 
@@ -36,6 +37,7 @@ export default function AdminDashboard() {
   const userProfile = useAuthStore((s) => s.userProfile);
   const { data: stats, isLoading } = useDashboardStats();
   const { data: unreadCount } = useUnreadCount();
+  const { signOut } = useAuth();
 
   if (isLoading) {
     return <LoadingScreen message="Loading dashboard..." testID="dashboard-loading" />;
@@ -47,19 +49,28 @@ export default function AdminDashboard() {
         <Text variant="headlineSmall" style={styles.welcome}>
           Welcome, {userProfile?.first_name ?? 'Admin'}!
         </Text>
-        <View style={styles.bellContainer}>
+        <View style={styles.headerIcons}>
+          <View style={styles.bellContainer}>
+            <IconButton
+              icon="bell"
+              size={24}
+              iconColor={COLORS.textPrimary}
+              onPress={() => router.push('/(admin)/notifications')}
+              testID="dashboard-bell"
+            />
+            {(unreadCount ?? 0) > 0 && (
+              <View style={styles.badge}>
+                <Text style={styles.badgeText}>{unreadCount}</Text>
+              </View>
+            )}
+          </View>
           <IconButton
-            icon="bell"
+            icon="logout"
             size={24}
-            iconColor={COLORS.textPrimary}
-            onPress={() => router.push('/(admin)/notifications')}
-            testID="dashboard-bell"
+            iconColor={COLORS.error}
+            onPress={signOut}
+            testID="dashboard-logout"
           />
-          {(unreadCount ?? 0) > 0 && (
-            <View style={styles.badge}>
-              <Text style={styles.badgeText}>{unreadCount}</Text>
-            </View>
-          )}
         </View>
       </View>
 
@@ -158,6 +169,10 @@ const styles = StyleSheet.create({
     padding: SPACING.md,
     paddingBottom: SPACING.sm,
     flex: 1,
+  },
+  headerIcons: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   bellContainer: {
     position: 'relative',
