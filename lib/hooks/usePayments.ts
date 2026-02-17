@@ -22,6 +22,7 @@ interface PaymentFilters {
   type?: string;
   dateFrom?: string;
   dateTo?: string;
+  userId?: string;
 }
 
 export function usePayments(filters?: PaymentFilters) {
@@ -44,6 +45,7 @@ export function usePayments(filters?: PaymentFilters) {
       if (filters?.type) query = query.eq('payment_type', filters.type as any);
       if (filters?.dateFrom) query = query.gte('paid_at', filters.dateFrom);
       if (filters?.dateTo) query = query.lte('paid_at', filters.dateTo);
+      if (filters?.userId) query = query.eq('user_id', filters.userId);
 
       const { data, error } = await query;
       if (error) throw error;

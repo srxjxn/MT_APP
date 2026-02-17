@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Button, Text, Menu } from 'react-native-paper';
-import { FormField } from '@/components/ui';
+import { FormField, DatePickerField } from '@/components/ui';
 import { COLORS, SPACING } from '@/constants/theme';
 import { LAYOUT } from '@/constants/layout';
 import { subscriptionSchema, SubscriptionFormData, SUBSCRIPTION_STATUSES } from '@/lib/validation/subscription';
@@ -143,18 +143,18 @@ export function SubscriptionForm({
         </>
       )}
 
-      <FormField
-        label="Start Date (YYYY-MM-DD)"
+      <DatePickerField
         value={startsAt}
-        onChangeText={(v) => { setStartsAt(v); setErrors((e) => ({ ...e, starts_at: '' })); }}
+        onChange={(v) => { setStartsAt(v); setErrors((e) => ({ ...e, starts_at: '' })); }}
+        label="Start Date"
         error={errors.starts_at}
         testID="sub-starts-input"
       />
 
-      <FormField
-        label="End Date (YYYY-MM-DD, optional)"
+      <DatePickerField
         value={endsAt}
-        onChangeText={setEndsAt}
+        onChange={setEndsAt}
+        label="End Date (optional)"
         testID="sub-ends-input"
       />
 

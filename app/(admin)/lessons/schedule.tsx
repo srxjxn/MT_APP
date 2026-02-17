@@ -5,7 +5,8 @@ import { router } from 'expo-router';
 import { useLessonInstances, useGenerateInstances, LessonInstanceWithJoins } from '@/lib/hooks/useLessonInstances';
 import { useCoachUsers } from '@/lib/hooks/useStudents';
 import { LessonCard } from '@/components/lessons/LessonCard';
-import { LoadingScreen, EmptyState, FormField } from '@/components/ui';
+import { DayCalendarView } from '@/components/lessons/DayCalendarView';
+import { LoadingScreen, EmptyState, DatePickerField } from '@/components/ui';
 import { useUIStore } from '@/lib/stores/uiStore';
 import { COLORS, SPACING } from '@/constants/theme';
 import { LAYOUT } from '@/constants/layout';
@@ -18,12 +19,24 @@ const STATUS_BUTTONS = [
   { value: 'cancelled', label: 'Cancelled' },
 ];
 
+const VIEW_MODE_BUTTONS = [
+  { value: 'calendar', label: 'Calendar', icon: 'calendar' },
+  { value: 'list', label: 'List', icon: 'format-list-bulleted' },
+];
+
+function todayStr(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
 export default function ScheduleScreen() {
   const [filterDateFrom, setFilterDateFrom] = useState('');
   const [filterDateTo, setFilterDateTo] = useState('');
   const [filterCoachId, setFilterCoachId] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
   const [coachMenuVisible, setCoachMenuVisible] = useState(false);
+  const [viewMode, setViewMode] = useState<'calendar' | 'list'>('calendar');
+  const [calendarDate, setCalendarDate] = useState(todayStr());
 
   const filters = {
     dateFrom: filterDateFrom || undefined,
@@ -74,29 +87,39 @@ export default function ScheduleScreen() {
     <View style={styles.container} testID="admin-schedule">
       <View style={styles.filterBar}>
         <SegmentedButtons
+          value={viewMode}
+          onValueChange={(v) => setViewMode(v as 'calendar' | 'list')}
+          buttons={VIEW_MODE_BUTTONS}
+          style={styles.viewModeToggle}
+        />
+        <SegmentedButtons
           value={filterStatus}
           onValueChange={setFilterStatus}
           buttons={STATUS_BUTTONS}
           style={styles.statusFilter}
         />
-        <View style={styles.filterRow}>
-          <View style={styles.filterField}>
-            <FormField
-              label="From (YYYY-MM-DD)"
-              value={filterDateFrom}
-              onChangeText={setFilterDateFrom}
-              testID="filter-date-from"
-            />
-          </View>
-          <View style={styles.filterField}>
-            <FormField
-              label="To (YYYY-MM-DD)"
-              value={filterDateTo}
-              onChangeText={setFilterDateTo}
-              testID="filter-date-to"
-            />
-          </View>
-        </View>
+        {viewMode === 'list' && (
+          <>
+            <View style={styles.filterRow}>
+              <View style={styles.filterField}>
+                <DatePickerField
+                  value={filterDateFrom}
+                  onChange={setFilterDateFrom}
+                  label="From"
+                  testID="filter-date-from"
+                />
+              </View>
+              <View style={styles.filterField}>
+                <DatePickerField
+                  value={filterDateTo}
+                  onChange={setFilterDateTo}
+                  label="To"
+                  testID="filter-date-to"
+                />
+              </View>
+            </View>
+          </>
+        )}
         <View style={styles.filterRow}>
           <Menu
             visible={coachMenuVisible}
@@ -133,30 +156,40 @@ export default function ScheduleScreen() {
         </View>
       </View>
 
-      <FlatList
-        data={instances}
-        renderItem={({ item }: { item: LessonInstanceWithJoins }) => (
-          <LessonCard
-            instance={item}
-            onPress={() => router.push(`/(admin)/lessons/instance/${item.id}`)}
-            testID={`instance-card-${item.id}`}
-          />
-        )}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={instances?.length === 0 ? styles.emptyContainer : styles.list}
-        refreshControl={
-          <RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={COLORS.primary} />
-        }
-        ListEmptyComponent={
-          <EmptyState
-            icon="calendar-blank"
-            title="No Scheduled Lessons"
-            description="Generate lesson instances from your templates"
-            actionLabel="Generate Schedule"
-            onAction={() => setShowGenerate(true)}
-          />
-        }
-      />
+      {viewMode === 'calendar' ? (
+        <DayCalendarView
+          instances={instances ?? []}
+          date={calendarDate}
+          onDateChange={setCalendarDate}
+          onInstancePress={(inst) => router.push(`/(admin)/lessons/instance/${inst.id}`)}
+        />
+      ) : (
+        <FlatList
+          data={instances}
+          renderItem={({ item }: { item: LessonInstanceWithJoins }) => (
+            <LessonCard
+              instance={item}
+              onPress={() => router.push(`/(admin)/lessons/instance/${item.id}`)}
+              testID={`instance-card-${item.id}`}
+            />
+          )}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={instances?.length === 0 ? styles.emptyContainer : styles.list}
+          refreshControl={
+            <RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={COLORS.primary} />
+          }
+          ListEmptyComponent={
+            <EmptyState
+              icon="calendar-blank"
+              title="No Scheduled Lessons"
+              description="Generate lesson instances from your templates"
+              actionLabel="Generate Schedule"
+              onAction={() => setShowGenerate(true)}
+            />
+          }
+        />
+      )}
+
       <FAB
         icon="calendar-plus"
         style={styles.fab}
@@ -176,16 +209,16 @@ export default function ScheduleScreen() {
             Create lesson instances from active templates for the selected date range.
           </Text>
           <View style={styles.modalContent}>
-            <FormField
-              label="From Date (YYYY-MM-DD)"
+            <DatePickerField
               value={dateFrom}
-              onChangeText={setDateFrom}
+              onChange={setDateFrom}
+              label="From Date"
               testID="generate-date-from"
             />
-            <FormField
-              label="To Date (YYYY-MM-DD)"
+            <DatePickerField
               value={dateTo}
-              onChangeText={setDateTo}
+              onChange={setDateTo}
+              label="To Date"
               testID="generate-date-to"
             />
             <Button
@@ -214,6 +247,9 @@ const styles = StyleSheet.create({
   filterBar: {
     padding: SPACING.md,
     paddingBottom: SPACING.xs,
+  },
+  viewModeToggle: {
+    marginBottom: SPACING.sm,
   },
   statusFilter: {
     marginBottom: SPACING.sm,

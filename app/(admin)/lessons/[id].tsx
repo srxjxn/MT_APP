@@ -26,8 +26,9 @@ export default function EditLessonTemplateScreen() {
     return <LoadingScreen message="Loading template..." />;
   }
 
-  const handleSubmit = async (data: LessonTemplateFormData) => {
+  const handleSubmit = async (dataArray: LessonTemplateFormData[]) => {
     try {
+      const data = dataArray[0];
       await updateTemplate.mutateAsync({
         id: template.id,
         ...data,

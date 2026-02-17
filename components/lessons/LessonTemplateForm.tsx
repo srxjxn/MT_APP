@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, StyleSheet } from 'react-native';
-import { Button, Text, Menu } from 'react-native-paper';
-import { FormField } from '@/components/ui';
+import { Button, Text, Menu, Chip } from 'react-native-paper';
+import { FormField, TimePickerDropdown, DurationPicker } from '@/components/ui';
 import { COLORS, SPACING } from '@/constants/theme';
 import { LAYOUT } from '@/constants/layout';
 import {
@@ -17,11 +17,13 @@ interface LessonTemplateFormProps {
   initialValues?: Partial<LessonTemplateFormData>;
   coaches?: Pick<UserProfile, 'id' | 'first_name' | 'last_name'>[];
   courts?: Pick<Court, 'id' | 'name'>[];
-  onSubmit: (data: LessonTemplateFormData) => void;
+  onSubmit: (data: LessonTemplateFormData[]) => void;
   loading?: boolean;
   submitLabel?: string;
   testID?: string;
 }
+
+const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 export function LessonTemplateForm({
   initialValues,
@@ -36,35 +38,56 @@ export function LessonTemplateForm({
   const [lessonType, setLessonType] = useState<string>(initialValues?.lesson_type ?? 'group');
   const [coachId, setCoachId] = useState(initialValues?.coach_id ?? '');
   const [courtId, setCourtId] = useState(initialValues?.court_id ?? '');
-  const [dayOfWeek, setDayOfWeek] = useState(initialValues?.day_of_week ?? 1);
+  const [selectedDays, setSelectedDays] = useState<number[]>(
+    initialValues?.day_of_week != null ? [initialValues.day_of_week] : []
+  );
   const [startTime, setStartTime] = useState(initialValues?.start_time ?? '');
-  const [durationMinutes, setDurationMinutes] = useState(String(initialValues?.duration_minutes ?? '60'));
+  const [durationMinutes, setDurationMinutes] = useState(initialValues?.duration_minutes ?? 60);
   const [maxStudents, setMaxStudents] = useState(String(initialValues?.max_students ?? '6'));
-  const [priceCents, setPriceCents] = useState(String(initialValues?.price_cents ?? '0'));
+  const [priceDollars, setPriceDollars] = useState(
+    initialValues?.price_cents ? (initialValues.price_cents / 100).toFixed(2) : '0'
+  );
   const [description, setDescription] = useState(initialValues?.description ?? '');
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const [typeMenuVisible, setTypeMenuVisible] = useState(false);
   const [coachMenuVisible, setCoachMenuVisible] = useState(false);
   const [courtMenuVisible, setCourtMenuVisible] = useState(false);
-  const [dayMenuVisible, setDayMenuVisible] = useState(false);
 
   const selectedCoach = coaches?.find((c) => c.id === coachId);
   const selectedCourt = courts?.find((c) => c.id === courtId);
-  const selectedDay = DAYS_OF_WEEK.find((d) => d.value === dayOfWeek);
+
+  const toggleDay = (day: number) => {
+    setSelectedDays((prev) =>
+      prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day]
+    );
+    setErrors((e) => ({ ...e, day_of_week: '' }));
+  };
 
   const handleSubmit = () => {
-    const result = lessonTemplateSchema.safeParse({
+    if (selectedDays.length === 0) {
+      setErrors((prev) => ({ ...prev, day_of_week: 'Select at least one day' }));
+      return;
+    }
+
+    const priceCents = Math.round(parseFloat(priceDollars || '0') * 100);
+
+    const baseData = {
       name,
       lesson_type: lessonType,
       coach_id: coachId,
       court_id: courtId || undefined,
-      day_of_week: dayOfWeek,
       start_time: startTime,
-      duration_minutes: parseInt(durationMinutes, 10) || 0,
+      duration_minutes: durationMinutes,
       max_students: parseInt(maxStudents, 10) || 0,
-      price_cents: parseInt(priceCents, 10) || 0,
+      price_cents: priceCents,
       description: description || undefined,
+    };
+
+    // Validate with first day to check all common fields
+    const result = lessonTemplateSchema.safeParse({
+      ...baseData,
+      day_of_week: selectedDays[0],
     });
 
     if (!result.success) {
@@ -78,7 +101,12 @@ export function LessonTemplateForm({
     }
 
     setErrors({});
-    onSubmit(result.data);
+    const dataArray: LessonTemplateFormData[] = selectedDays.map((day) => ({
+      ...baseData,
+      lesson_type: lessonType as LessonTemplateFormData['lesson_type'],
+      day_of_week: day,
+    }));
+    onSubmit(dataArray);
   };
 
   return (
@@ -142,34 +170,34 @@ export function LessonTemplateForm({
         ))}
       </Menu>
 
-      <Text variant="titleSmall" style={styles.label}>Day of Week</Text>
-      <Menu
-        visible={dayMenuVisible}
-        onDismiss={() => setDayMenuVisible(false)}
-        anchor={
-          <Button mode="outlined" onPress={() => setDayMenuVisible(true)} style={styles.dropdown} contentStyle={styles.dropdownContent}>
-            {selectedDay?.label ?? 'Select day'}
-          </Button>
-        }
-      >
+      <Text variant="titleSmall" style={styles.label}>Days of Week</Text>
+      <View style={styles.chipRow}>
         {DAYS_OF_WEEK.map((day) => (
-          <Menu.Item key={day.value} onPress={() => { setDayOfWeek(day.value); setDayMenuVisible(false); }} title={day.label} />
+          <Chip
+            key={day.value}
+            selected={selectedDays.includes(day.value)}
+            onPress={() => toggleDay(day.value)}
+            style={styles.chip}
+            compact
+          >
+            {DAY_LABELS[day.value]}
+          </Chip>
         ))}
-      </Menu>
+      </View>
+      {errors.day_of_week && <Text variant="bodySmall" style={styles.error}>{errors.day_of_week}</Text>}
 
-      <FormField
-        label="Start Time (HH:MM)"
+      <TimePickerDropdown
         value={startTime}
-        onChangeText={(v) => { setStartTime(v); setErrors((e) => ({ ...e, start_time: '' })); }}
+        onSelect={(v) => { setStartTime(v); setErrors((e) => ({ ...e, start_time: '' })); }}
+        label="Start Time"
         error={errors.start_time}
         testID="template-start-time-input"
       />
 
-      <FormField
-        label="Duration (minutes)"
+      <DurationPicker
         value={durationMinutes}
-        onChangeText={setDurationMinutes}
-        keyboardType="numeric"
+        onChange={setDurationMinutes}
+        label="Duration"
         error={errors.duration_minutes}
         testID="template-duration-input"
       />
@@ -184,9 +212,9 @@ export function LessonTemplateForm({
       />
 
       <FormField
-        label="Price (cents)"
-        value={priceCents}
-        onChangeText={setPriceCents}
+        label="Price ($)"
+        value={priceDollars}
+        onChangeText={setPriceDollars}
         keyboardType="numeric"
         error={errors.price_cents}
         testID="template-price-input"
@@ -229,6 +257,15 @@ const styles = StyleSheet.create({
   },
   dropdownContent: {
     height: LAYOUT.buttonHeight,
+  },
+  chipRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 4,
+    marginBottom: SPACING.xs,
+  },
+  chip: {
+    marginBottom: 2,
   },
   error: {
     color: COLORS.error,

@@ -15,13 +15,15 @@ export default function CreateLessonTemplateScreen() {
   const { data: courts } = useCourts();
   const showSnackbar = useUIStore((s) => s.showSnackbar);
 
-  const handleSubmit = async (data: LessonTemplateFormData) => {
+  const handleSubmit = async (dataArray: LessonTemplateFormData[]) => {
     try {
-      await createTemplate.mutateAsync({
-        ...data,
-        court_id: data.court_id || null,
-      });
-      showSnackbar('Lesson template created successfully', 'success');
+      for (const data of dataArray) {
+        await createTemplate.mutateAsync({
+          ...data,
+          court_id: data.court_id || null,
+        });
+      }
+      showSnackbar(`Created ${dataArray.length} lesson template(s)`, 'success');
       router.back();
     } catch (err: any) {
       showSnackbar(err.message ?? 'Failed to create template', 'error');

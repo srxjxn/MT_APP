@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Button, Text, Menu } from 'react-native-paper';
-import { FormField } from '@/components/ui';
+import { FormField, DatePickerField } from '@/components/ui';
 import { COLORS, SPACING } from '@/constants/theme';
 import { LAYOUT } from '@/constants/layout';
 import { paymentSchema, PaymentFormData, PAYMENT_TYPES, PAYMENT_STATUSES, PAYMENT_PLATFORMS } from '@/lib/validation/payment';
@@ -181,10 +181,10 @@ export function PaymentForm({
         testID="payment-description-input"
       />
 
-      <FormField
-        label="Paid Date (YYYY-MM-DD)"
+      <DatePickerField
         value={paidAt}
-        onChangeText={setPaidAt}
+        onChange={setPaidAt}
+        label="Paid Date"
         testID="payment-date-input"
       />
 
