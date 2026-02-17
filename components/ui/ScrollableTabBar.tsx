@@ -73,8 +73,6 @@ const styles = StyleSheet.create({
     borderTopColor: COLORS.border,
   },
   scrollContent: {
-    flexGrow: 1,
-    justifyContent: 'space-evenly',
     paddingHorizontal: SPACING.xs,
   },
   tab: {

@@ -14,6 +14,8 @@ export default function LessonsLayout() {
       <Stack.Screen name="[id]" options={{ title: 'Edit Template' }} />
       <Stack.Screen name="schedule" options={{ title: 'Schedule' }} />
       <Stack.Screen name="instance/[id]" options={{ title: 'Lesson Detail' }} />
+      <Stack.Screen name="requests" options={{ title: 'Lesson Requests' }} />
+      <Stack.Screen name="coach-pricing" options={{ title: 'Coach Pricing' }} />
     </Stack>
   );
 }

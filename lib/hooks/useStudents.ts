@@ -160,10 +160,10 @@ export function useCoachUsers() {
 
   return useQuery({
     queryKey: userKeys.coaches(orgId ?? ''),
-    queryFn: async (): Promise<Pick<UserProfile, 'id' | 'first_name' | 'last_name' | 'email'>[]> => {
+    queryFn: async (): Promise<Pick<UserProfile, 'id' | 'first_name' | 'last_name' | 'email' | 'drop_in_rate_cents'>[]> => {
       const { data, error } = await supabase
         .from('users')
-        .select('id, first_name, last_name, email')
+        .select('id, first_name, last_name, email, drop_in_rate_cents')
         .eq('org_id', orgId!)
         .eq('role', 'coach')
         .order('first_name');

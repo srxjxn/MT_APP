@@ -57,6 +57,16 @@ DECLARE
   sub_2 UUID := 'a1000000-0000-0000-0000-000000000002';
   sub_3 UUID := 'a1000000-0000-0000-0000-000000000003';
   sub_4 UUID := 'a1000000-0000-0000-0000-000000000004';
+  -- Coach package IDs
+  cp_sarah_1 UUID := 'a2000000-0000-0000-0000-000000000001';
+  cp_mike_1 UUID := 'a2000000-0000-0000-0000-000000000002';
+  cp_lisa_1 UUID := 'a2000000-0000-0000-0000-000000000003';
+  -- Student package IDs
+  sp_1 UUID := 'a3000000-0000-0000-0000-000000000001';
+  sp_2 UUID := 'a3000000-0000-0000-0000-000000000002';
+  -- Lesson request IDs
+  lr_1 UUID := 'a4000000-0000-0000-0000-000000000001';
+  lr_2 UUID := 'a4000000-0000-0000-0000-000000000002';
   -- Password hash for 'password123'
   pw_hash TEXT := crypt('password123', gen_salt('bf'));
   -- Date references
@@ -326,5 +336,37 @@ BEGIN
     -- Patel payments
     (v_org_id, parent_patel_uid, 5500, 'drop_in', 'completed', 'cash', NULL, 'Drop-in lesson - Ava', NOW() - INTERVAL '14 days', NOW() - INTERVAL '14 days'),
     (v_org_id, parent_patel_uid, 3500, 'lesson', 'refunded', 'stripe', NULL, 'Cancelled lesson refund - Ethan', NOW() - INTERVAL '7 days', NOW() - INTERVAL '7 days');
+
+  -- ============================================================
+  -- Coach Drop-in Rates
+  -- ============================================================
+  UPDATE users SET drop_in_rate_cents = 8500 WHERE id = coach_sarah_uid;
+  UPDATE users SET drop_in_rate_cents = 10500 WHERE id = coach_mike_uid;
+  UPDATE users SET drop_in_rate_cents = 7500 WHERE id = coach_lisa_uid;
+
+  -- ============================================================
+  -- Coach Packages (5-hr packages for each coach)
+  -- ============================================================
+  INSERT INTO coach_packages (id, org_id, coach_id, name, num_hours, price_cents)
+  VALUES
+    (cp_sarah_1, v_org_id, coach_sarah_uid, '5-Hour Package', 5, 35000),
+    (cp_mike_1, v_org_id, coach_mike_uid, '5-Hour Package', 5, 37500),
+    (cp_lisa_1, v_org_id, coach_lisa_uid, '5-Hour Package', 5, 30000);
+
+  -- ============================================================
+  -- Student Packages
+  -- ============================================================
+  INSERT INTO student_packages (id, org_id, student_id, coach_package_id, hours_purchased, hours_used, status, purchased_at)
+  VALUES
+    (sp_1, v_org_id, student_7, cp_mike_1, 5, 3, 'active', NOW() - INTERVAL '30 days'),
+    (sp_2, v_org_id, student_1, cp_sarah_1, 5, 1, 'active', NOW() - INTERVAL '14 days');
+
+  -- ============================================================
+  -- Lesson Requests
+  -- ============================================================
+  INSERT INTO lesson_requests (id, org_id, student_id, coach_id, requested_by, preferred_date, preferred_time, status)
+  VALUES
+    (lr_1, v_org_id, student_3, coach_mike_uid, parent_williams_uid, today + 7, '14:00', 'pending'),
+    (lr_2, v_org_id, student_7, coach_mike_uid, parent_chen_uid, today + 3, '10:00', 'approved');
 
 END $$;

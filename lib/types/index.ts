@@ -50,6 +50,18 @@ export type Notification = Database['public']['Tables']['notifications']['Row'];
 export type NotificationInsert = Database['public']['Tables']['notifications']['Insert'];
 export type NotificationUpdate = Database['public']['Tables']['notifications']['Update'];
 
+export type CoachPackage = Database['public']['Tables']['coach_packages']['Row'];
+export type CoachPackageInsert = Database['public']['Tables']['coach_packages']['Insert'];
+export type CoachPackageUpdate = Database['public']['Tables']['coach_packages']['Update'];
+
+export type StudentPackage = Database['public']['Tables']['student_packages']['Row'];
+export type StudentPackageInsert = Database['public']['Tables']['student_packages']['Insert'];
+export type StudentPackageUpdate = Database['public']['Tables']['student_packages']['Update'];
+
+export type LessonRequest = Database['public']['Tables']['lesson_requests']['Row'];
+export type LessonRequestInsert = Database['public']['Tables']['lesson_requests']['Insert'];
+export type LessonRequestUpdate = Database['public']['Tables']['lesson_requests']['Update'];
+
 // Enum types
 export type UserRole = Database['public']['Enums']['user_role'];
 export type SkillLevel = Database['public']['Enums']['skill_level'];
@@ -63,6 +75,8 @@ export type PaymentStatus = Database['public']['Enums']['payment_status'];
 export type PaymentPlatform = Database['public']['Enums']['payment_platform'];
 export type NotificationChannel = Database['public']['Enums']['notification_channel'];
 export type NotificationStatus = Database['public']['Enums']['notification_status'];
+export type LessonRequestStatus = Database['public']['Enums']['lesson_request_status'];
+export type PackageStatus = Database['public']['Enums']['package_status'];
 
 // Auth state
 export interface AuthState {

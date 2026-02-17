@@ -34,6 +34,57 @@ export type Database = {
   }
   public: {
     Tables: {
+      coach_packages: {
+        Row: {
+          id: string
+          org_id: string
+          coach_id: string
+          name: string
+          num_hours: number
+          price_cents: number
+          is_active: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          coach_id: string
+          name: string
+          num_hours: number
+          price_cents: number
+          is_active?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          coach_id?: string
+          name?: string
+          num_hours?: number
+          price_cents?: number
+          is_active?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coach_packages_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "coach_packages_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       coach_availability: {
         Row: {
           coach_id: string
@@ -263,6 +314,87 @@ export type Database = {
             columns: ["template_id"]
             isOneToOne: false
             referencedRelation: "lesson_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lesson_requests: {
+        Row: {
+          id: string
+          org_id: string
+          student_id: string
+          coach_id: string
+          requested_by: string
+          preferred_date: string
+          preferred_time: string
+          status: Database["public"]["Enums"]["lesson_request_status"]
+          admin_notes: string | null
+          lesson_instance_id: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          student_id: string
+          coach_id: string
+          requested_by: string
+          preferred_date: string
+          preferred_time: string
+          status?: Database["public"]["Enums"]["lesson_request_status"]
+          admin_notes?: string | null
+          lesson_instance_id?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          student_id?: string
+          coach_id?: string
+          requested_by?: string
+          preferred_date?: string
+          preferred_time?: string
+          status?: Database["public"]["Enums"]["lesson_request_status"]
+          admin_notes?: string | null
+          lesson_instance_id?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lesson_requests_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lesson_requests_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lesson_requests_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lesson_requests_requested_by_fkey"
+            columns: ["requested_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lesson_requests_lesson_instance_id_fkey"
+            columns: ["lesson_instance_id"]
+            isOneToOne: false
+            referencedRelation: "lesson_instances"
             referencedColumns: ["id"]
           },
         ]
@@ -660,6 +792,70 @@ export type Database = {
           },
         ]
       }
+      student_packages: {
+        Row: {
+          id: string
+          org_id: string
+          student_id: string
+          coach_package_id: string
+          hours_purchased: number
+          hours_used: number
+          status: Database["public"]["Enums"]["package_status"]
+          purchased_at: string
+          expires_at: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          student_id: string
+          coach_package_id: string
+          hours_purchased: number
+          hours_used?: number
+          status?: Database["public"]["Enums"]["package_status"]
+          purchased_at?: string
+          expires_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          student_id?: string
+          coach_package_id?: string
+          hours_purchased?: number
+          hours_used?: number
+          status?: Database["public"]["Enums"]["package_status"]
+          purchased_at?: string
+          expires_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_packages_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_packages_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_packages_coach_package_id_fkey"
+            columns: ["coach_package_id"]
+            isOneToOne: false
+            referencedRelation: "coach_packages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       subscriptions: {
         Row: {
           created_at: string
@@ -725,6 +921,7 @@ export type Database = {
           auth_id: string
           avatar_url: string | null
           created_at: string
+          drop_in_rate_cents: number | null
           email: string
           first_name: string
           id: string
@@ -740,6 +937,7 @@ export type Database = {
           auth_id: string
           avatar_url?: string | null
           created_at?: string
+          drop_in_rate_cents?: number | null
           email: string
           first_name: string
           id?: string
@@ -755,6 +953,7 @@ export type Database = {
           auth_id?: string
           avatar_url?: string | null
           created_at?: string
+          drop_in_rate_cents?: number | null
           email?: string
           first_name?: string
           id?: string
@@ -791,8 +990,10 @@ export type Database = {
     Enums: {
       court_status: "active" | "maintenance" | "inactive"
       enrollment_status: "enrolled" | "waitlisted" | "dropped" | "completed"
+      lesson_request_status: "pending" | "approved" | "declined" | "cancelled"
       lesson_status: "scheduled" | "in_progress" | "completed" | "cancelled"
       lesson_type: "group" | "private" | "semi_private" | "camp"
+      package_status: "active" | "exhausted" | "expired" | "cancelled"
       notification_channel: "push" | "email" | "sms"
       notification_status: "pending" | "sent" | "failed" | "read"
       payment_platform: "stripe" | "square" | "cash" | "check" | "other"
@@ -933,8 +1134,10 @@ export const Constants = {
     Enums: {
       court_status: ["active", "maintenance", "inactive"],
       enrollment_status: ["enrolled", "waitlisted", "dropped", "completed"],
+      lesson_request_status: ["pending", "approved", "declined", "cancelled"],
       lesson_status: ["scheduled", "in_progress", "completed", "cancelled"],
       lesson_type: ["group", "private", "semi_private", "camp"],
+      package_status: ["active", "exhausted", "expired", "cancelled"],
       notification_channel: ["push", "email", "sms"],
       notification_status: ["pending", "sent", "failed", "read"],
       payment_platform: ["stripe", "square", "cash", "check", "other"],

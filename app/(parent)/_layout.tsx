@@ -33,6 +33,15 @@ export default function ParentLayout() {
         }}
       />
       <Tabs.Screen
+        name="private-lessons"
+        options={{
+          title: 'Private',
+          tabBarIcon: ({ color, size }) => (
+            <MaterialCommunityIcons name="account-star" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="billing"
         options={{
           title: 'Billing',

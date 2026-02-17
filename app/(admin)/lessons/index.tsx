@@ -62,14 +62,32 @@ export default function LessonTemplatesScreen() {
 
   return (
     <View style={styles.container} testID="templates-list">
-      <Button
-        mode="outlined"
-        onPress={() => router.push('/(admin)/lessons/schedule')}
-        style={styles.scheduleButton}
-        icon="calendar"
-      >
-        View Schedule
-      </Button>
+      <View style={styles.navButtons}>
+        <Button
+          mode="outlined"
+          onPress={() => router.push('/(admin)/lessons/schedule')}
+          style={styles.navButton}
+          icon="calendar"
+        >
+          View Schedule
+        </Button>
+        <Button
+          mode="outlined"
+          onPress={() => router.push('/(admin)/lessons/requests')}
+          style={styles.navButton}
+          icon="clipboard-text"
+        >
+          Lesson Requests
+        </Button>
+        <Button
+          mode="outlined"
+          onPress={() => router.push('/(admin)/lessons/coach-pricing')}
+          style={styles.navButton}
+          icon="currency-usd"
+        >
+          Coach Pricing
+        </Button>
+      </View>
       <SectionList
         sections={sections}
         renderItem={renderTemplate}
@@ -104,9 +122,12 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: COLORS.background,
   },
-  scheduleButton: {
-    margin: SPACING.md,
-    marginBottom: 0,
+  navButtons: {
+    padding: SPACING.md,
+    paddingBottom: 0,
+    gap: SPACING.sm,
+  },
+  navButton: {
   },
   list: {
     padding: SPACING.md,
