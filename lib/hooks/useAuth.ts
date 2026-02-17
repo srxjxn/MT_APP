@@ -154,7 +154,7 @@ export function useAuth() {
   const signInWithGoogle = useCallback(async () => {
     try {
       setIsLoading(true);
-      const redirectUrl = makeRedirectUri({ scheme: 'tennis-crm' });
+      const redirectUrl = makeRedirectUri({ scheme: 'modern-tennis' });
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {

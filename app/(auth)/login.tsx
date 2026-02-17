@@ -54,7 +54,7 @@ export default function LoginScreen() {
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
         <View style={styles.header}>
           <Text variant="headlineLarge" style={styles.title} testID="login-title">
-            Tennis CRM
+            Modern Tennis
           </Text>
           <Text variant="bodyLarge" style={styles.subtitle}>
             Sign in to your account

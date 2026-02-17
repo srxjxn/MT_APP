@@ -1,5 +1,5 @@
 -- ============================================================
--- Tennis CRM Seed Data
+-- Modern Tennis Seed Data
 -- ============================================================
 
 DO $$
@@ -74,18 +74,18 @@ BEGIN
   -- Organization
   -- ============================================================
   INSERT INTO organizations (id, name, slug, email, phone, address, timezone)
-  VALUES (v_org_id, 'Ace Tennis Academy', 'ace-tennis', 'info@acetennis.com', '555-0100', '123 Tennis Lane, Sportsville, CA 90210', 'America/Los_Angeles');
+  VALUES (v_org_id, 'Modern Tennis', 'modern-tennis', 'info@moderntennis.com', '555-0100', '123 Tennis Lane, Sportsville, CA 90210', 'America/Los_Angeles');
 
   -- ============================================================
   -- Auth Users (10 users, password: password123)
   -- ============================================================
   INSERT INTO auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at, confirmation_token, recovery_token, email_change, email_change_token_new, email_change_token_current, phone_change, phone_change_token, reauthentication_token, is_sso_user, is_anonymous)
   VALUES
-    (v_owner_auth, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'owner@acetennis.com', pw_hash, NOW(), '{"provider":"email","providers":["email"]}', '{}', NOW(), NOW(), '', '', '', '', '', '', '', '', FALSE, FALSE),
-    (v_admin_auth, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'admin@acetennis.com', pw_hash, NOW(), '{"provider":"email","providers":["email"]}', '{}', NOW(), NOW(), '', '', '', '', '', '', '', '', FALSE, FALSE),
-    (coach_sarah_auth, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'coach.sarah@acetennis.com', pw_hash, NOW(), '{"provider":"email","providers":["email"]}', '{}', NOW(), NOW(), '', '', '', '', '', '', '', '', FALSE, FALSE),
-    (coach_mike_auth, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'coach.mike@acetennis.com', pw_hash, NOW(), '{"provider":"email","providers":["email"]}', '{}', NOW(), NOW(), '', '', '', '', '', '', '', '', FALSE, FALSE),
-    (coach_lisa_auth, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'coach.lisa@acetennis.com', pw_hash, NOW(), '{"provider":"email","providers":["email"]}', '{}', NOW(), NOW(), '', '', '', '', '', '', '', '', FALSE, FALSE),
+    (v_owner_auth, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'owner@moderntennis.com', pw_hash, NOW(), '{"provider":"email","providers":["email"]}', '{}', NOW(), NOW(), '', '', '', '', '', '', '', '', FALSE, FALSE),
+    (v_admin_auth, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'admin@moderntennis.com', pw_hash, NOW(), '{"provider":"email","providers":["email"]}', '{}', NOW(), NOW(), '', '', '', '', '', '', '', '', FALSE, FALSE),
+    (coach_sarah_auth, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'coach.sarah@moderntennis.com', pw_hash, NOW(), '{"provider":"email","providers":["email"]}', '{}', NOW(), NOW(), '', '', '', '', '', '', '', '', FALSE, FALSE),
+    (coach_mike_auth, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'coach.mike@moderntennis.com', pw_hash, NOW(), '{"provider":"email","providers":["email"]}', '{}', NOW(), NOW(), '', '', '', '', '', '', '', '', FALSE, FALSE),
+    (coach_lisa_auth, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'coach.lisa@moderntennis.com', pw_hash, NOW(), '{"provider":"email","providers":["email"]}', '{}', NOW(), NOW(), '', '', '', '', '', '', '', '', FALSE, FALSE),
     (parent_johnson_auth, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'parent.johnson@email.com', pw_hash, NOW(), '{"provider":"email","providers":["email"]}', '{}', NOW(), NOW(), '', '', '', '', '', '', '', '', FALSE, FALSE),
     (parent_williams_auth, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'parent.williams@email.com', pw_hash, NOW(), '{"provider":"email","providers":["email"]}', '{}', NOW(), NOW(), '', '', '', '', '', '', '', '', FALSE, FALSE),
     (parent_garcia_auth, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'parent.garcia@email.com', pw_hash, NOW(), '{"provider":"email","providers":["email"]}', '{}', NOW(), NOW(), '', '', '', '', '', '', '', '', FALSE, FALSE),
@@ -95,11 +95,11 @@ BEGIN
   -- Auth identities
   INSERT INTO auth.identities (id, provider_id, user_id, identity_data, provider, last_sign_in_at, created_at, updated_at)
   VALUES
-    (gen_random_uuid(), v_owner_auth::text, v_owner_auth, jsonb_build_object('sub', v_owner_auth, 'email', 'owner@acetennis.com'), 'email', NOW(), NOW(), NOW()),
-    (gen_random_uuid(), v_admin_auth::text, v_admin_auth, jsonb_build_object('sub', v_admin_auth, 'email', 'admin@acetennis.com'), 'email', NOW(), NOW(), NOW()),
-    (gen_random_uuid(), coach_sarah_auth::text, coach_sarah_auth, jsonb_build_object('sub', coach_sarah_auth, 'email', 'coach.sarah@acetennis.com'), 'email', NOW(), NOW(), NOW()),
-    (gen_random_uuid(), coach_mike_auth::text, coach_mike_auth, jsonb_build_object('sub', coach_mike_auth, 'email', 'coach.mike@acetennis.com'), 'email', NOW(), NOW(), NOW()),
-    (gen_random_uuid(), coach_lisa_auth::text, coach_lisa_auth, jsonb_build_object('sub', coach_lisa_auth, 'email', 'coach.lisa@acetennis.com'), 'email', NOW(), NOW(), NOW()),
+    (gen_random_uuid(), v_owner_auth::text, v_owner_auth, jsonb_build_object('sub', v_owner_auth, 'email', 'owner@moderntennis.com'), 'email', NOW(), NOW(), NOW()),
+    (gen_random_uuid(), v_admin_auth::text, v_admin_auth, jsonb_build_object('sub', v_admin_auth, 'email', 'admin@moderntennis.com'), 'email', NOW(), NOW(), NOW()),
+    (gen_random_uuid(), coach_sarah_auth::text, coach_sarah_auth, jsonb_build_object('sub', coach_sarah_auth, 'email', 'coach.sarah@moderntennis.com'), 'email', NOW(), NOW(), NOW()),
+    (gen_random_uuid(), coach_mike_auth::text, coach_mike_auth, jsonb_build_object('sub', coach_mike_auth, 'email', 'coach.mike@moderntennis.com'), 'email', NOW(), NOW(), NOW()),
+    (gen_random_uuid(), coach_lisa_auth::text, coach_lisa_auth, jsonb_build_object('sub', coach_lisa_auth, 'email', 'coach.lisa@moderntennis.com'), 'email', NOW(), NOW(), NOW()),
     (gen_random_uuid(), parent_johnson_auth::text, parent_johnson_auth, jsonb_build_object('sub', parent_johnson_auth, 'email', 'parent.johnson@email.com'), 'email', NOW(), NOW(), NOW()),
     (gen_random_uuid(), parent_williams_auth::text, parent_williams_auth, jsonb_build_object('sub', parent_williams_auth, 'email', 'parent.williams@email.com'), 'email', NOW(), NOW(), NOW()),
     (gen_random_uuid(), parent_garcia_auth::text, parent_garcia_auth, jsonb_build_object('sub', parent_garcia_auth, 'email', 'parent.garcia@email.com'), 'email', NOW(), NOW(), NOW()),
@@ -111,11 +111,11 @@ BEGIN
   -- ============================================================
   INSERT INTO users (id, auth_id, org_id, role, first_name, last_name, email, phone)
   VALUES
-    (v_owner_uid, v_owner_auth, v_org_id, 'owner', 'James', 'Owner', 'owner@acetennis.com', '555-0101'),
-    (v_admin_uid, v_admin_auth, v_org_id, 'admin', 'Emily', 'Admin', 'admin@acetennis.com', '555-0102'),
-    (coach_sarah_uid, coach_sarah_auth, v_org_id, 'coach', 'Sarah', 'Thompson', 'coach.sarah@acetennis.com', '555-0103'),
-    (coach_mike_uid, coach_mike_auth, v_org_id, 'coach', 'Mike', 'Rodriguez', 'coach.mike@acetennis.com', '555-0104'),
-    (coach_lisa_uid, coach_lisa_auth, v_org_id, 'coach', 'Lisa', 'Park', 'coach.lisa@acetennis.com', '555-0105'),
+    (v_owner_uid, v_owner_auth, v_org_id, 'owner', 'James', 'Owner', 'owner@moderntennis.com', '555-0101'),
+    (v_admin_uid, v_admin_auth, v_org_id, 'admin', 'Emily', 'Admin', 'admin@moderntennis.com', '555-0102'),
+    (coach_sarah_uid, coach_sarah_auth, v_org_id, 'coach', 'Sarah', 'Thompson', 'coach.sarah@moderntennis.com', '555-0103'),
+    (coach_mike_uid, coach_mike_auth, v_org_id, 'coach', 'Mike', 'Rodriguez', 'coach.mike@moderntennis.com', '555-0104'),
+    (coach_lisa_uid, coach_lisa_auth, v_org_id, 'coach', 'Lisa', 'Park', 'coach.lisa@moderntennis.com', '555-0105'),
     (parent_johnson_uid, parent_johnson_auth, v_org_id, 'parent', 'David', 'Johnson', 'parent.johnson@email.com', '555-0201'),
     (parent_williams_uid, parent_williams_auth, v_org_id, 'parent', 'Maria', 'Williams', 'parent.williams@email.com', '555-0202'),
     (parent_garcia_uid, parent_garcia_auth, v_org_id, 'parent', 'Carlos', 'Garcia', 'parent.garcia@email.com', '555-0203'),
@@ -280,13 +280,13 @@ BEGIN
     (v_org_id, parent_williams_uid, 'Tournament Recommendation', 'Coach Mike recommends Sophia for the Junior Spring Tournament.', 'push', 'sent', NULL, NOW() - INTERVAL '3 days'),
     (v_org_id, parent_williams_uid, 'Payment Due', 'Your subscription payment of $180.00 is due in 3 days.', 'email', 'sent', NULL, NOW() - INTERVAL '1 day'),
     -- Parent Garcia notifications
-    (v_org_id, parent_garcia_uid, 'Welcome!', 'Welcome to Ace Tennis Academy! Your children are enrolled.', 'email', 'sent', NOW() - INTERVAL '20 days', NOW() - INTERVAL '20 days'),
+    (v_org_id, parent_garcia_uid, 'Welcome!', 'Welcome to Modern Tennis! Your children are enrolled.', 'email', 'sent', NOW() - INTERVAL '20 days', NOW() - INTERVAL '20 days'),
     (v_org_id, parent_garcia_uid, 'Lesson Reminder', 'Isabella has a group lesson this week.', 'push', 'sent', NULL, NOW() - INTERVAL '3 hours'),
     -- Parent Chen notifications
     (v_org_id, parent_chen_uid, 'Elite Camp Invitation', 'Mia has been recommended for the summer elite camp!', 'push', 'sent', NULL, NOW() - INTERVAL '1 day'),
     (v_org_id, parent_chen_uid, 'Payment Received', 'Your payment of $80.00 for private lessons has been received.', 'email', 'sent', NOW() - INTERVAL '7 days', NOW() - INTERVAL '7 days'),
     -- Parent Patel notifications
-    (v_org_id, parent_patel_uid, 'Welcome!', 'Welcome to Ace Tennis Academy!', 'email', 'sent', NOW() - INTERVAL '15 days', NOW() - INTERVAL '15 days'),
+    (v_org_id, parent_patel_uid, 'Welcome!', 'Welcome to Modern Tennis!', 'email', 'sent', NOW() - INTERVAL '15 days', NOW() - INTERVAL '15 days'),
     (v_org_id, parent_patel_uid, 'Progress Update', 'Coach Lisa has added notes about Ava''s progress.', 'push', 'sent', NULL, NOW() - INTERVAL '8 hours'),
     -- Coach notifications
     (v_org_id, coach_sarah_uid, 'New Student Enrolled', 'Ethan Patel has been enrolled in your Monday Beginner Group.', 'push', 'sent', NULL, NOW() - INTERVAL '2 days'),

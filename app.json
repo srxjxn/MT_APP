@@ -1,8 +1,8 @@
 {
   "expo": {
-    "name": "Tennis CRM",
-    "slug": "tennis-crm",
-    "scheme": "tennis-crm",
+    "name": "Modern Tennis",
+    "slug": "modern-tennis",
+    "scheme": "modern-tennis",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -15,7 +15,7 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.tenniscrm.app"
+      "bundleIdentifier": "com.moderntennis.app"
     },
     "android": {
       "adaptiveIcon": {
@@ -23,7 +23,7 @@
         "backgroundColor": "#2E7D32"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.tenniscrm.app"
+      "package": "com.moderntennis.app"
     },
     "web": {
       "favicon": "./assets/favicon.png",
