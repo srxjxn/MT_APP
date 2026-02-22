@@ -59,7 +59,7 @@ export default function RegisterScreen() {
         lastName: form.lastName,
         phone: form.phone || undefined,
       });
-      router.replace('/(auth)/onboarding');
+      router.replace('/(auth)/verify-email');
     } catch (err: any) {
       showSnackbar(err.message ?? 'Registration failed', 'error');
     } finally {

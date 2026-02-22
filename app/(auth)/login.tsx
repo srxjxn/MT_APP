@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, Platform, KeyboardAvoidingView, ScrollView } from 'react-native';
 import { Text, Button } from 'react-native-paper';
-import { Link, router } from 'expo-router';
+import { Link } from 'expo-router';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { FormField } from '@/components/ui';
 import { COLORS, SPACING } from '@/constants/theme';
@@ -77,6 +77,17 @@ export default function LoginScreen() {
             secureTextEntry
             testID="login-password"
           />
+
+          <Link href="/(auth)/forgot-password" asChild>
+            <Button
+              mode="text"
+              compact
+              style={styles.forgotPassword}
+              testID="login-forgot-password"
+            >
+              Forgot password?
+            </Button>
+          </Link>
 
           <Button
             mode="contained"
@@ -161,8 +172,12 @@ const styles = StyleSheet.create({
   form: {
     marginBottom: SPACING.lg,
   },
+  forgotPassword: {
+    alignSelf: 'flex-end',
+    marginTop: SPACING.xs,
+  },
   button: {
-    marginTop: SPACING.md,
+    marginTop: SPACING.sm,
   },
   buttonContent: {
     height: LAYOUT.buttonHeight,

@@ -1,0 +1,41 @@
+{
+  "cli": {
+    "version": ">= 3.0.0"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "env": {
+        "APP_ENV": "development"
+      }
+    },
+    "preview": {
+      "distribution": "internal",
+      "channel": "preview",
+      "env": {
+        "APP_ENV": "preview"
+      }
+    },
+    "production": {
+      "channel": "production",
+      "autoIncrement": true,
+      "env": {
+        "APP_ENV": "production",
+        "EXPO_PUBLIC_SUPABASE_URL": "https://ztbhshtdqkozmczsobaz.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp0YmhzaHRkcWtvem1jenNvYmF6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE3MDI5MjUsImV4cCI6MjA4NzI3ODkyNX0.5dPM5KxvTQZy4jGEQS8_iqjveR6rN_1HVMLmJQS6x8E"
+      }
+    }
+  },
+  "submit": {
+    "production": {
+      "ios": {
+        "appleId": "<your-apple-id@example.com>",
+        "ascAppId": "<app-store-connect-app-id>"
+      },
+      "android": {
+        "serviceAccountKeyPath": "./google-service-account.json"
+      }
+    }
+  }
+}
