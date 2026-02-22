@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, FlatList, StyleSheet, RefreshControl, SectionList } from 'react-native';
 import { Card, Text, FAB, Chip, Button } from 'react-native-paper';
 import { router } from 'expo-router';
 import { useLessonTemplates, LessonTemplateWithJoins } from '@/lib/hooks/useLessonTemplates';
+import { LessonTypeToggle } from '@/components/lessons/LessonTypeToggle';
 import { LoadingScreen, EmptyState, StatusBadge } from '@/components/ui';
 import { COLORS, SPACING } from '@/constants/theme';
 import { DAYS_OF_WEEK, LESSON_TYPE_LABELS } from '@/lib/validation/lessonTemplate';
@@ -10,11 +11,18 @@ import { useMemo } from 'react';
 
 export default function LessonTemplatesScreen() {
   const { data: templates, isLoading, refetch, isRefetching } = useLessonTemplates();
+  const [lessonTypeFilter, setLessonTypeFilter] = useState('all');
 
   const sections = useMemo(() => {
     if (!templates) return [];
+    let filtered = templates;
+    if (lessonTypeFilter === 'group') {
+      filtered = templates.filter((t) => t.lesson_type === 'group');
+    } else if (lessonTypeFilter === 'private') {
+      filtered = templates.filter((t) => t.lesson_type === 'private' || t.lesson_type === 'semi_private');
+    }
     const grouped = new Map<number, LessonTemplateWithJoins[]>();
-    templates.forEach((t) => {
+    filtered.forEach((t) => {
       const existing = grouped.get(t.day_of_week) ?? [];
       existing.push(t);
       grouped.set(t.day_of_week, existing);
@@ -25,7 +33,7 @@ export default function LessonTemplatesScreen() {
         title: DAYS_OF_WEEK.find((d) => d.value === day)?.label ?? `Day ${day}`,
         data,
       }));
-  }, [templates]);
+  }, [templates, lessonTypeFilter]);
 
   if (isLoading) {
     return <LoadingScreen message="Loading templates..." testID="templates-loading" />;
@@ -62,6 +70,11 @@ export default function LessonTemplatesScreen() {
 
   return (
     <View style={styles.container} testID="templates-list">
+      <LessonTypeToggle
+        value={lessonTypeFilter}
+        onValueChange={setLessonTypeFilter}
+        style={styles.typeToggle}
+      />
       <View style={styles.navButtons}>
         <Button
           mode="outlined"
@@ -121,6 +134,10 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.background,
+  },
+  typeToggle: {
+    margin: SPACING.md,
+    marginBottom: 0,
   },
   navButtons: {
     padding: SPACING.md,

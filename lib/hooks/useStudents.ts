@@ -22,10 +22,10 @@ export function useStudents() {
 
   return useQuery({
     queryKey: studentKeys.list(orgId ?? ''),
-    queryFn: async (): Promise<(Student & { parent?: Pick<UserProfile, 'first_name' | 'last_name' | 'email'> })[]> => {
+    queryFn: async (): Promise<(Student & { parent?: Pick<UserProfile, 'first_name' | 'last_name' | 'email' | 'phone'> })[]> => {
       const { data, error } = await supabase
         .from('students')
-        .select('*, parent:users!students_parent_id_fkey(first_name, last_name, email)')
+        .select('*, parent:users!students_parent_id_fkey(first_name, last_name, email, phone)')
         .eq('org_id', orgId!)
         .order('first_name');
 
@@ -58,10 +58,10 @@ export function useParentStudents() {
 export function useStudent(id: string) {
   return useQuery({
     queryKey: studentKeys.detail(id),
-    queryFn: async (): Promise<Student & { parent?: Pick<UserProfile, 'first_name' | 'last_name' | 'email'> }> => {
+    queryFn: async (): Promise<Student & { parent?: Pick<UserProfile, 'first_name' | 'last_name' | 'email' | 'phone'> }> => {
       const { data, error } = await supabase
         .from('students')
-        .select('*, parent:users!students_parent_id_fkey(first_name, last_name, email)')
+        .select('*, parent:users!students_parent_id_fkey(first_name, last_name, email, phone)')
         .eq('id', id)
         .single();
 

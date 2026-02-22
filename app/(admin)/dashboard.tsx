@@ -4,7 +4,7 @@ import { Card, Text, Button, IconButton } from 'react-native-paper';
 import { router } from 'expo-router';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useAuthStore } from '@/lib/stores/authStore';
-import { useDashboardStats } from '@/lib/hooks/useDashboard';
+import { useDashboardStats, useDashboardCoaches } from '@/lib/hooks/useDashboard';
 import { useUnreadCount } from '@/lib/hooks/useNotifications';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { LoadingScreen } from '@/components/ui';
@@ -36,6 +36,7 @@ function formatCents(cents: number): string {
 export default function AdminDashboard() {
   const userProfile = useAuthStore((s) => s.userProfile);
   const { data: stats, isLoading } = useDashboardStats();
+  const { data: coaches } = useDashboardCoaches();
   const { data: unreadCount } = useUnreadCount();
   const { signOut } = useAuth();
 
@@ -76,40 +77,28 @@ export default function AdminDashboard() {
 
       <View style={styles.statsGrid}>
         <StatCard
-          icon="account-group"
-          label="Active Students"
-          value={stats?.totalStudents ?? 0}
-          color={COLORS.primary}
-        />
-        <StatCard
-          icon="calendar-clock"
-          label="Upcoming This Week"
-          value={stats?.upcomingLessons ?? 0}
-          color={COLORS.info}
-        />
-        <StatCard
-          icon="check-circle"
-          label="Completed This Week"
-          value={stats?.completedLessons ?? 0}
-          color={COLORS.success}
-        />
-        <StatCard
-          icon="tennis"
-          label="Active Courts"
-          value={stats?.activeCourts ?? 0}
-          color={COLORS.warning}
-        />
-        <StatCard
           icon="cash-multiple"
           label="Revenue This Month"
           value={formatCents(stats?.revenueThisMonth ?? 0)}
           color={COLORS.primary}
         />
         <StatCard
-          icon="credit-card-check"
-          label="Active Subscriptions"
-          value={stats?.activeSubscriptions ?? 0}
+          icon="account-group"
+          label="Group Classes This Month"
+          value={stats?.groupClassesThisMonth ?? 0}
           color={COLORS.info}
+        />
+        <StatCard
+          icon="credit-card-check"
+          label="Active Memberships"
+          value={stats?.activeSubscriptions ?? 0}
+          color={COLORS.success}
+        />
+        <StatCard
+          icon="account-multiple"
+          label="Active Students"
+          value={stats?.totalStudents ?? 0}
+          color={COLORS.warning}
         />
       </View>
 
@@ -125,6 +114,24 @@ export default function AdminDashboard() {
             </Button>
           </Card.Content>
         </Card>
+      )}
+
+      {coaches && coaches.length > 0 && (
+        <>
+          <Text variant="titleMedium" style={styles.sectionTitle}>My Coaches</Text>
+          <View style={styles.coachList}>
+            {coaches.map((coach) => (
+              <Card key={coach.id} style={styles.coachCard}>
+                <Card.Content style={styles.coachContent}>
+                  <MaterialCommunityIcons name="account" size={20} color={COLORS.primary} />
+                  <Text variant="bodyMedium" style={styles.coachName}>
+                    {coach.first_name} {coach.last_name}
+                  </Text>
+                </Card.Content>
+              </Card>
+            ))}
+          </View>
+        </>
       )}
 
       <Text variant="titleMedium" style={styles.sectionTitle}>Quick Actions</Text>
@@ -237,6 +244,23 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     padding: SPACING.md,
     paddingBottom: SPACING.sm,
+  },
+  coachList: {
+    paddingHorizontal: SPACING.md,
+  },
+  coachCard: {
+    marginBottom: SPACING.xs,
+    backgroundColor: COLORS.surface,
+  },
+  coachContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    paddingVertical: SPACING.xs,
+  },
+  coachName: {
+    color: COLORS.textPrimary,
+    fontWeight: '500',
   },
   actions: {
     paddingHorizontal: SPACING.md,

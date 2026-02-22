@@ -4,12 +4,16 @@ import { useAuthStore } from '../stores/authStore';
 
 interface DashboardStats {
   totalStudents: number;
-  upcomingLessons: number;
-  completedLessons: number;
-  activeCourts: number;
   revenueThisMonth: number;
+  groupClassesThisMonth: number;
   activeSubscriptions: number;
   expiringSubscriptions: number;
+}
+
+export interface DashboardCoach {
+  id: string;
+  first_name: string;
+  last_name: string;
 }
 
 export function useDashboardStats() {
@@ -23,39 +27,16 @@ export function useDashboardStats() {
       weekEnd.setDate(weekEnd.getDate() + 7);
       const weekEndStr = weekEnd.toISOString().split('T')[0];
 
-      const weekStart = new Date();
-      weekStart.setDate(weekStart.getDate() - 7);
-      const weekStartStr = weekStart.toISOString().split('T')[0];
-
       const monthStart = new Date();
       monthStart.setDate(1);
       const monthStartStr = monthStart.toISOString().split('T')[0];
 
-      const [studentsRes, upcomingRes, completedRes, courtsRes, revenueRes, subsRes, expiringRes] = await Promise.all([
+      const [studentsRes, revenueRes, subsRes, expiringRes, groupClassesRes] = await Promise.all([
         supabase
           .from('students')
           .select('id', { count: 'exact', head: true })
           .eq('org_id', orgId!)
           .eq('is_active', true),
-        supabase
-          .from('lesson_instances')
-          .select('id', { count: 'exact', head: true })
-          .eq('org_id', orgId!)
-          .eq('status', 'scheduled')
-          .gte('date', today)
-          .lte('date', weekEndStr),
-        supabase
-          .from('lesson_instances')
-          .select('id', { count: 'exact', head: true })
-          .eq('org_id', orgId!)
-          .eq('status', 'completed')
-          .gte('date', weekStartStr)
-          .lte('date', today),
-        supabase
-          .from('courts')
-          .select('id', { count: 'exact', head: true })
-          .eq('org_id', orgId!)
-          .eq('status', 'active'),
         supabase
           .from('payments')
           .select('amount_cents')
@@ -75,6 +56,13 @@ export function useDashboardStats() {
           .eq('status', 'active')
           .gte('ends_at', today)
           .lte('ends_at', weekEndStr),
+        supabase
+          .from('lesson_instances')
+          .select('id, template:lesson_templates!lesson_instances_template_id_fkey(lesson_type)')
+          .eq('org_id', orgId!)
+          .eq('status', 'completed')
+          .gte('date', monthStartStr)
+          .lte('date', today),
       ]);
 
       const totalRevenue = (revenueRes.data ?? []).reduce(
@@ -82,15 +70,38 @@ export function useDashboardStats() {
         0
       );
 
+      const groupClasses = (groupClassesRes.data ?? []).filter(
+        (item: any) => item.template?.lesson_type === 'group'
+      ).length;
+
       return {
         totalStudents: studentsRes.count ?? 0,
-        upcomingLessons: upcomingRes.count ?? 0,
-        completedLessons: completedRes.count ?? 0,
-        activeCourts: courtsRes.count ?? 0,
         revenueThisMonth: totalRevenue,
+        groupClassesThisMonth: groupClasses,
         activeSubscriptions: subsRes.count ?? 0,
         expiringSubscriptions: expiringRes.count ?? 0,
       };
+    },
+    enabled: !!orgId,
+  });
+}
+
+export function useDashboardCoaches() {
+  const orgId = useAuthStore((s) => s.userProfile?.org_id);
+
+  return useQuery({
+    queryKey: ['dashboard', 'coaches', orgId],
+    queryFn: async (): Promise<DashboardCoach[]> => {
+      const { data, error } = await supabase
+        .from('users')
+        .select('id, first_name, last_name')
+        .eq('org_id', orgId!)
+        .eq('role', 'coach')
+        .eq('is_active', true)
+        .order('first_name');
+
+      if (error) throw error;
+      return data;
     },
     enabled: !!orgId,
   });

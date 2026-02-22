@@ -34,6 +34,11 @@ export function SubscriptionCard({ subscription, onPress, testID }: Subscription
             {subscription.user.first_name} {subscription.user.last_name}
           </Text>
         )}
+        {subscription.student && (
+          <Text variant="bodySmall" style={styles.user}>
+            Student: {subscription.student.first_name} {subscription.student.last_name}
+          </Text>
+        )}
         <View style={styles.details}>
           <Text variant="titleLarge" style={styles.price}>
             {formatCents(subscription.price_cents)}

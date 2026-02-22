@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../supabase';
 import { useAuthStore } from '../stores/authStore';
 import { StudentPackage, StudentPackageInsert, StudentPackageUpdate, CoachPackage } from '../types';
+import { Student } from '../types';
 
 export const studentPackageKeys = {
   all: ['student_packages'] as const,
@@ -98,6 +99,66 @@ export function useUpdateStudentPackage() {
 
       if (error) throw error;
       return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: studentPackageKeys.all });
+    },
+  });
+}
+
+export type AdminStudentPackage = StudentPackage & {
+  student: Pick<Student, 'first_name' | 'last_name' | 'parent_id'>;
+  coach_package: CoachPackage & {
+    coach: { first_name: string; last_name: string };
+  };
+};
+
+export function useAllStudentPackages() {
+  const orgId = useAuthStore((s) => s.userProfile?.org_id);
+
+  return useQuery({
+    queryKey: [...studentPackageKeys.all, 'admin', orgId],
+    queryFn: async (): Promise<AdminStudentPackage[]> => {
+      const { data, error } = await supabase
+        .from('student_packages')
+        .select('*, student:students!student_packages_student_id_fkey(first_name, last_name, parent_id), coach_package:coach_packages!student_packages_coach_package_id_fkey(*, coach:users!coach_packages_coach_id_fkey(first_name, last_name))')
+        .eq('org_id', orgId!)
+        .order('purchased_at', { ascending: false });
+
+      if (error) throw error;
+      return data as any;
+    },
+    enabled: !!orgId,
+  });
+}
+
+export function useBillParentForPackage() {
+  const queryClient = useQueryClient();
+  const orgId = useAuthStore((s) => s.userProfile?.org_id);
+
+  return useMutation({
+    mutationFn: async ({ packageId, parentId, studentName }: { packageId: string; parentId: string; studentName: string }) => {
+      // Flag the package
+      const { error: pkgError } = await supabase
+        .from('student_packages')
+        .update({ needs_billing: true, billed_at: new Date().toISOString() })
+        .eq('id', packageId);
+
+      if (pkgError) throw pkgError;
+
+      // Create notification for parent
+      const { error: notifError } = await supabase
+        .from('notifications')
+        .insert({
+          org_id: orgId!,
+          user_id: parentId,
+          title: 'Package Running Low',
+          body: `Your child ${studentName}'s lesson package is running low. Please purchase a new package.`,
+          channel: 'push',
+          status: 'sent',
+        });
+
+      if (notifError) throw notifError;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: studentPackageKeys.all });

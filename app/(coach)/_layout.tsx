@@ -33,6 +33,15 @@ export default function CoachLayout() {
         }}
       />
       <Tabs.Screen
+        name="students"
+        options={{
+          title: 'Students',
+          tabBarIcon: ({ color, size }) => (
+            <MaterialCommunityIcons name="account-group" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="notifications"
         options={{
           title: 'Notifications',

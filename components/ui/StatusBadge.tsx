@@ -16,6 +16,8 @@ const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
   pending: { bg: '#FFF3E0', text: COLORS.warning },
   approved: { bg: '#E8F5E9', text: COLORS.primary },
   declined: { bg: '#FFEBEE', text: COLORS.error },
+  draft: { bg: '#F5F5F5', text: COLORS.textSecondary },
+  paid: { bg: '#E8F5E9', text: COLORS.primary },
   paused: { bg: '#FFF3E0', text: COLORS.warning },
   expired: { bg: '#F5F5F5', text: COLORS.textSecondary },
   exhausted: { bg: '#F5F5F5', text: COLORS.textSecondary },

@@ -25,6 +25,7 @@ interface InstanceFilters {
   dateTo?: string;
   coachId?: string;
   status?: LessonStatus;
+  lessonType?: string;
 }
 
 export function useLessonInstances(filters?: InstanceFilters) {
@@ -54,11 +55,19 @@ export function useLessonInstances(filters?: InstanceFilters) {
       const { data, error } = await query;
       if (error) throw error;
 
-      return (data as any[]).map((item) => ({
+      let results = (data as any[]).map((item) => ({
         ...item,
         enrollment_count: item.enrollments?.[0]?.count ?? 0,
         enrollments: undefined,
       }));
+
+      if (filters?.lessonType === 'group') {
+        results = results.filter((r) => r.template?.lesson_type === 'group');
+      } else if (filters?.lessonType === 'private') {
+        results = results.filter((r) => r.template?.lesson_type === 'private' || r.template?.lesson_type === 'semi_private');
+      }
+
+      return results;
     },
     enabled: !!orgId,
   });
@@ -235,11 +244,11 @@ export function useGenerateInstances() {
   });
 }
 
-export function useCoachLessonInstances() {
+export function useCoachLessonInstances(lessonType?: string) {
   const userProfile = useAuthStore((s) => s.userProfile);
 
   return useQuery({
-    queryKey: instanceKeys.coach(userProfile?.id ?? ''),
+    queryKey: [...instanceKeys.coach(userProfile?.id ?? ''), lessonType],
     queryFn: async (): Promise<LessonInstanceWithJoins[]> => {
       const { data, error } = await supabase
         .from('lesson_instances')
@@ -255,11 +264,19 @@ export function useCoachLessonInstances() {
         .order('start_time', { ascending: true });
 
       if (error) throw error;
-      return (data as any[]).map((item) => ({
+      let results = (data as any[]).map((item) => ({
         ...item,
         enrollment_count: item.enrollments?.[0]?.count ?? 0,
         enrollments: undefined,
       }));
+
+      if (lessonType === 'group') {
+        results = results.filter((r) => r.template?.lesson_type === 'group');
+      } else if (lessonType === 'private') {
+        results = results.filter((r) => r.template?.lesson_type === 'private' || r.template?.lesson_type === 'semi_private');
+      }
+
+      return results;
     },
     enabled: !!userProfile?.id,
   });

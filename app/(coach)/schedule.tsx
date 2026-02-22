@@ -7,6 +7,7 @@ import { useCreateStudentNote } from '@/lib/hooks/useStudentNotes';
 import { LessonCard } from '@/components/lessons/LessonCard';
 import { EnrollmentList } from '@/components/lessons/EnrollmentList';
 import { NoteForm } from '@/components/students/NoteForm';
+import { LessonTypeToggle } from '@/components/lessons/LessonTypeToggle';
 import { LoadingScreen, EmptyState } from '@/components/ui';
 import { useUIStore } from '@/lib/stores/uiStore';
 import { COLORS, SPACING } from '@/constants/theme';
@@ -14,7 +15,9 @@ import { StudentNoteFormData } from '@/lib/validation/studentNote';
 
 export default function CoachSchedule() {
   const userProfile = useAuthStore((s) => s.userProfile);
-  const { data: instances, isLoading, refetch, isRefetching } = useCoachLessonInstances();
+  const [lessonTypeFilter, setLessonTypeFilter] = useState('all');
+  const filterValue = lessonTypeFilter === 'all' ? undefined : lessonTypeFilter;
+  const { data: instances, isLoading, refetch, isRefetching } = useCoachLessonInstances(filterValue);
   const createNote = useCreateStudentNote();
   const showSnackbar = useUIStore((s) => s.showSnackbar);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -48,6 +51,11 @@ export default function CoachSchedule() {
       <Text variant="headlineSmall" style={styles.welcome}>
         Welcome, Coach {userProfile?.first_name ?? ''}!
       </Text>
+      <LessonTypeToggle
+        value={lessonTypeFilter}
+        onValueChange={setLessonTypeFilter}
+        style={styles.toggle}
+      />
       <FlatList
         data={instances}
         renderItem={({ item }: { item: LessonInstanceWithJoins }) => (
@@ -170,6 +178,10 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     padding: SPACING.md,
     paddingBottom: SPACING.xs,
+  },
+  toggle: {
+    marginHorizontal: SPACING.md,
+    marginBottom: SPACING.xs,
   },
   list: {
     padding: SPACING.md,

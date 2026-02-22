@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { View, FlatList, StyleSheet, RefreshControl } from 'react-native';
 import { useParentLessonInstances, useLessonInstances, LessonInstanceWithJoins, ParentLessonInstance } from '@/lib/hooks/useLessonInstances';
 import { EnrollChildDialog } from '@/components/lessons/EnrollChildDialog';
+import { LessonTypeToggle } from '@/components/lessons/LessonTypeToggle';
 import { LoadingScreen, EmptyState } from '@/components/ui';
 import { COLORS, SPACING } from '@/constants/theme';
 import { Text, SegmentedButtons, Chip, Card } from 'react-native-paper';
@@ -80,7 +81,17 @@ export default function ParentSchedule() {
   const { data: myInstances, isLoading: loadingMy, refetch: refetchMy, isRefetching: refetchingMy } = useParentLessonInstances();
   const { data: allInstances, isLoading: loadingAll, refetch: refetchAll, isRefetching: refetchingAll } = useLessonInstances();
   const [tab, setTab] = useState('enrolled');
+  const [lessonTypeFilter, setLessonTypeFilter] = useState('all');
   const [selectedInstance, setSelectedInstance] = useState<LessonInstanceWithJoins | null>(null);
+
+  const filteredMyInstances = useMemo(() => {
+    if (!myInstances || lessonTypeFilter === 'all') return myInstances;
+    return (myInstances as ParentLessonInstance[]).filter((inst) => {
+      const type = inst.template?.lesson_type;
+      if (lessonTypeFilter === 'group') return type === 'group';
+      return type === 'private' || type === 'semi_private';
+    });
+  }, [myInstances, lessonTypeFilter]);
 
   const isLoading = tab === 'enrolled' ? loadingMy : loadingAll;
   const refetch = tab === 'enrolled' ? refetchMy : refetchAll;
@@ -101,9 +112,16 @@ export default function ParentSchedule() {
         ]}
         style={styles.tabs}
       />
+      {tab === 'enrolled' && (
+        <LessonTypeToggle
+          value={lessonTypeFilter}
+          onValueChange={setLessonTypeFilter}
+          style={styles.lessonTypeToggle}
+        />
+      )}
       {tab === 'enrolled' ? (
         <FlatList
-          data={myInstances as ParentLessonInstance[]}
+          data={filteredMyInstances as ParentLessonInstance[]}
           renderItem={({ item }) => (
             <MyLessonCard
               instance={item}
@@ -111,7 +129,7 @@ export default function ParentSchedule() {
             />
           )}
           keyExtractor={(item) => item.id}
-          contentContainerStyle={myInstances?.length === 0 ? styles.emptyContainer : styles.list}
+          contentContainerStyle={filteredMyInstances?.length === 0 ? styles.emptyContainer : styles.list}
           refreshControl={
             <RefreshControl refreshing={refetchingMy} onRefresh={refetchMy} tintColor={COLORS.primary} />
           }
@@ -169,6 +187,10 @@ const styles = StyleSheet.create({
   },
   tabs: {
     margin: SPACING.md,
+  },
+  lessonTypeToggle: {
+    marginHorizontal: SPACING.md,
+    marginBottom: SPACING.xs,
   },
   list: {
     padding: SPACING.md,

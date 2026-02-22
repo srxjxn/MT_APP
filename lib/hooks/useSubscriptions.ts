@@ -14,6 +14,7 @@ export const subscriptionKeys = {
 
 export type SubscriptionWithUser = Subscription & {
   user?: Pick<UserProfile, 'first_name' | 'last_name' | 'email'>;
+  student?: { first_name: string; last_name: string } | null;
 };
 
 export function useSubscriptions() {
@@ -24,7 +25,7 @@ export function useSubscriptions() {
     queryFn: async (): Promise<SubscriptionWithUser[]> => {
       const { data, error } = await supabase
         .from('subscriptions')
-        .select('*, user:users!subscriptions_user_id_fkey(first_name, last_name, email)')
+        .select('*, user:users!subscriptions_user_id_fkey(first_name, last_name, email), student:students!subscriptions_student_id_fkey(first_name, last_name)')
         .eq('org_id', orgId!)
         .order('created_at', { ascending: false });
 
@@ -60,7 +61,7 @@ export function useSubscription(id: string) {
     queryFn: async (): Promise<SubscriptionWithUser> => {
       const { data, error } = await supabase
         .from('subscriptions')
-        .select('*, user:users!subscriptions_user_id_fkey(first_name, last_name, email)')
+        .select('*, user:users!subscriptions_user_id_fkey(first_name, last_name, email), student:students!subscriptions_student_id_fkey(first_name, last_name)')
         .eq('id', id)
         .single();
 
@@ -149,7 +150,7 @@ export function useExpiringSubscriptions() {
 
       const { data, error } = await supabase
         .from('subscriptions')
-        .select('*, user:users!subscriptions_user_id_fkey(first_name, last_name, email)')
+        .select('*, user:users!subscriptions_user_id_fkey(first_name, last_name, email), student:students!subscriptions_student_id_fkey(first_name, last_name)')
         .eq('org_id', orgId!)
         .eq('status', 'active')
         .gte('ends_at', today)

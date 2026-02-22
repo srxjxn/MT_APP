@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
 import { ScrollView, View, StyleSheet } from 'react-native';
-import { Card, Text, Button, Menu, Portal, Dialog, ProgressBar } from 'react-native-paper';
+import { Card, Text, Button, Chip, Menu, Portal, Dialog, ProgressBar } from 'react-native-paper';
 import { useLocalSearchParams, router } from 'expo-router';
 import { useLessonInstance, useUpdateLessonInstance } from '@/lib/hooks/useLessonInstances';
 import { useStudents } from '@/lib/hooks/useStudents';
 import { useEnrollStudent } from '@/lib/hooks/useEnrollments';
 import { useCreateNotification } from '@/lib/hooks/useNotifications';
 import { EnrollmentList } from '@/components/lessons/EnrollmentList';
-import { LoadingScreen, StatusBadge } from '@/components/ui';
+import { LoadingScreen, StatusBadge, ConfirmDialog } from '@/components/ui';
 import { useUIStore } from '@/lib/stores/uiStore';
 import { COLORS, SPACING } from '@/constants/theme';
 import { LAYOUT } from '@/constants/layout';
@@ -26,6 +26,7 @@ export default function InstanceDetailScreen() {
   const [statusMenuVisible, setStatusMenuVisible] = useState(false);
   const [showAddStudent, setShowAddStudent] = useState(false);
   const [studentMenuVisible, setStudentMenuVisible] = useState(false);
+  const [showCancelDialog, setShowCancelDialog] = useState(false);
 
   if (isLoading || !instance) {
     return <LoadingScreen message="Loading lesson..." />;
@@ -108,9 +109,9 @@ export default function InstanceDetailScreen() {
             <Text variant="bodyMedium" style={styles.info}>Court: {instance.court.name}</Text>
           )}
           {instance.template?.lesson_type && (
-            <Text variant="bodyMedium" style={styles.info}>
-              Type: {LESSON_TYPE_LABELS[instance.template.lesson_type]}
-            </Text>
+            <Chip compact style={styles.typeBadge}>
+              {LESSON_TYPE_LABELS[instance.template.lesson_type]}
+            </Chip>
           )}
           {instance.template?.price_cents != null && (
             <Text variant="bodyMedium" style={styles.info}>
@@ -135,18 +136,43 @@ export default function InstanceDetailScreen() {
             <Text variant="bodyMedium" style={styles.notes}>Notes: {instance.notes}</Text>
           )}
 
+          {instance.status === 'scheduled' && (
+            <View style={styles.actionButtons}>
+              <Button
+                mode="contained"
+                onPress={() => handleStatusChange('completed')}
+                loading={updateInstance.isPending}
+                style={styles.confirmButton}
+                contentStyle={styles.statusContent}
+                testID="confirm-class-button"
+              >
+                Confirm Class
+              </Button>
+              <Button
+                mode="outlined"
+                onPress={() => setShowCancelDialog(true)}
+                textColor={COLORS.error}
+                style={styles.cancelButton}
+                contentStyle={styles.statusContent}
+                testID="cancel-class-button"
+              >
+                Cancel Class
+              </Button>
+            </View>
+          )}
+
           <Menu
             visible={statusMenuVisible}
             onDismiss={() => setStatusMenuVisible(false)}
             anchor={
               <Button
-                mode="outlined"
+                mode="text"
                 onPress={() => setStatusMenuVisible(true)}
                 style={styles.statusButton}
-                contentStyle={styles.statusContent}
+                compact
                 testID="change-status-button"
               >
-                Change Status
+                More Status Options
               </Button>
             }
           >
@@ -182,6 +208,20 @@ export default function InstanceDetailScreen() {
           testID="instance-enrollment-list"
         />
       </View>
+
+      <ConfirmDialog
+        visible={showCancelDialog}
+        title="Cancel Class"
+        message="Are you sure you want to cancel this class? Parents of enrolled students will be notified."
+        confirmLabel="Cancel Class"
+        destructive
+        onConfirm={() => {
+          setShowCancelDialog(false);
+          handleStatusChange('cancelled');
+        }}
+        onCancel={() => setShowCancelDialog(false)}
+        testID="cancel-class-dialog"
+      />
 
       <Portal>
         <Dialog visible={showAddStudent} onDismiss={() => setShowAddStudent(false)}>
@@ -261,8 +301,23 @@ const styles = StyleSheet.create({
     marginTop: SPACING.sm,
     fontStyle: 'italic',
   },
-  statusButton: {
+  typeBadge: {
+    alignSelf: 'flex-start',
+    marginTop: SPACING.xs,
+    marginBottom: SPACING.xs,
+  },
+  actionButtons: {
     marginTop: SPACING.md,
+    gap: SPACING.sm,
+  },
+  confirmButton: {
+    backgroundColor: COLORS.success,
+  },
+  cancelButton: {
+    borderColor: COLORS.error,
+  },
+  statusButton: {
+    marginTop: SPACING.xs,
   },
   statusContent: {
     height: LAYOUT.buttonHeight,

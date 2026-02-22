@@ -6,6 +6,7 @@ import { useLessonInstances, useGenerateInstances, LessonInstanceWithJoins } fro
 import { useCoachUsers } from '@/lib/hooks/useStudents';
 import { LessonCard } from '@/components/lessons/LessonCard';
 import { DayCalendarView } from '@/components/lessons/DayCalendarView';
+import { LessonTypeToggle } from '@/components/lessons/LessonTypeToggle';
 import { LoadingScreen, EmptyState, DatePickerField } from '@/components/ui';
 import { useUIStore } from '@/lib/stores/uiStore';
 import { COLORS, SPACING } from '@/constants/theme';
@@ -34,6 +35,7 @@ export default function ScheduleScreen() {
   const [filterDateTo, setFilterDateTo] = useState('');
   const [filterCoachId, setFilterCoachId] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
+  const [filterLessonType, setFilterLessonType] = useState('all');
   const [coachMenuVisible, setCoachMenuVisible] = useState(false);
   const [viewMode, setViewMode] = useState<'calendar' | 'list'>('calendar');
   const [calendarDate, setCalendarDate] = useState(todayStr());
@@ -43,6 +45,7 @@ export default function ScheduleScreen() {
     dateTo: filterDateTo || undefined,
     coachId: filterCoachId || undefined,
     status: filterStatus !== 'all' ? (filterStatus as LessonStatus) : undefined,
+    lessonType: filterLessonType !== 'all' ? filterLessonType : undefined,
   };
 
   const { data: instances, isLoading, refetch, isRefetching } = useLessonInstances(filters);
@@ -54,13 +57,14 @@ export default function ScheduleScreen() {
   const [dateTo, setDateTo] = useState('');
 
   const selectedCoach = coaches?.find((c) => c.id === filterCoachId);
-  const hasFilters = filterDateFrom || filterDateTo || filterCoachId || filterStatus !== 'all';
+  const hasFilters = filterDateFrom || filterDateTo || filterCoachId || filterStatus !== 'all' || filterLessonType !== 'all';
 
   const clearFilters = () => {
     setFilterDateFrom('');
     setFilterDateTo('');
     setFilterCoachId('');
     setFilterStatus('all');
+    setFilterLessonType('all');
   };
 
   const handleGenerate = async () => {
@@ -86,6 +90,11 @@ export default function ScheduleScreen() {
   return (
     <View style={styles.container} testID="admin-schedule">
       <View style={styles.filterBar}>
+        <LessonTypeToggle
+          value={filterLessonType}
+          onValueChange={setFilterLessonType}
+          style={styles.lessonTypeToggle}
+        />
         <SegmentedButtons
           value={viewMode}
           onValueChange={(v) => setViewMode(v as 'calendar' | 'list')}
@@ -247,6 +256,9 @@ const styles = StyleSheet.create({
   filterBar: {
     padding: SPACING.md,
     paddingBottom: SPACING.xs,
+  },
+  lessonTypeToggle: {
+    marginBottom: SPACING.sm,
   },
   viewModeToggle: {
     marginBottom: SPACING.sm,

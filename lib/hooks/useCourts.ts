@@ -3,6 +3,14 @@ import { supabase } from '../supabase';
 import { useAuthStore } from '../stores/authStore';
 import { Court, CourtInsert, CourtUpdate } from '../types';
 
+export interface CourtWithNextPrivate extends Court {
+  nextPrivateLesson?: {
+    date: string;
+    start_time: string;
+    coachName: string;
+  } | null;
+}
+
 export const courtKeys = {
   all: ['courts'] as const,
   lists: () => [...courtKeys.all, 'list'] as const,
@@ -105,5 +113,59 @@ export function useDeleteCourt() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: courtKeys.lists() });
     },
+  });
+}
+
+export function useCourtsWithPrivateLessons() {
+  const orgId = useAuthStore((s) => s.userProfile?.org_id);
+
+  return useQuery({
+    queryKey: [...courtKeys.list(orgId ?? ''), 'with_private'],
+    queryFn: async (): Promise<CourtWithNextPrivate[]> => {
+      const today = new Date().toISOString().split('T')[0];
+
+      // Fetch courts
+      const { data: courts, error: courtsError } = await supabase
+        .from('courts')
+        .select('*')
+        .eq('org_id', orgId!)
+        .order('name');
+
+      if (courtsError) throw courtsError;
+
+      // Fetch upcoming private lessons on each court
+      const { data: instances, error: instError } = await supabase
+        .from('lesson_instances')
+        .select(`
+          court_id, date, start_time,
+          template:lesson_templates!lesson_instances_template_id_fkey(lesson_type),
+          coach:users!lesson_instances_coach_id_fkey(first_name, last_name)
+        `)
+        .eq('org_id', orgId!)
+        .eq('status', 'scheduled')
+        .gte('date', today)
+        .order('date', { ascending: true })
+        .order('start_time', { ascending: true });
+
+      if (instError) throw instError;
+
+      // Build map: court_id -> first private instance
+      const courtNextPrivate = new Map<string, { date: string; start_time: string; coachName: string }>();
+      for (const inst of (instances as any[]) ?? []) {
+        if (inst.template?.lesson_type !== 'private' && inst.template?.lesson_type !== 'semi_private') continue;
+        if (!inst.court_id || courtNextPrivate.has(inst.court_id)) continue;
+        courtNextPrivate.set(inst.court_id, {
+          date: inst.date,
+          start_time: inst.start_time,
+          coachName: inst.coach ? `${inst.coach.first_name} ${inst.coach.last_name}` : '',
+        });
+      }
+
+      return (courts ?? []).map((court) => ({
+        ...court,
+        nextPrivateLesson: courtNextPrivate.get(court.id) ?? null,
+      }));
+    },
+    enabled: !!orgId,
   });
 }

@@ -62,6 +62,10 @@ export type LessonRequest = Database['public']['Tables']['lesson_requests']['Row
 export type LessonRequestInsert = Database['public']['Tables']['lesson_requests']['Insert'];
 export type LessonRequestUpdate = Database['public']['Tables']['lesson_requests']['Update'];
 
+export type CoachPayout = Database['public']['Tables']['coach_payouts']['Row'];
+export type CoachPayoutInsert = Database['public']['Tables']['coach_payouts']['Insert'];
+export type CoachPayoutUpdate = Database['public']['Tables']['coach_payouts']['Update'];
+
 // Enum types
 export type UserRole = Database['public']['Enums']['user_role'];
 export type SkillLevel = Database['public']['Enums']['skill_level'];
@@ -77,6 +81,7 @@ export type NotificationChannel = Database['public']['Enums']['notification_chan
 export type NotificationStatus = Database['public']['Enums']['notification_status'];
 export type LessonRequestStatus = Database['public']['Enums']['lesson_request_status'];
 export type PackageStatus = Database['public']['Enums']['package_status'];
+export type PayoutStatus = Database['public']['Enums']['payout_status'];
 
 // Auth state
 export interface AuthState {

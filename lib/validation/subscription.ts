@@ -8,6 +8,7 @@ export const subscriptionSchema = z.object({
   price_cents: z.number().min(0),
   lessons_per_month: z.number().min(1).optional(),
   user_id: z.string().min(1, 'User is required'),
+  student_id: z.string().optional(),
   starts_at: z.string().min(1, 'Start date is required'),
   ends_at: z.string().optional(),
   status: z.enum(SUBSCRIPTION_STATUSES),

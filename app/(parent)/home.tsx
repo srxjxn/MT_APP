@@ -4,10 +4,12 @@ import { Card, Text, Button, Portal, Modal } from 'react-native-paper';
 import { useAuthStore } from '@/lib/stores/authStore';
 import { useParentStudents, useCreateStudent } from '@/lib/hooks/useStudents';
 import { useParentUpcomingLessons } from '@/lib/hooks/useLessonInstances';
+import { useParentMonthlyGroupAttendance } from '@/lib/hooks/useParentAttendance';
 import { useStudentNotes } from '@/lib/hooks/useStudentNotes';
 import { useUIStore } from '@/lib/stores/uiStore';
 import { StudentForm } from '@/components/students/StudentForm';
 import { NoteCard } from '@/components/students/NoteCard';
+import { MonthlyAttendanceCard } from '@/components/billing/MonthlyAttendanceCard';
 import { LoadingScreen, EmptyState, StatusBadge } from '@/components/ui';
 import { COLORS, SPACING } from '@/constants/theme';
 import { Student } from '@/lib/types';
@@ -54,6 +56,7 @@ export default function ParentHome() {
   const userProfile = useAuthStore((s) => s.userProfile);
   const { data: students, isLoading, refetch, isRefetching } = useParentStudents();
   const { data: upcomingData } = useParentUpcomingLessons();
+  const { data: attendance } = useParentMonthlyGroupAttendance();
   const createStudent = useCreateStudent();
   const showSnackbar = useUIStore((s) => s.showSnackbar);
   const [showAddForm, setShowAddForm] = useState(false);
@@ -127,6 +130,12 @@ export default function ParentHome() {
         <Text variant="headlineSmall" style={styles.welcome}>
           Welcome, {userProfile?.first_name ?? 'Parent'}!
         </Text>
+
+        {attendance && attendance.length > 0 && (
+          <View style={styles.attendanceSection}>
+            <MonthlyAttendanceCard attendance={attendance} testID="monthly-attendance" />
+          </View>
+        )}
 
         {upcomingLessons.length > 0 && (
           <View style={styles.upcomingSection}>
@@ -226,6 +235,10 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     padding: SPACING.md,
     paddingBottom: SPACING.xs,
+  },
+  attendanceSection: {
+    paddingHorizontal: SPACING.md,
+    paddingBottom: SPACING.sm,
   },
   upcomingSection: {
     paddingHorizontal: SPACING.md,

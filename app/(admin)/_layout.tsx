@@ -64,6 +64,16 @@ export default function AdminLayout() {
         }}
       />
       <Tabs.Screen
+        name="payroll"
+        options={{
+          title: 'Payroll',
+          headerShown: false,
+          tabBarIcon: ({ color, size }) => (
+            <MaterialCommunityIcons name="cash-register" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="settings"
         options={{
           title: 'Settings',

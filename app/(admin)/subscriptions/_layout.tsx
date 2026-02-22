@@ -13,6 +13,7 @@ export default function SubscriptionsLayout() {
       <Stack.Screen name="create" options={{ title: 'New Subscription' }} />
       <Stack.Screen name="[id]" options={{ title: 'Subscription Details' }} />
       <Stack.Screen name="payments" options={{ title: 'Payments' }} />
+      <Stack.Screen name="packages" options={{ title: 'Student Packages' }} />
     </Stack>
   );
 }

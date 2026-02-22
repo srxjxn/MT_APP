@@ -44,6 +44,7 @@
     "@types/react": "~19.1.0",
     "@types/react-native-vector-icons": "^6.4.18",
     "babel-preset-expo": "^54.0.10",
+    "eas-cli": "^18.0.3",
     "supabase": "^2.76.8",
     "typescript": "~5.9.2"
   },

@@ -309,12 +309,12 @@ BEGIN
   -- ============================================================
   -- Subscriptions (4 active subscriptions for parents)
   -- ============================================================
-  INSERT INTO subscriptions (id, org_id, user_id, name, description, price_cents, lessons_per_month, starts_at, ends_at, status, created_at)
+  INSERT INTO subscriptions (id, org_id, user_id, student_id, name, description, price_cents, lessons_per_month, starts_at, ends_at, status, created_at)
   VALUES
-    (sub_1, v_org_id, parent_johnson_uid, 'Monthly Group Plan', 'Unlimited group lessons for both children', 12000, 8, (today - INTERVAL '30 days')::timestamptz, NULL, 'active', NOW() - INTERVAL '30 days'),
-    (sub_2, v_org_id, parent_williams_uid, 'Advanced Training Package', 'Advanced group + 2 semi-private sessions per month', 18000, 6, (today - INTERVAL '60 days')::timestamptz, (today + INTERVAL '300 days')::timestamptz, 'active', NOW() - INTERVAL '60 days'),
-    (sub_3, v_org_id, parent_chen_uid, 'Private Lesson Package', '4 private lessons per month for Mia', 32000, 4, (today - INTERVAL '45 days')::timestamptz, NULL, 'active', NOW() - INTERVAL '45 days'),
-    (sub_4, v_org_id, parent_garcia_uid, 'Basic Group Plan', 'Group lessons for Isabella and Lucas', 9500, 4, (today - INTERVAL '90 days')::timestamptz, (today - INTERVAL '1 day')::timestamptz, 'expired', NOW() - INTERVAL '90 days');
+    (sub_1, v_org_id, parent_johnson_uid, student_1, 'Monthly Membership', 'Monthly membership for Emma', 22500, NULL, (today - INTERVAL '30 days')::timestamptz, NULL, 'active', NOW() - INTERVAL '30 days'),
+    (sub_2, v_org_id, parent_williams_uid, student_3, 'Monthly Membership', 'Monthly membership for Sophia', 22500, NULL, (today - INTERVAL '60 days')::timestamptz, (today + INTERVAL '300 days')::timestamptz, 'active', NOW() - INTERVAL '60 days'),
+    (sub_3, v_org_id, parent_chen_uid, student_7, 'Monthly Membership', 'Monthly membership for Mia', 22500, NULL, (today - INTERVAL '45 days')::timestamptz, NULL, 'active', NOW() - INTERVAL '45 days'),
+    (sub_4, v_org_id, parent_garcia_uid, student_5, 'Monthly Membership', 'Monthly membership for Isabella', 22500, NULL, (today - INTERVAL '90 days')::timestamptz, (today - INTERVAL '1 day')::timestamptz, 'expired', NOW() - INTERVAL '90 days');
 
   -- ============================================================
   -- Payments (10 payments linked to subscriptions and lessons)
@@ -338,11 +338,11 @@ BEGIN
     (v_org_id, parent_patel_uid, 3500, 'lesson', 'refunded', 'stripe', NULL, 'Cancelled lesson refund - Ethan', NOW() - INTERVAL '7 days', NOW() - INTERVAL '7 days');
 
   -- ============================================================
-  -- Coach Drop-in Rates
+  -- Coach Drop-in Rates & Group Rates
   -- ============================================================
-  UPDATE users SET drop_in_rate_cents = 8500 WHERE id = coach_sarah_uid;
-  UPDATE users SET drop_in_rate_cents = 10500 WHERE id = coach_mike_uid;
-  UPDATE users SET drop_in_rate_cents = 7500 WHERE id = coach_lisa_uid;
+  UPDATE users SET drop_in_rate_cents = 8500, group_rate_cents = 5000 WHERE id = coach_sarah_uid;
+  UPDATE users SET drop_in_rate_cents = 10500, group_rate_cents = 6500 WHERE id = coach_mike_uid;
+  UPDATE users SET drop_in_rate_cents = 7500, group_rate_cents = 4500 WHERE id = coach_lisa_uid;
 
   -- ============================================================
   -- Coach Packages (5-hr packages for each coach)

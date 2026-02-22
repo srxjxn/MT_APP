@@ -85,6 +85,75 @@ export type Database = {
           },
         ]
       }
+      coach_payouts: {
+        Row: {
+          id: string
+          org_id: string
+          coach_id: string
+          period_start: string
+          period_end: string
+          group_hours: number
+          private_hours: number
+          group_rate_cents: number
+          private_rate_cents: number
+          total_cents: number
+          status: Database["public"]["Enums"]["payout_status"]
+          notes: string | null
+          paid_at: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          coach_id: string
+          period_start: string
+          period_end: string
+          group_hours?: number
+          private_hours?: number
+          group_rate_cents?: number
+          private_rate_cents?: number
+          total_cents?: number
+          status?: Database["public"]["Enums"]["payout_status"]
+          notes?: string | null
+          paid_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          coach_id?: string
+          period_start?: string
+          period_end?: string
+          group_hours?: number
+          private_hours?: number
+          group_rate_cents?: number
+          private_rate_cents?: number
+          total_cents?: number
+          status?: Database["public"]["Enums"]["payout_status"]
+          notes?: string | null
+          paid_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coach_payouts_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "coach_payouts_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       coach_availability: {
         Row: {
           coach_id: string
@@ -605,6 +674,7 @@ export type Database = {
             | null
           payment_status: Database["public"]["Enums"]["payment_status"]
           payment_type: Database["public"]["Enums"]["payment_type"]
+          stripe_payment_intent_id: string | null
           subscription_id: string | null
           updated_at: string
           user_id: string
@@ -622,6 +692,7 @@ export type Database = {
             | null
           payment_status?: Database["public"]["Enums"]["payment_status"]
           payment_type: Database["public"]["Enums"]["payment_type"]
+          stripe_payment_intent_id?: string | null
           subscription_id?: string | null
           updated_at?: string
           user_id: string
@@ -639,6 +710,7 @@ export type Database = {
             | null
           payment_status?: Database["public"]["Enums"]["payment_status"]
           payment_type?: Database["public"]["Enums"]["payment_type"]
+          stripe_payment_intent_id?: string | null
           subscription_id?: string | null
           updated_at?: string
           user_id?: string
@@ -801,6 +873,8 @@ export type Database = {
           hours_purchased: number
           hours_used: number
           status: Database["public"]["Enums"]["package_status"]
+          needs_billing: boolean
+          billed_at: string | null
           purchased_at: string
           expires_at: string | null
           created_at: string
@@ -814,6 +888,8 @@ export type Database = {
           hours_purchased: number
           hours_used?: number
           status?: Database["public"]["Enums"]["package_status"]
+          needs_billing?: boolean
+          billed_at?: string | null
           purchased_at?: string
           expires_at?: string | null
           created_at?: string
@@ -827,6 +903,8 @@ export type Database = {
           hours_purchased?: number
           hours_used?: number
           status?: Database["public"]["Enums"]["package_status"]
+          needs_billing?: boolean
+          billed_at?: string | null
           purchased_at?: string
           expires_at?: string | null
           created_at?: string
@@ -868,6 +946,7 @@ export type Database = {
           price_cents: number
           starts_at: string
           status: Database["public"]["Enums"]["subscription_status"]
+          student_id: string | null
           updated_at: string
           user_id: string
         }
@@ -882,6 +961,7 @@ export type Database = {
           price_cents?: number
           starts_at: string
           status?: Database["public"]["Enums"]["subscription_status"]
+          student_id?: string | null
           updated_at?: string
           user_id: string
         }
@@ -896,6 +976,7 @@ export type Database = {
           price_cents?: number
           starts_at?: string
           status?: Database["public"]["Enums"]["subscription_status"]
+          student_id?: string | null
           updated_at?: string
           user_id?: string
         }
@@ -914,6 +995,13 @@ export type Database = {
             referencedRelation: "users"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "subscriptions_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
         ]
       }
       users: {
@@ -924,6 +1012,7 @@ export type Database = {
           drop_in_rate_cents: number | null
           email: string
           first_name: string
+          group_rate_cents: number | null
           id: string
           is_active: boolean
           last_name: string
@@ -931,6 +1020,7 @@ export type Database = {
           phone: string | null
           role: Database["public"]["Enums"]["user_role"]
           settings: Json
+          stripe_customer_id: string | null
           updated_at: string
         }
         Insert: {
@@ -940,6 +1030,7 @@ export type Database = {
           drop_in_rate_cents?: number | null
           email: string
           first_name: string
+          group_rate_cents?: number | null
           id?: string
           is_active?: boolean
           last_name: string
@@ -947,6 +1038,7 @@ export type Database = {
           phone?: string | null
           role?: Database["public"]["Enums"]["user_role"]
           settings?: Json
+          stripe_customer_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -956,6 +1048,7 @@ export type Database = {
           drop_in_rate_cents?: number | null
           email?: string
           first_name?: string
+          group_rate_cents?: number | null
           id?: string
           is_active?: boolean
           last_name?: string
@@ -963,6 +1056,7 @@ export type Database = {
           phone?: string | null
           role?: Database["public"]["Enums"]["user_role"]
           settings?: Json
+          stripe_customer_id?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -996,6 +1090,7 @@ export type Database = {
       package_status: "active" | "exhausted" | "expired" | "cancelled"
       notification_channel: "push" | "email" | "sms"
       notification_status: "pending" | "sent" | "failed" | "read"
+      payout_status: "draft" | "approved" | "paid"
       payment_platform: "stripe" | "square" | "cash" | "check" | "other"
       payment_status: "pending" | "completed" | "failed" | "refunded"
       payment_type: "lesson" | "subscription" | "drop_in" | "other"
@@ -1140,6 +1235,7 @@ export const Constants = {
       package_status: ["active", "exhausted", "expired", "cancelled"],
       notification_channel: ["push", "email", "sms"],
       notification_status: ["pending", "sent", "failed", "read"],
+      payout_status: ["draft", "approved", "paid"],
       payment_platform: ["stripe", "square", "cash", "check", "other"],
       payment_status: ["pending", "completed", "failed", "refunded"],
       payment_type: ["lesson", "subscription", "drop_in", "other"],

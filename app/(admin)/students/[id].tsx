@@ -9,6 +9,7 @@ import { NoteForm } from '@/components/students/NoteForm';
 import { useStudent, useUpdateStudent, useDeleteStudent, useParentUsers } from '@/lib/hooks/useStudents';
 import { useStudentNotes, useCreateStudentNote, useDeleteStudentNote } from '@/lib/hooks/useStudentNotes';
 import { useStudentAttendanceStats } from '@/lib/hooks/useEnrollments';
+import { useStudentGroupClasses, useStudentPrivateCoach } from '@/lib/hooks/useStudentDetails';
 import { LoadingScreen, ConfirmDialog } from '@/components/ui';
 import { useUIStore } from '@/lib/stores/uiStore';
 import { COLORS, SPACING } from '@/constants/theme';
@@ -22,6 +23,8 @@ export default function EditStudentScreen() {
   const { data: parentUsers } = useParentUsers();
   const { data: notes } = useStudentNotes(id!);
   const { data: attendanceStats } = useStudentAttendanceStats(id!);
+  const { data: groupClasses } = useStudentGroupClasses(id!);
+  const { data: privateCoach } = useStudentPrivateCoach(id!);
   const updateStudent = useUpdateStudent();
   const deleteStudent = useDeleteStudent();
   const createNote = useCreateStudentNote();
@@ -149,6 +152,38 @@ export default function EditStudentScreen() {
         </View>
       )}
 
+      {groupClasses && groupClasses.length > 0 && (
+        <View style={styles.groupClassesSection}>
+          <Text variant="titleMedium" style={styles.sectionTitle}>Group Classes</Text>
+          {groupClasses.map((gc) => (
+            <Card key={gc.id} style={styles.groupClassCard}>
+              <Card.Content>
+                <Text variant="bodyMedium" style={styles.groupClassName}>{gc.name}</Text>
+                <Text variant="bodySmall" style={styles.detail}>
+                  {gc.day} • {gc.startTime} • {gc.coachName}
+                </Text>
+              </Card.Content>
+            </Card>
+          ))}
+        </View>
+      )}
+
+      {privateCoach && (
+        <View style={styles.privateCoachSection}>
+          <Text variant="titleMedium" style={styles.sectionTitle}>Private Coach</Text>
+          <Card style={styles.groupClassCard}>
+            <Card.Content>
+              <Text variant="bodyMedium" style={styles.groupClassName}>
+                {privateCoach.coachName}
+              </Text>
+              <Text variant="bodySmall" style={styles.detail}>
+                {privateCoach.hoursRemaining}h remaining of {privateCoach.hoursPurchased}h
+              </Text>
+            </Card.Content>
+          </Card>
+        </View>
+      )}
+
       <View style={styles.notesSection}>
         <View style={styles.notesSectionHeader}>
           <Text variant="titleMedium" style={styles.sectionTitle}>Notes</Text>
@@ -261,6 +296,25 @@ const styles = StyleSheet.create({
   },
   attendanceDate: {
     color: COLORS.textSecondary,
+  },
+  groupClassesSection: {
+    padding: SPACING.md,
+    paddingTop: 0,
+  },
+  groupClassCard: {
+    marginBottom: SPACING.xs,
+    backgroundColor: COLORS.surface,
+  },
+  groupClassName: {
+    color: COLORS.textPrimary,
+    fontWeight: '600',
+  },
+  detail: {
+    color: COLORS.textSecondary,
+  },
+  privateCoachSection: {
+    padding: SPACING.md,
+    paddingTop: 0,
   },
   notesSection: {
     padding: SPACING.md,

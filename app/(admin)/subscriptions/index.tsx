@@ -44,15 +44,24 @@ export default function SubscriptionsListScreen() {
         style={styles.filters}
       />
 
-      <Button
-        mode="text"
-        icon="cash-multiple"
-        onPress={() => router.push('/(admin)/subscriptions/payments')}
-        style={styles.viewPayments}
-        testID="view-payments-button"
-      >
-        View Payments
-      </Button>
+      <View style={styles.linkButtons}>
+        <Button
+          mode="text"
+          icon="cash-multiple"
+          onPress={() => router.push('/(admin)/subscriptions/payments')}
+          testID="view-payments-button"
+        >
+          View Payments
+        </Button>
+        <Button
+          mode="text"
+          icon="package-variant"
+          onPress={() => router.push('/(admin)/subscriptions/packages')}
+          testID="view-packages-button"
+        >
+          View Packages
+        </Button>
+      </View>
 
       <FlatList
         data={filtered}
@@ -108,9 +117,10 @@ const styles = StyleSheet.create({
     margin: SPACING.md,
     marginBottom: 0,
   },
-  viewPayments: {
-    alignSelf: 'flex-start',
-    marginLeft: SPACING.sm,
+  linkButtons: {
+    flexDirection: 'row',
+    paddingHorizontal: SPACING.sm,
+    gap: SPACING.xs,
   },
   list: {
     padding: SPACING.md,

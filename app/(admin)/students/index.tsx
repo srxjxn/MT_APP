@@ -7,7 +7,7 @@ import { LoadingScreen, EmptyState, StatusBadge } from '@/components/ui';
 import { COLORS, SPACING } from '@/constants/theme';
 import { Student, UserProfile } from '@/lib/types';
 
-type StudentWithParent = Student & { parent?: Pick<UserProfile, 'first_name' | 'last_name' | 'email'> };
+type StudentWithParent = Student & { parent?: Pick<UserProfile, 'first_name' | 'last_name' | 'email' | 'phone'> };
 
 export default function StudentsListScreen() {
   const { data: students, isLoading, refetch, isRefetching } = useStudents();
@@ -49,9 +49,19 @@ export default function StudentsListScreen() {
           <StatusBadge status={item.skill_level} />
         </View>
         {item.parent && (
-          <Text variant="bodyMedium" style={styles.detail}>
-            Parent: {item.parent.first_name} {item.parent.last_name}
-          </Text>
+          <>
+            <Text variant="bodyMedium" style={styles.detail}>
+              Parent: {item.parent.first_name} {item.parent.last_name}
+            </Text>
+            {item.parent.phone && (
+              <Text variant="bodySmall" style={styles.detail}>
+                Phone: {item.parent.phone}
+              </Text>
+            )}
+            <Text variant="bodySmall" style={styles.detail}>
+              Email: {item.parent.email}
+            </Text>
+          </>
         )}
         {item.date_of_birth && (
           <Text variant="bodySmall" style={styles.detail}>

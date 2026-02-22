@@ -1,15 +1,16 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Button, Text, Menu } from 'react-native-paper';
 import { FormField, DatePickerField } from '@/components/ui';
 import { COLORS, SPACING } from '@/constants/theme';
 import { LAYOUT } from '@/constants/layout';
 import { subscriptionSchema, SubscriptionFormData, SUBSCRIPTION_STATUSES } from '@/lib/validation/subscription';
-import { UserProfile } from '@/lib/types';
+import { UserProfile, Student } from '@/lib/types';
 
 interface SubscriptionFormProps {
   initialValues?: Partial<SubscriptionFormData>;
   parentUsers?: Pick<UserProfile, 'id' | 'first_name' | 'last_name' | 'email'>[];
+  students?: Pick<Student, 'id' | 'first_name' | 'last_name' | 'parent_id'>[];
   onSubmit: (data: SubscriptionFormData) => void;
   loading?: boolean;
   submitLabel?: string;
@@ -19,28 +20,43 @@ interface SubscriptionFormProps {
 export function SubscriptionForm({
   initialValues,
   parentUsers,
+  students,
   onSubmit,
   loading = false,
   submitLabel = 'Save',
   testID,
 }: SubscriptionFormProps) {
-  const [name, setName] = useState(initialValues?.name ?? '');
+  const [name, setName] = useState(initialValues?.name ?? 'Monthly Membership');
   const [description, setDescription] = useState(initialValues?.description ?? '');
   const [priceDollars, setPriceDollars] = useState(
-    initialValues?.price_cents ? (initialValues.price_cents / 100).toFixed(2) : ''
+    initialValues?.price_cents ? (initialValues.price_cents / 100).toFixed(2) : '225.00'
   );
   const [lessonsPerMonth, setLessonsPerMonth] = useState(
     initialValues?.lessons_per_month?.toString() ?? ''
   );
   const [userId, setUserId] = useState(initialValues?.user_id ?? '');
+  const [studentId, setStudentId] = useState(initialValues?.student_id ?? '');
   const [startsAt, setStartsAt] = useState(initialValues?.starts_at ?? '');
   const [endsAt, setEndsAt] = useState(initialValues?.ends_at ?? '');
   const [status, setStatus] = useState<string>(initialValues?.status ?? 'active');
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [userMenuVisible, setUserMenuVisible] = useState(false);
+  const [studentMenuVisible, setStudentMenuVisible] = useState(false);
   const [statusMenuVisible, setStatusMenuVisible] = useState(false);
 
   const selectedUser = parentUsers?.find((u) => u.id === userId);
+  const filteredStudents = students?.filter((s) => s.parent_id === userId) ?? [];
+  const selectedStudent = students?.find((s) => s.id === studentId);
+
+  // Reset student when parent changes
+  useEffect(() => {
+    if (userId && studentId) {
+      const studentBelongsToParent = filteredStudents.some((s) => s.id === studentId);
+      if (!studentBelongsToParent) {
+        setStudentId('');
+      }
+    }
+  }, [userId]);
 
   const handleSubmit = () => {
     const priceCents = Math.round(parseFloat(priceDollars || '0') * 100);
@@ -52,6 +68,7 @@ export function SubscriptionForm({
       price_cents: priceCents,
       lessons_per_month: lessons,
       user_id: userId,
+      student_id: studentId || undefined,
       starts_at: startsAt,
       ends_at: endsAt || undefined,
       status,
@@ -140,6 +157,39 @@ export function SubscriptionForm({
           {errors.user_id && (
             <Text variant="bodySmall" style={styles.error}>{errors.user_id}</Text>
           )}
+        </>
+      )}
+
+      {userId && filteredStudents.length > 0 && (
+        <>
+          <Text variant="titleSmall" style={styles.label}>Student</Text>
+          <Menu
+            visible={studentMenuVisible}
+            onDismiss={() => setStudentMenuVisible(false)}
+            anchor={
+              <Button
+                mode="outlined"
+                onPress={() => setStudentMenuVisible(true)}
+                style={styles.dropdown}
+                testID="sub-student-dropdown"
+              >
+                {selectedStudent
+                  ? `${selectedStudent.first_name} ${selectedStudent.last_name}`
+                  : 'Select student'}
+              </Button>
+            }
+          >
+            {filteredStudents.map((student) => (
+              <Menu.Item
+                key={student.id}
+                onPress={() => {
+                  setStudentId(student.id);
+                  setStudentMenuVisible(false);
+                }}
+                title={`${student.first_name} ${student.last_name}`}
+              />
+            ))}
+          </Menu>
         </>
       )}
 

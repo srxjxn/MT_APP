@@ -2,19 +2,31 @@ import React from 'react';
 import { View, FlatList, StyleSheet, RefreshControl } from 'react-native';
 import { Card, Text, FAB } from 'react-native-paper';
 import { router } from 'expo-router';
-import { useCourts } from '@/lib/hooks/useCourts';
+import { useCourtsWithPrivateLessons, CourtWithNextPrivate } from '@/lib/hooks/useCourts';
 import { LoadingScreen, EmptyState, StatusBadge } from '@/components/ui';
 import { COLORS, SPACING } from '@/constants/theme';
-import { Court } from '@/lib/types';
+
+function formatDate(dateStr: string): string {
+  const d = new Date(dateStr + 'T00:00:00');
+  const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  return days[d.getDay()];
+}
+
+function formatTime(time: string): string {
+  const [h, m] = time.split(':').map(Number);
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  const h12 = h % 12 || 12;
+  return `${h12}:${String(m).padStart(2, '0')} ${ampm}`;
+}
 
 export default function CourtsListScreen() {
-  const { data: courts, isLoading, refetch, isRefetching } = useCourts();
+  const { data: courts, isLoading, refetch, isRefetching } = useCourtsWithPrivateLessons();
 
   if (isLoading) {
     return <LoadingScreen message="Loading courts..." testID="courts-loading" />;
   }
 
-  const renderCourt = ({ item }: { item: Court }) => (
+  const renderCourt = ({ item }: { item: CourtWithNextPrivate }) => (
     <Card
       style={styles.card}
       onPress={() => router.push(`/(admin)/courts/${item.id}`)}
@@ -28,6 +40,12 @@ export default function CourtsListScreen() {
         <Text variant="bodyMedium" style={styles.courtDetail}>
           {item.surface_type} {item.is_indoor ? '• Indoor' : '• Outdoor'}
         </Text>
+        {item.nextPrivateLesson && (
+          <Text variant="bodySmall" style={styles.nextPrivate}>
+            Next: {formatDate(item.nextPrivateLesson.date)} {formatTime(item.nextPrivateLesson.start_time)}
+            {item.nextPrivateLesson.coachName ? ` - ${item.nextPrivateLesson.coachName}` : ''}
+          </Text>
+        )}
       </Card.Content>
     </Card>
   );
@@ -91,6 +109,11 @@ const styles = StyleSheet.create({
   },
   courtDetail: {
     color: COLORS.textSecondary,
+  },
+  nextPrivate: {
+    color: COLORS.primary,
+    fontWeight: '500',
+    marginTop: SPACING.xs,
   },
   fab: {
     position: 'absolute',
