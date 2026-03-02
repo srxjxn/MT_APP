@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../supabase';
 import { useAuthStore } from '../stores/authStore';
 import { LessonInstance, LessonInstanceInsert, LessonInstanceUpdate, LessonTemplate, UserProfile, Court, LessonStatus } from '../types';
+import { generateInstancesForTemplates, GenerateResult } from '../helpers/generateInstances';
 
 export const instanceKeys = {
   all: ['lesson_instances'] as const,
@@ -139,10 +140,7 @@ export function useUpdateLessonInstance() {
   });
 }
 
-export interface GenerateResult {
-  created: LessonInstance[];
-  skipped: { templateName: string; date: string; reason: string }[];
-}
+export type { GenerateResult };
 
 export function useGenerateInstances() {
   const queryClient = useQueryClient();
@@ -160,83 +158,17 @@ export function useGenerateInstances() {
       if (templateError) throw templateError;
       if (!templates?.length) throw new Error('No active templates found');
 
-      const candidates: { instance: Omit<LessonInstanceInsert, 'id'>; templateName: string; date: string; coachId: string; startTime: string; endTime: string }[] = [];
-      const from = new Date(dateFrom);
-      const to = new Date(dateTo);
+      const result = await generateInstancesForTemplates(supabase, templates, dateFrom, dateTo, orgId!);
 
-      for (let d = new Date(from); d <= to; d.setDate(d.getDate() + 1)) {
-        const dayOfWeek = d.getDay();
-        const dateStr = d.toISOString().split('T')[0];
-
-        for (const template of templates) {
-          if (template.day_of_week === dayOfWeek) {
-            const [hours, minutes] = template.start_time.split(':').map(Number);
-            const endMinutes = hours * 60 + minutes + template.duration_minutes;
-            const endHours = Math.floor(endMinutes / 60);
-            const endMins = endMinutes % 60;
-            const endTime = `${String(endHours).padStart(2, '0')}:${String(endMins).padStart(2, '0')}`;
-
-            candidates.push({
-              instance: {
-                org_id: orgId!,
-                template_id: template.id,
-                coach_id: template.coach_id,
-                court_id: template.court_id,
-                date: dateStr,
-                start_time: template.start_time,
-                end_time: endTime,
-                status: 'scheduled',
-              },
-              templateName: template.name,
-              date: dateStr,
-              coachId: template.coach_id,
-              startTime: template.start_time,
-              endTime,
-            });
-          }
-        }
+      if (result.created.length === 0 && result.skipped.length > 0) {
+        throw new Error(`All ${result.skipped.length} instances skipped due to coach conflicts`);
       }
 
-      if (candidates.length === 0) throw new Error('No instances to generate for the selected date range');
-
-      // Check for coach conflicts
-      const toInsert: Omit<LessonInstanceInsert, 'id'>[] = [];
-      const skipped: { templateName: string; date: string; reason: string }[] = [];
-
-      for (const candidate of candidates) {
-        const { data: conflicts } = await supabase
-          .from('lesson_instances')
-          .select('id')
-          .eq('coach_id', candidate.coachId)
-          .eq('date', candidate.date)
-          .in('status', ['scheduled', 'in_progress'])
-          .lt('start_time', candidate.endTime)
-          .gt('end_time', candidate.startTime);
-
-        if (conflicts && conflicts.length > 0) {
-          skipped.push({
-            templateName: candidate.templateName,
-            date: candidate.date,
-            reason: 'Coach already has a lesson at this time',
-          });
-        } else {
-          toInsert.push(candidate.instance);
-        }
+      if (result.created.length === 0 && result.skipped.length === 0) {
+        throw new Error('No instances to generate for the selected date range');
       }
 
-      if (toInsert.length === 0 && skipped.length > 0) {
-        throw new Error(`All ${skipped.length} instances skipped due to coach conflicts`);
-      }
-
-      if (toInsert.length === 0) throw new Error('No instances to generate');
-
-      const { data, error } = await supabase
-        .from('lesson_instances')
-        .insert(toInsert)
-        .select();
-
-      if (error) throw error;
-      return { created: data, skipped };
+      return result;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: instanceKeys.lists() });
