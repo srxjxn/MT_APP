@@ -170,29 +170,35 @@ export default function ParentHome() {
           </View>
         )}
 
-        <Text variant="titleMedium" style={styles.sectionTitle}>
-          My Children
-        </Text>
-        {students?.map((student) => renderStudent({ item: student }))}
-        {(!students || students.length === 0) && (
-          <EmptyState
-            icon="account-child"
-            title="No Children Yet"
-            description="Add your child to start enrolling in lessons"
-            actionLabel="Add Child"
-            onAction={() => setShowAddForm(true)}
-          />
-        )}
-        {(students?.length ?? 0) > 0 && (
-          <Button
-            mode="contained"
-            onPress={() => setShowAddForm(true)}
-            style={styles.addButton}
-            testID="add-child-button"
-          >
-            Add Child
-          </Button>
-        )}
+        <View style={styles.childrenSection}>
+          <Text variant="titleMedium" style={styles.sectionTitle}>
+            My Children
+          </Text>
+          {students?.map((student) => (
+            <React.Fragment key={student.id}>
+              {renderStudent({ item: student })}
+            </React.Fragment>
+          ))}
+          {(!students || students.length === 0) && (
+            <EmptyState
+              icon="account-child"
+              title="No Children Yet"
+              description="Add your child to start enrolling in lessons"
+              actionLabel="Add Child"
+              onAction={() => setShowAddForm(true)}
+            />
+          )}
+          {(students?.length ?? 0) > 0 && (
+            <Button
+              mode="contained"
+              onPress={() => setShowAddForm(true)}
+              style={styles.addButton}
+              testID="add-child-button"
+            >
+              Add Child
+            </Button>
+          )}
+        </View>
       </ScrollView>
 
       <Portal>
@@ -262,8 +268,11 @@ const styles = StyleSheet.create({
     paddingBottom: SPACING.sm,
     fontWeight: '600',
   },
+  childrenSection: {
+    paddingHorizontal: SPACING.md,
+    paddingBottom: SPACING.sm,
+  },
   card: {
-    marginHorizontal: SPACING.md,
     marginBottom: SPACING.sm,
     backgroundColor: COLORS.surface,
   },
