@@ -3,13 +3,15 @@ import { View, StyleSheet } from 'react-native';
 import { Card, Text, Button } from 'react-native-paper';
 import { COLORS, SPACING } from '@/constants/theme';
 import { CoachWithPricing } from '@/lib/hooks/useCoachPricing';
+import { CoachPackage } from '@/lib/types';
 
 interface CoachPricingCardProps {
   coach: CoachWithPricing;
   onRequestLesson: () => void;
+  onBuyPackage?: (pkg: CoachPackage) => void;
 }
 
-export function CoachPricingCard({ coach, onRequestLesson }: CoachPricingCardProps) {
+export function CoachPricingCard({ coach, onRequestLesson, onBuyPackage }: CoachPricingCardProps) {
   const dropInDisplay = coach.drop_in_rate_cents
     ? `$${(coach.drop_in_rate_cents / 100).toFixed(0)}/hr`
     : 'Not set';
@@ -28,9 +30,22 @@ export function CoachPricingCard({ coach, onRequestLesson }: CoachPricingCardPro
           coach.packages.map((pkg) => {
             const perHour = pkg.num_hours > 0 ? (pkg.price_cents / pkg.num_hours / 100).toFixed(0) : '0';
             return (
-              <Text key={pkg.id} variant="bodySmall" style={styles.packageLine}>
-                {pkg.num_hours} hrs for ${(pkg.price_cents / 100).toFixed(0)} (${perHour}/hr)
-              </Text>
+              <View key={pkg.id} style={styles.packageRow}>
+                <Text variant="bodySmall" style={styles.packageLine}>
+                  {pkg.num_hours} hrs for ${(pkg.price_cents / 100).toFixed(0)} (${perHour}/hr)
+                </Text>
+                {onBuyPackage && (
+                  <Button
+                    mode="outlined"
+                    onPress={() => onBuyPackage(pkg)}
+                    compact
+                    style={styles.buyButton}
+                    labelStyle={styles.buyButtonLabel}
+                  >
+                    Buy
+                  </Button>
+                )}
+              </View>
             );
           })
         ) : (
@@ -64,9 +79,22 @@ const styles = StyleSheet.create({
     marginTop: SPACING.xs,
     marginBottom: SPACING.sm,
   },
+  packageRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: SPACING.xs,
+  },
   packageLine: {
     color: COLORS.textSecondary,
-    marginBottom: SPACING.xs,
+    flex: 1,
+  },
+  buyButton: {
+    borderColor: COLORS.primary,
+    marginLeft: SPACING.sm,
+  },
+  buyButtonLabel: {
+    fontSize: 12,
   },
   noPackages: {
     color: COLORS.textSecondary,

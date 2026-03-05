@@ -1,4 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useStripe } from '@stripe/stripe-react-native';
 import { supabase } from '../supabase';
 import { useAuthStore } from '../stores/authStore';
 import { paymentKeys } from './usePayments';
@@ -53,17 +54,47 @@ export function useRecordExternalPayment() {
 }
 
 /**
- * Placeholder for Stripe payment flow.
- * When @stripe/stripe-react-native is installed and configured,
- * this will create a PaymentIntent via Supabase Edge Function
- * and use the Stripe PaymentSheet to collect payment.
- *
- * For now, it records the payment with platform='stripe'.
+ * Ensures the current user has a Stripe Customer ID.
+ * Creates one via edge function if not already set.
+ * Returns the customer_id.
+ */
+async function ensureStripeCustomer(userProfile: {
+  id: string;
+  email: string;
+  first_name: string;
+  last_name: string;
+  stripe_customer_id: string | null;
+}): Promise<string> {
+  if (userProfile.stripe_customer_id) {
+    return userProfile.stripe_customer_id;
+  }
+
+  const { data, error } = await supabase.functions.invoke('create-stripe-customer', {
+    body: {
+      email: userProfile.email,
+      name: `${userProfile.first_name} ${userProfile.last_name}`,
+      user_id: userProfile.id,
+    },
+  });
+
+  if (error) throw new Error('Failed to create Stripe customer: ' + error.message);
+  if (!data?.customer_id) throw new Error('No customer_id returned from Stripe');
+
+  return data.customer_id;
+}
+
+/**
+ * Processes a Stripe payment using the PaymentSheet flow.
+ * 1. Ensures Stripe Customer exists (lazy creation)
+ * 2. Creates a PaymentIntent via edge function
+ * 3. Presents the native Stripe PaymentSheet
+ * 4. Records the completed payment in the database
  */
 export function useStripePayment() {
+  const { initPaymentSheet, presentPaymentSheet } = useStripe();
   const queryClient = useQueryClient();
   const orgId = useAuthStore((s) => s.userProfile?.org_id);
-  const userId = useAuthStore((s) => s.userProfile?.id);
+  const userProfile = useAuthStore((s) => s.userProfile);
 
   return useMutation({
     mutationFn: async ({
@@ -77,30 +108,76 @@ export function useStripePayment() {
       subscription_id?: string;
       description?: string;
     }) => {
-      // TODO: When Stripe is configured, this would:
-      // 1. Call Supabase Edge Function to create PaymentIntent
-      // 2. Open Stripe PaymentSheet
-      // 3. On success, record payment in DB with stripe_payment_intent_id
-      //
-      // For now, we record it as a pending Stripe payment
-      const { data, error } = await supabase
+      if (!userProfile) throw new Error('User not logged in');
+
+      // 1. Ensure Stripe customer exists
+      const customerId = await ensureStripeCustomer(userProfile);
+
+      // Update local store if customer was just created
+      if (!userProfile.stripe_customer_id) {
+        useAuthStore.getState().setUserProfile({
+          ...userProfile,
+          stripe_customer_id: customerId,
+        });
+      }
+
+      // 2. Create PaymentIntent via edge function
+      const { data: intentData, error: intentError } = await supabase.functions.invoke(
+        'create-payment-intent',
+        {
+          body: {
+            amount_cents,
+            description: description ?? undefined,
+            customer_id: customerId,
+          },
+        }
+      );
+
+      if (intentError) throw new Error('Failed to create payment: ' + intentError.message);
+      if (!intentData?.clientSecret) throw new Error('No client secret returned');
+
+      const { clientSecret, paymentIntentId } = intentData;
+
+      // 3. Initialize PaymentSheet
+      const { error: initError } = await initPaymentSheet({
+        paymentIntentClientSecret: clientSecret,
+        merchantDisplayName: 'Modern Tennis',
+        customerId,
+        style: 'alwaysLight',
+      });
+
+      if (initError) throw new Error(initError.message);
+
+      // 4. Present PaymentSheet — native UI
+      const { error: presentError } = await presentPaymentSheet();
+
+      if (presentError) {
+        if (presentError.code === 'Canceled') {
+          throw new Error('Payment cancelled');
+        }
+        throw new Error(presentError.message);
+      }
+
+      // 5. Record completed payment in database
+      const { data: payment, error: dbError } = await supabase
         .from('payments')
         .insert({
           org_id: orgId!,
-          user_id: userId!,
+          user_id: userProfile.id,
           amount_cents,
           payment_type,
           payment_platform: 'stripe',
-          payment_status: 'pending',
+          payment_status: 'completed',
           subscription_id: subscription_id ?? null,
-          description: description ?? 'Stripe payment (pending configuration)',
-          paid_at: null,
+          description: description ?? null,
+          stripe_payment_intent_id: paymentIntentId,
+          paid_at: new Date().toISOString(),
         })
         .select()
         .single();
 
-      if (error) throw error;
-      return data;
+      if (dbError) throw dbError;
+      return payment;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: paymentKeys.all });

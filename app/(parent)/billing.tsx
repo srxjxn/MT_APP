@@ -88,7 +88,7 @@ export default function ParentBilling() {
         subscription_id: selectedSub.id,
         description: `Payment for ${selectedSub.name}`,
       });
-      showSnackbar('Stripe payment initiated (pending configuration)', 'info');
+      showSnackbar('Payment successful!', 'success');
     } catch (err: any) {
       showSnackbar(err.message ?? 'Payment failed', 'error');
     }

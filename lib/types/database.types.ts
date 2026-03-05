@@ -313,6 +313,57 @@ export type Database = {
           },
         ]
       }
+      invites: {
+        Row: {
+          id: string
+          org_id: string
+          email: string
+          role: Database["public"]["Enums"]["user_role"]
+          invited_by: string
+          status: string
+          accepted_at: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          email: string
+          role?: Database["public"]["Enums"]["user_role"]
+          invited_by: string
+          status?: string
+          accepted_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          email?: string
+          role?: Database["public"]["Enums"]["user_role"]
+          invited_by?: string
+          status?: string
+          accepted_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invites_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invites_invited_by_fkey"
+            columns: ["invited_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lesson_instances: {
         Row: {
           coach_id: string
@@ -399,6 +450,7 @@ export type Database = {
           status: Database["public"]["Enums"]["lesson_request_status"]
           admin_notes: string | null
           lesson_instance_id: string | null
+          payment_id: string | null
           created_at: string
           updated_at: string
         }
@@ -413,6 +465,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["lesson_request_status"]
           admin_notes?: string | null
           lesson_instance_id?: string | null
+          payment_id?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -427,6 +480,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["lesson_request_status"]
           admin_notes?: string | null
           lesson_instance_id?: string | null
+          payment_id?: string | null
           created_at?: string
           updated_at?: string
         }

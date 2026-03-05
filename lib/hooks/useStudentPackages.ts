@@ -132,6 +132,64 @@ export function useAllStudentPackages() {
   });
 }
 
+/**
+ * Finds an active package for a student with a specific coach that has available hours.
+ */
+export async function findActivePackage(studentId: string, coachId: string): Promise<StudentPackageWithDetails | null> {
+  const { data, error } = await supabase
+    .from('student_packages')
+    .select('*, coach_package:coach_packages!student_packages_coach_package_id_fkey(*, coach:users!coach_packages_coach_id_fkey(first_name, last_name))')
+    .eq('student_id', studentId)
+    .eq('status', 'active')
+    .order('purchased_at', { ascending: true });
+
+  if (error) throw error;
+
+  // Find first package for this coach with remaining hours
+  return (data as any[])?.find((pkg) =>
+    pkg.coach_package.coach_id === coachId && pkg.hours_used < pkg.hours_purchased
+  ) ?? null;
+}
+
+/**
+ * Deducts hours from a student package after a private lesson.
+ */
+export function useDeductPackageHours() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ packageId, hoursToDeduct }: { packageId: string; hoursToDeduct: number }) => {
+      // First get current hours
+      const { data: current, error: fetchError } = await supabase
+        .from('student_packages')
+        .select('hours_used, hours_purchased')
+        .eq('id', packageId)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      const newHoursUsed = current.hours_used + hoursToDeduct;
+      const isExhausted = newHoursUsed >= current.hours_purchased;
+
+      const { data, error } = await supabase
+        .from('student_packages')
+        .update({
+          hours_used: newHoursUsed,
+          status: isExhausted ? 'exhausted' : 'active',
+        })
+        .eq('id', packageId)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: studentPackageKeys.all });
+    },
+  });
+}
+
 export function useBillParentForPackage() {
   const queryClient = useQueryClient();
   const orgId = useAuthStore((s) => s.userProfile?.org_id);

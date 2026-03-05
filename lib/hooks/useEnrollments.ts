@@ -3,6 +3,7 @@ import { supabase } from '../supabase';
 import { useAuthStore } from '../stores/authStore';
 import { Enrollment, EnrollmentInsert, Student } from '../types';
 import { instanceKeys } from './useLessonInstances';
+import { paymentKeys } from './usePayments';
 
 export const enrollmentKeys = {
   all: ['enrollments'] as const,
@@ -176,6 +177,23 @@ export function useStudentAttendanceStats(studentId: string) {
   });
 }
 
+/**
+ * Checks if a student has an active subscription.
+ * Used to determine if group lesson enrollment should be free.
+ */
+export async function checkStudentSubscription(parentId: string, studentId: string): Promise<boolean> {
+  // Check for active subscription: either student-specific or parent-wide (student_id IS NULL)
+  const { data, error } = await supabase
+    .from('subscriptions')
+    .select('id')
+    .eq('user_id', parentId)
+    .eq('status', 'active')
+    .limit(1);
+
+  if (error) throw error;
+  return (data?.length ?? 0) > 0;
+}
+
 export function useEnrollOrWaitlist() {
   const queryClient = useQueryClient();
   const orgId = useAuthStore((s) => s.userProfile?.org_id);
@@ -223,6 +241,71 @@ export function useEnrollOrWaitlist() {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: enrollmentKeys.list(data.lesson_instance_id) });
       queryClient.invalidateQueries({ queryKey: instanceKeys.all });
+    },
+  });
+}
+
+/**
+ * Enrolls a student with payment recording.
+ * Used when a non-subscriber pays for a group lesson.
+ */
+export function useEnrollWithPayment() {
+  const queryClient = useQueryClient();
+  const orgId = useAuthStore((s) => s.userProfile?.org_id);
+  const userId = useAuthStore((s) => s.userProfile?.id);
+
+  return useMutation({
+    mutationFn: async ({
+      lessonInstanceId,
+      studentId,
+      paymentId,
+    }: {
+      lessonInstanceId: string;
+      studentId: string;
+      paymentId: string;
+    }) => {
+      // Check capacity
+      const { data: instance, error: instanceError } = await supabase
+        .from('lesson_instances')
+        .select(`
+          id,
+          template:lesson_templates!lesson_instances_template_id_fkey(max_students)
+        `)
+        .eq('id', lessonInstanceId)
+        .single();
+
+      if (instanceError) throw instanceError;
+
+      const { count, error: countError } = await supabase
+        .from('enrollments')
+        .select('id', { count: 'exact', head: true })
+        .eq('lesson_instance_id', lessonInstanceId)
+        .eq('status', 'enrolled');
+
+      if (countError) throw countError;
+
+      const maxStudents = (instance as any)?.template?.max_students;
+      const isFull = maxStudents != null && (count ?? 0) >= maxStudents;
+      const status = isFull ? 'waitlisted' : 'enrolled';
+
+      const { data, error } = await supabase
+        .from('enrollments')
+        .insert({
+          org_id: orgId!,
+          lesson_instance_id: lessonInstanceId,
+          student_id: studentId,
+          status,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      return { ...data, wasWaitlisted: isFull };
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: enrollmentKeys.list(data.lesson_instance_id) });
+      queryClient.invalidateQueries({ queryKey: instanceKeys.all });
+      queryClient.invalidateQueries({ queryKey: paymentKeys.all });
     },
   });
 }

@@ -105,6 +105,27 @@ export function useUpdateLessonRequest() {
   });
 }
 
+export function useLinkPaymentToRequest() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ requestId, paymentId }: { requestId: string; paymentId: string }) => {
+      const { data, error } = await supabase
+        .from('lesson_requests')
+        .update({ payment_id: paymentId })
+        .eq('id', requestId)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: lessonRequestKeys.all });
+    },
+  });
+}
+
 export function useApproveAndSchedule() {
   const queryClient = useQueryClient();
   const orgId = useAuthStore((s) => s.userProfile?.org_id);

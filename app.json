@@ -15,7 +15,11 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.moderntennis.app"
+      "bundleIdentifier": "com.moderntennis.app",
+      "buildNumber": "8",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -33,13 +37,20 @@
       "expo-router",
       "expo-secure-store",
       "expo-apple-authentication",
-      "@react-native-community/datetimepicker"
+      "@react-native-community/datetimepicker",
+      "@stripe/stripe-react-native"
     ],
     "extra": {
       "router": {},
       "eas": {
         "projectId": "3cfc023b-2a3e-42c6-a768-8935fe9a41a6"
       }
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/3cfc023b-2a3e-42c6-a768-8935fe9a41a6"
     }
   }
 }

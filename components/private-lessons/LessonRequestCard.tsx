@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
-import { Card, Text, Button } from 'react-native-paper';
+import { Card, Text, Button, Chip } from 'react-native-paper';
 import { COLORS, SPACING } from '@/constants/theme';
 import { StatusBadge } from '@/components/ui';
 import { LessonRequestWithJoins } from '@/lib/hooks/useLessonRequests';
@@ -8,6 +8,9 @@ import { LessonRequestWithJoins } from '@/lib/hooks/useLessonRequests';
 interface LessonRequestCardProps {
   request: LessonRequestWithJoins;
   onCancel?: () => void;
+  onPayNow?: () => void;
+  onUsePackage?: () => void;
+  packageInfo?: string | null;
 }
 
 function formatDate(dateStr: string): string {
@@ -23,7 +26,11 @@ function formatTime(time24: string): string {
   return `${hour12}:${String(m).padStart(2, '0')} ${period}`;
 }
 
-export function LessonRequestCard({ request, onCancel }: LessonRequestCardProps) {
+export function LessonRequestCard({ request, onCancel, onPayNow, onUsePackage, packageInfo }: LessonRequestCardProps) {
+  const isPaid = !!request.payment_id;
+  const isApproved = request.status === 'approved';
+  const needsPayment = isApproved && !isPaid;
+
   return (
     <Card style={styles.card}>
       <Card.Content>
@@ -31,7 +38,12 @@ export function LessonRequestCard({ request, onCancel }: LessonRequestCardProps)
           <Text variant="titleSmall" style={styles.title}>
             {request.student.first_name} {request.student.last_name} → {request.coach.first_name} {request.coach.last_name}
           </Text>
-          <StatusBadge status={request.status} />
+          <View style={styles.badges}>
+            {isPaid && (
+              <Chip compact style={styles.paidChip} textStyle={styles.paidChipText}>Paid</Chip>
+            )}
+            <StatusBadge status={request.status} />
+          </View>
         </View>
         <Text variant="bodySmall" style={styles.detail}>
           {formatDate(request.preferred_date)} at {formatTime(request.preferred_time)}
@@ -41,6 +53,35 @@ export function LessonRequestCard({ request, onCancel }: LessonRequestCardProps)
             Note: {request.admin_notes}
           </Text>
         )}
+
+        {needsPayment && (
+          <View style={styles.paymentActions}>
+            {packageInfo ? (
+              <>
+                <Text variant="bodySmall" style={styles.packageInfo}>{packageInfo}</Text>
+                <Button
+                  mode="contained"
+                  onPress={onUsePackage}
+                  style={styles.usePackageButton}
+                  compact
+                >
+                  Use Package Hours
+                </Button>
+              </>
+            ) : null}
+            {onPayNow && (
+              <Button
+                mode="contained"
+                onPress={onPayNow}
+                style={styles.payButton}
+                compact
+              >
+                Pay Now
+              </Button>
+            )}
+          </View>
+        )}
+
         {request.status === 'pending' && onCancel && (
           <Button
             mode="outlined"
@@ -74,6 +115,19 @@ const styles = StyleSheet.create({
     flex: 1,
     marginRight: SPACING.sm,
   },
+  badges: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.xs,
+  },
+  paidChip: {
+    backgroundColor: '#E8F5E9',
+    height: 24,
+  },
+  paidChipText: {
+    fontSize: 11,
+    color: COLORS.success,
+  },
   detail: {
     color: COLORS.textSecondary,
   },
@@ -81,6 +135,23 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
     fontStyle: 'italic',
     marginTop: SPACING.xs,
+  },
+  paymentActions: {
+    marginTop: SPACING.sm,
+    gap: SPACING.xs,
+  },
+  packageInfo: {
+    color: COLORS.info,
+    fontStyle: 'italic',
+    marginBottom: SPACING.xs,
+  },
+  usePackageButton: {
+    alignSelf: 'flex-start',
+    backgroundColor: COLORS.info,
+  },
+  payButton: {
+    alignSelf: 'flex-start',
+    backgroundColor: COLORS.primary,
   },
   cancelButton: {
     marginTop: SPACING.sm,

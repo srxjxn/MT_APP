@@ -3,6 +3,7 @@ import { View, FlatList, StyleSheet, RefreshControl } from 'react-native';
 import { useParentLessonInstances, useLessonInstances, LessonInstanceWithJoins, ParentLessonInstance } from '@/lib/hooks/useLessonInstances';
 import { EnrollChildDialog } from '@/components/lessons/EnrollChildDialog';
 import { LessonTypeToggle } from '@/components/lessons/LessonTypeToggle';
+import { PrivateLessonsContent } from '@/components/private-lessons/PrivateLessonsContent';
 import { LoadingScreen, EmptyState } from '@/components/ui';
 import { COLORS, SPACING } from '@/constants/theme';
 import { Text, SegmentedButtons, Chip, Card } from 'react-native-paper';
@@ -77,9 +78,12 @@ function MyLessonCard({ instance, testID }: { instance: ParentLessonInstance; te
   );
 }
 
+type TopTab = 'schedule' | 'private';
+
 export default function ParentSchedule() {
   const { data: myInstances, isLoading: loadingMy, refetch: refetchMy, isRefetching: refetchingMy } = useParentLessonInstances();
   const { data: allInstances, isLoading: loadingAll, refetch: refetchAll, isRefetching: refetchingAll } = useLessonInstances();
+  const [topTab, setTopTab] = useState<TopTab>('schedule');
   const [tab, setTab] = useState('enrolled');
   const [lessonTypeFilter, setLessonTypeFilter] = useState('all');
   const [selectedInstance, setSelectedInstance] = useState<LessonInstanceWithJoins | null>(null);
@@ -94,8 +98,23 @@ export default function ParentSchedule() {
   }, [myInstances, lessonTypeFilter]);
 
   const isLoading = tab === 'enrolled' ? loadingMy : loadingAll;
-  const refetch = tab === 'enrolled' ? refetchMy : refetchAll;
-  const isRefetching = tab === 'enrolled' ? refetchingMy : refetchingAll;
+
+  if (topTab === 'private') {
+    return (
+      <View style={styles.container} testID="parent-schedule">
+        <SegmentedButtons
+          value={topTab}
+          onValueChange={(v) => setTopTab(v as TopTab)}
+          buttons={[
+            { value: 'schedule', label: 'Schedule' },
+            { value: 'private', label: 'Private Lessons' },
+          ]}
+          style={styles.topTabs}
+        />
+        <PrivateLessonsContent />
+      </View>
+    );
+  }
 
   if (isLoading) {
     return <LoadingScreen message="Loading schedule..." testID="parent-schedule-loading" />;
@@ -103,6 +122,15 @@ export default function ParentSchedule() {
 
   return (
     <View style={styles.container} testID="parent-schedule">
+      <SegmentedButtons
+        value={topTab}
+        onValueChange={(v) => setTopTab(v as TopTab)}
+        buttons={[
+          { value: 'schedule', label: 'Schedule' },
+          { value: 'private', label: 'Private Lessons' },
+        ]}
+        style={styles.topTabs}
+      />
       <SegmentedButtons
         value={tab}
         onValueChange={setTab}
@@ -172,6 +200,7 @@ export default function ParentSchedule() {
           lessonInstanceId={selectedInstance.id}
           maxStudents={selectedInstance.template?.max_students}
           enrollmentCount={selectedInstance.enrollment_count}
+          priceCents={selectedInstance.template?.price_cents}
           onDismiss={() => setSelectedInstance(null)}
           testID="parent-enroll-dialog"
         />
@@ -185,8 +214,13 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: COLORS.background,
   },
+  topTabs: {
+    marginHorizontal: SPACING.md,
+    marginTop: SPACING.md,
+  },
   tabs: {
-    margin: SPACING.md,
+    marginHorizontal: SPACING.md,
+    marginTop: SPACING.sm,
   },
   lessonTypeToggle: {
     marginHorizontal: SPACING.md,
