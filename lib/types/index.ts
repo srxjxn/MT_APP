@@ -66,6 +66,10 @@ export type CoachPayout = Database['public']['Tables']['coach_payouts']['Row'];
 export type CoachPayoutInsert = Database['public']['Tables']['coach_payouts']['Insert'];
 export type CoachPayoutUpdate = Database['public']['Tables']['coach_payouts']['Update'];
 
+export type Invite = Database['public']['Tables']['invites']['Row'];
+export type InviteInsert = Database['public']['Tables']['invites']['Insert'];
+export type InviteUpdate = Database['public']['Tables']['invites']['Update'];
+
 // Enum types
 export type UserRole = Database['public']['Enums']['user_role'];
 export type SkillLevel = Database['public']['Enums']['skill_level'];

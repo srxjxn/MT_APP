@@ -1,12 +1,11 @@
-import { Tabs } from 'expo-router';
+import { Tabs, router } from 'expo-router';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
-import { ScrollableTabBar } from '@/components/ui/ScrollableTabBar';
+import { IconButton } from 'react-native-paper';
 import { COLORS } from '@/constants/theme';
 
 export default function ParentLayout() {
   return (
     <Tabs
-      tabBar={(props) => <ScrollableTabBar {...props} />}
       screenOptions={{
         tabBarActiveTintColor: COLORS.primary,
         tabBarInactiveTintColor: COLORS.textSecondary,
@@ -20,6 +19,14 @@ export default function ParentLayout() {
           title: 'Home',
           tabBarIcon: ({ color, size }) => (
             <MaterialCommunityIcons name="home" size={size} color={color} />
+          ),
+          headerRight: () => (
+            <IconButton
+              icon="bell"
+              size={22}
+              iconColor="#FFFFFF"
+              onPress={() => router.push('/(parent)/notifications')}
+            />
           ),
         }}
       />
@@ -35,10 +42,7 @@ export default function ParentLayout() {
       <Tabs.Screen
         name="private-lessons"
         options={{
-          title: 'Private',
-          tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="account-star" size={size} color={color} />
-          ),
+          href: null,
         }}
       />
       <Tabs.Screen
@@ -53,10 +57,7 @@ export default function ParentLayout() {
       <Tabs.Screen
         name="notifications"
         options={{
-          title: 'Notifications',
-          tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="bell" size={size} color={color} />
-          ),
+          href: null,
         }}
       />
       <Tabs.Screen

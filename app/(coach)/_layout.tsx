@@ -1,12 +1,11 @@
-import { Tabs } from 'expo-router';
+import { Tabs, router } from 'expo-router';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
-import { ScrollableTabBar } from '@/components/ui/ScrollableTabBar';
+import { IconButton } from 'react-native-paper';
 import { COLORS } from '@/constants/theme';
 
 export default function CoachLayout() {
   return (
     <Tabs
-      tabBar={(props) => <ScrollableTabBar {...props} />}
       screenOptions={{
         tabBarActiveTintColor: COLORS.primary,
         tabBarInactiveTintColor: COLORS.textSecondary,
@@ -20,6 +19,14 @@ export default function CoachLayout() {
           title: 'Schedule',
           tabBarIcon: ({ color, size }) => (
             <MaterialCommunityIcons name="calendar" size={size} color={color} />
+          ),
+          headerRight: () => (
+            <IconButton
+              icon="bell"
+              size={22}
+              iconColor="#FFFFFF"
+              onPress={() => router.push('/(coach)/notifications')}
+            />
           ),
         }}
       />
@@ -44,10 +51,7 @@ export default function CoachLayout() {
       <Tabs.Screen
         name="notifications"
         options={{
-          title: 'Notifications',
-          tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="bell" size={size} color={color} />
-          ),
+          href: null,
         }}
       />
       <Tabs.Screen

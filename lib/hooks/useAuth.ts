@@ -51,6 +51,24 @@ export function useAuth() {
     return () => subscription.unsubscribe();
   }, []);
 
+  const checkPendingInvite = async (email: string) => {
+    const { data } = await supabase
+      .from('invites')
+      .select('*')
+      .eq('email', email.toLowerCase())
+      .eq('status', 'pending')
+      .limit(1)
+      .maybeSingle();
+    return data;
+  };
+
+  const acceptInvite = async (inviteId: string) => {
+    await supabase
+      .from('invites')
+      .update({ status: 'accepted', accepted_at: new Date().toISOString() })
+      .eq('id', inviteId);
+  };
+
   const fetchUserProfile = async (userId: string) => {
     try {
       const { data, error } = await supabase
@@ -59,7 +77,43 @@ export function useAuth() {
         .eq('auth_id', userId)
         .single();
 
-      if (error && error.code !== 'PGRST116') {
+      if (error && error.code === 'PGRST116') {
+        // No profile row — auto-create from auth user metadata
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user?.user_metadata?.first_name) {
+          // Check for pending invite
+          const invite = await checkPendingInvite(user.email!);
+          const selfRole = (user.user_metadata.role as 'parent' | 'coach') ?? 'parent';
+          const role = invite ? invite.role : selfRole;
+          const orgId = invite ? invite.org_id : DEFAULT_ORG_ID;
+          const isActive = role === 'coach' && !invite ? false : true;
+
+          const { data: newProfile, error: insertError } = await supabase
+            .from('users')
+            .insert({
+              auth_id: userId,
+              org_id: orgId,
+              role,
+              first_name: user.user_metadata.first_name,
+              last_name: user.user_metadata.last_name,
+              email: user.email!,
+              phone: user.user_metadata.phone ?? null,
+              is_active: isActive,
+            })
+            .select()
+            .single();
+          if (!insertError) {
+            if (invite) await acceptInvite(invite.id);
+            setUserProfile(newProfile);
+            return;
+          }
+          console.error('Error auto-creating user profile:', insertError);
+        }
+        setUserProfile(null);
+        return;
+      }
+
+      if (error) {
         console.error('Error fetching user profile:', error);
       }
       setUserProfile(data ?? null);
@@ -89,12 +143,20 @@ export function useAuth() {
     async (
       email: string,
       password: string,
-      metadata: { firstName: string; lastName: string; phone?: string }
+      metadata: { firstName: string; lastName: string; phone?: string; role?: 'parent' | 'coach' }
     ) => {
       setIsLoading(true);
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email,
         password,
+        options: {
+          data: {
+            first_name: metadata.firstName,
+            last_name: metadata.lastName,
+            phone: metadata.phone,
+            role: metadata.role ?? 'parent',
+          },
+        },
       });
 
       if (authError) {
@@ -102,15 +164,24 @@ export function useAuth() {
         throw authError;
       }
 
-      if (authData.user) {
+      if (authData.user && authData.session) {
+        // Session exists (email confirmation off) — create profile immediately
+        // Check for pending invite
+        const invite = await checkPendingInvite(email);
+        const selfRole = metadata.role ?? 'parent';
+        const role = invite ? invite.role : selfRole;
+        const orgId = invite ? invite.org_id : DEFAULT_ORG_ID;
+        const isActive = role === 'coach' && !invite ? false : true;
+
         const { error: profileError } = await supabase.from('users').insert({
           auth_id: authData.user.id,
-          org_id: DEFAULT_ORG_ID,
-          role: 'parent' as const,
+          org_id: orgId,
+          role,
           first_name: metadata.firstName,
           last_name: metadata.lastName,
           email,
           phone: metadata.phone ?? null,
+          is_active: isActive,
         });
 
         if (profileError) {
@@ -118,7 +189,11 @@ export function useAuth() {
           setIsLoading(false);
           throw profileError;
         }
+
+        if (invite) await acceptInvite(invite.id);
       }
+      // If no session (email confirmation on), fetchUserProfile will
+      // auto-create the profile from auth metadata after confirmation.
     },
     []
   );
@@ -193,6 +268,20 @@ export function useAuth() {
     reset();
   }, []);
 
+  const deleteAccount = useCallback(async () => {
+    if (!userProfile?.id) throw new Error('No user profile found');
+
+    const { error } = await supabase
+      .from('users')
+      .update({ is_active: false })
+      .eq('id', userProfile.id);
+
+    if (error) throw error;
+
+    await supabase.auth.signOut();
+    reset();
+  }, [userProfile?.id]);
+
   return {
     session,
     userProfile,
@@ -204,5 +293,6 @@ export function useAuth() {
     signInWithApple,
     signInWithGoogle,
     signOut,
+    deleteAccount,
   };
 }

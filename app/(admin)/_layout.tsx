@@ -1,12 +1,12 @@
-import { Tabs } from 'expo-router';
+import { View } from 'react-native';
+import { Tabs, router } from 'expo-router';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
-import { ScrollableTabBar } from '@/components/ui/ScrollableTabBar';
+import { IconButton } from 'react-native-paper';
 import { COLORS } from '@/constants/theme';
 
 export default function AdminLayout() {
   return (
     <Tabs
-      tabBar={(props) => <ScrollableTabBar {...props} />}
       screenOptions={{
         tabBarActiveTintColor: COLORS.primary,
         tabBarInactiveTintColor: COLORS.textSecondary,
@@ -20,6 +20,22 @@ export default function AdminLayout() {
           title: 'Dashboard',
           tabBarIcon: ({ color, size }) => (
             <MaterialCommunityIcons name="view-dashboard" size={size} color={color} />
+          ),
+          headerRight: () => (
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <IconButton
+                icon="bell"
+                size={22}
+                iconColor="#FFFFFF"
+                onPress={() => router.push('/(admin)/notifications')}
+              />
+              <IconButton
+                icon="cog"
+                size={22}
+                iconColor="#FFFFFF"
+                onPress={() => router.push('/(admin)/settings')}
+              />
+            </View>
           ),
         }}
       />
@@ -44,42 +60,41 @@ export default function AdminLayout() {
         }}
       />
       <Tabs.Screen
-        name="courts"
+        name="coaches"
         options={{
-          title: 'Courts',
+          title: 'Coaches',
           headerShown: false,
           tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="tennis" size={size} color={color} />
+            <MaterialCommunityIcons name="account-tie" size={size} color={color} />
           ),
+        }}
+      />
+      <Tabs.Screen
+        name="courts"
+        options={{
+          href: null,
+          headerShown: false,
         }}
       />
       <Tabs.Screen
         name="subscriptions"
         options={{
-          title: 'Billing',
+          href: null,
           headerShown: false,
-          tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="credit-card" size={size} color={color} />
-          ),
         }}
       />
       <Tabs.Screen
         name="payroll"
         options={{
-          title: 'Payroll',
+          href: null,
           headerShown: false,
-          tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="cash-register" size={size} color={color} />
-          ),
         }}
       />
       <Tabs.Screen
         name="settings"
         options={{
-          title: 'Settings',
-          tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="cog" size={size} color={color} />
-          ),
+          href: null,
+          headerShown: false,
         }}
       />
       <Tabs.Screen

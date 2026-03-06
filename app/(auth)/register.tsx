@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, Platform, KeyboardAvoidingView, ScrollView } from 'react-native';
-import { Text, Button } from 'react-native-paper';
+import { Text, Button, SegmentedButtons } from 'react-native-paper';
 import { router } from 'expo-router';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { FormField } from '@/components/ui';
@@ -22,6 +22,7 @@ const registerSchema = z.object({
 });
 
 export default function RegisterScreen() {
+  const [role, setRole] = useState<'parent' | 'coach'>('parent');
   const [form, setForm] = useState({
     firstName: '',
     lastName: '',
@@ -58,6 +59,7 @@ export default function RegisterScreen() {
         firstName: form.firstName,
         lastName: form.lastName,
         phone: form.phone || undefined,
+        role,
       });
       router.replace('/(auth)/verify-email');
     } catch (err: any) {
@@ -78,11 +80,20 @@ export default function RegisterScreen() {
             Create Account
           </Text>
           <Text variant="bodyLarge" style={styles.subtitle}>
-            Join as a parent
+            Join as a {role}
           </Text>
         </View>
 
         <View style={styles.form}>
+          <SegmentedButtons
+            value={role}
+            onValueChange={(value) => setRole(value as 'parent' | 'coach')}
+            buttons={[
+              { value: 'parent', label: 'Parent' },
+              { value: 'coach', label: 'Coach' },
+            ]}
+            style={styles.roleToggle}
+          />
           <FormField
             label="First Name"
             value={form.firstName}
@@ -182,6 +193,9 @@ const styles = StyleSheet.create({
   },
   form: {
     marginBottom: SPACING.lg,
+  },
+  roleToggle: {
+    marginBottom: SPACING.md,
   },
   button: {
     marginTop: SPACING.md,

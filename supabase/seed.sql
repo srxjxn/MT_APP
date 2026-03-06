@@ -84,7 +84,8 @@ BEGIN
   -- Organization
   -- ============================================================
   INSERT INTO organizations (id, name, slug, email, phone, address, timezone)
-  VALUES (v_org_id, 'Modern Tennis', 'modern-tennis', 'info@moderntennis.com', '555-0100', '123 Tennis Lane, Sportsville, CA 90210', 'America/Los_Angeles');
+  VALUES (v_org_id, 'Modern Tennis', 'modern-tennis', 'info@moderntennis.com', '555-0100', '123 Tennis Lane, Sportsville, CA 90210', 'America/Los_Angeles')
+  ON CONFLICT (id) DO NOTHING;
 
   -- ============================================================
   -- Auth Users (10 users, password: password123)

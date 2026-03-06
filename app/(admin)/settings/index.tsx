@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { ScrollView, View, StyleSheet } from 'react-native';
+import { ScrollView, View, StyleSheet, Alert } from 'react-native';
 import { Card, Text, Button, Divider } from 'react-native-paper';
+import { useRouter } from 'expo-router';
 import { FormField } from '@/components/ui';
 import { useAuthStore } from '@/lib/stores/authStore';
 import { useUIStore } from '@/lib/stores/uiStore';
@@ -10,16 +11,41 @@ import { COLORS, SPACING } from '@/constants/theme';
 import { LAYOUT } from '@/constants/layout';
 
 export default function SettingsScreen() {
-  const { signOut } = useAuth();
+  const router = useRouter();
+  const { signOut, deleteAccount } = useAuth();
   const userProfile = useAuthStore((s) => s.userProfile);
   const setUserProfile = useAuthStore((s) => s.setUserProfile);
   const showSnackbar = useUIStore((s) => s.showSnackbar);
 
   const [editing, setEditing] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [firstName, setFirstName] = useState(userProfile?.first_name ?? '');
   const [lastName, setLastName] = useState(userProfile?.last_name ?? '');
   const [phone, setPhone] = useState(userProfile?.phone ?? '');
   const [saving, setSaving] = useState(false);
+
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      'Delete Account',
+      'Are you sure you want to delete your account? This action cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            setDeleting(true);
+            try {
+              await deleteAccount();
+            } catch (err: any) {
+              showSnackbar(err.message ?? 'Failed to delete account', 'error');
+              setDeleting(false);
+            }
+          },
+        },
+      ]
+    );
+  };
 
   const handleSave = async () => {
     setSaving(true);
@@ -122,6 +148,18 @@ export default function SettingsScreen() {
         </Card.Content>
       </Card>
 
+      <Card
+        style={styles.teamCard}
+        onPress={() => router.push('/(admin)/settings/team')}
+      >
+        <Card.Content style={styles.teamCardContent}>
+          <Text variant="titleMedium" style={styles.teamCardText}>Manage Team</Text>
+          <Text variant="bodySmall" style={styles.teamCardSubtext}>
+            Invite coaches and manage your team
+          </Text>
+        </Card.Content>
+      </Card>
+
       <Divider style={styles.divider} />
 
       <Button
@@ -133,6 +171,20 @@ export default function SettingsScreen() {
         testID="settings-logout"
       >
         Sign Out
+      </Button>
+
+      <Button
+        mode="contained"
+        onPress={handleDeleteAccount}
+        loading={deleting}
+        disabled={deleting}
+        style={styles.deleteButton}
+        contentStyle={styles.signOutContent}
+        buttonColor={COLORS.error}
+        textColor="#FFFFFF"
+        testID="settings-delete-account"
+      >
+        Delete Account
       </Button>
     </ScrollView>
   );
@@ -174,6 +226,22 @@ const styles = StyleSheet.create({
   editButton: {
     minWidth: 100,
   },
+  teamCard: {
+    marginHorizontal: SPACING.md,
+    marginBottom: SPACING.md,
+    backgroundColor: COLORS.surface,
+  },
+  teamCardContent: {
+    paddingVertical: SPACING.sm,
+  },
+  teamCardText: {
+    color: COLORS.textPrimary,
+    fontWeight: '600',
+  },
+  teamCardSubtext: {
+    color: COLORS.textSecondary,
+    marginTop: SPACING.xs,
+  },
   divider: {
     marginHorizontal: SPACING.md,
   },
@@ -183,5 +251,9 @@ const styles = StyleSheet.create({
   },
   signOutContent: {
     height: LAYOUT.buttonHeight,
+  },
+  deleteButton: {
+    marginHorizontal: SPACING.md,
+    marginBottom: SPACING.xl,
   },
 });

@@ -1,12 +1,10 @@
 import React from 'react';
-import { View, ScrollView, StyleSheet } from 'react-native';
-import { Card, Text, Button, IconButton } from 'react-native-paper';
+import { View, ScrollView, StyleSheet, TouchableOpacity } from 'react-native';
+import { Card, Text, Button } from 'react-native-paper';
 import { router } from 'expo-router';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useAuthStore } from '@/lib/stores/authStore';
-import { useDashboardStats, useDashboardCoaches } from '@/lib/hooks/useDashboard';
-import { useUnreadCount } from '@/lib/hooks/useNotifications';
-import { useAuth } from '@/lib/hooks/useAuth';
+import { useDashboardStats } from '@/lib/hooks/useDashboard';
 import { LoadingScreen } from '@/components/ui';
 import { COLORS, SPACING } from '@/constants/theme';
 
@@ -29,6 +27,25 @@ function StatCard({ icon, label, value, color }: StatCardProps) {
   );
 }
 
+interface ManageCardProps {
+  icon: string;
+  label: string;
+  onPress: () => void;
+}
+
+function ManageCard({ icon, label, onPress }: ManageCardProps) {
+  return (
+    <TouchableOpacity style={styles.manageCard} onPress={onPress} activeOpacity={0.7}>
+      <Card style={styles.manageCardInner}>
+        <Card.Content style={styles.manageContent}>
+          <MaterialCommunityIcons name={icon} size={28} color={COLORS.primary} />
+          <Text variant="bodyMedium" style={styles.manageLabel}>{label}</Text>
+        </Card.Content>
+      </Card>
+    </TouchableOpacity>
+  );
+}
+
 function formatCents(cents: number): string {
   return `$${(cents / 100).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 }
@@ -36,9 +53,6 @@ function formatCents(cents: number): string {
 export default function AdminDashboard() {
   const userProfile = useAuthStore((s) => s.userProfile);
   const { data: stats, isLoading } = useDashboardStats();
-  const { data: coaches } = useDashboardCoaches();
-  const { data: unreadCount } = useUnreadCount();
-  const { signOut } = useAuth();
 
   if (isLoading) {
     return <LoadingScreen message="Loading dashboard..." testID="dashboard-loading" />;
@@ -46,34 +60,9 @@ export default function AdminDashboard() {
 
   return (
     <ScrollView style={styles.container} testID="admin-dashboard">
-      <View style={styles.headerRow}>
-        <Text variant="headlineSmall" style={styles.welcome}>
-          Welcome, {userProfile?.first_name ?? 'Admin'}!
-        </Text>
-        <View style={styles.headerIcons}>
-          <View style={styles.bellContainer}>
-            <IconButton
-              icon="bell"
-              size={24}
-              iconColor={COLORS.textPrimary}
-              onPress={() => router.push('/(admin)/notifications')}
-              testID="dashboard-bell"
-            />
-            {(unreadCount ?? 0) > 0 && (
-              <View style={styles.badge}>
-                <Text style={styles.badgeText}>{unreadCount}</Text>
-              </View>
-            )}
-          </View>
-          <IconButton
-            icon="logout"
-            size={24}
-            iconColor={COLORS.error}
-            onPress={signOut}
-            testID="dashboard-logout"
-          />
-        </View>
-      </View>
+      <Text variant="headlineSmall" style={styles.welcome}>
+        Welcome, {userProfile?.first_name ?? 'Admin'}!
+      </Text>
 
       <View style={styles.statsGrid}>
         <StatCard
@@ -116,23 +105,13 @@ export default function AdminDashboard() {
         </Card>
       )}
 
-      {coaches && coaches.length > 0 && (
-        <>
-          <Text variant="titleMedium" style={styles.sectionTitle}>My Coaches</Text>
-          <View style={styles.coachList}>
-            {coaches.map((coach) => (
-              <Card key={coach.id} style={styles.coachCard}>
-                <Card.Content style={styles.coachContent}>
-                  <MaterialCommunityIcons name="account" size={20} color={COLORS.primary} />
-                  <Text variant="bodyMedium" style={styles.coachName}>
-                    {coach.first_name} {coach.last_name}
-                  </Text>
-                </Card.Content>
-              </Card>
-            ))}
-          </View>
-        </>
-      )}
+      <Text variant="titleMedium" style={styles.sectionTitle}>Manage</Text>
+      <View style={styles.manageGrid}>
+        <ManageCard icon="tennis" label="Courts" onPress={() => router.push('/(admin)/courts')} />
+        <ManageCard icon="credit-card" label="Billing" onPress={() => router.push('/(admin)/subscriptions')} />
+        <ManageCard icon="cash-register" label="Payroll" onPress={() => router.push('/(admin)/payroll')} />
+        <ManageCard icon="cog" label="Settings" onPress={() => router.push('/(admin)/settings')} />
+      </View>
 
       <Text variant="titleMedium" style={styles.sectionTitle}>Quick Actions</Text>
       <View style={styles.actions}>
@@ -164,42 +143,11 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: COLORS.background,
   },
-  headerRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingRight: SPACING.xs,
-  },
   welcome: {
     color: COLORS.textPrimary,
     fontWeight: 'bold',
     padding: SPACING.md,
     paddingBottom: SPACING.sm,
-    flex: 1,
-  },
-  headerIcons: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  bellContainer: {
-    position: 'relative',
-  },
-  badge: {
-    position: 'absolute',
-    top: 6,
-    right: 6,
-    backgroundColor: COLORS.error,
-    borderRadius: 10,
-    minWidth: 18,
-    height: 18,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 4,
-  },
-  badgeText: {
-    color: '#FFFFFF',
-    fontSize: 10,
-    fontWeight: 'bold',
   },
   statsGrid: {
     flexDirection: 'row',
@@ -245,22 +193,26 @@ const styles = StyleSheet.create({
     padding: SPACING.md,
     paddingBottom: SPACING.sm,
   },
-  coachList: {
-    paddingHorizontal: SPACING.md,
+  manageGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    padding: SPACING.sm,
   },
-  coachCard: {
-    marginBottom: SPACING.xs,
+  manageCard: {
+    width: '47%',
+    margin: '1.5%',
+  },
+  manageCardInner: {
     backgroundColor: COLORS.surface,
   },
-  coachContent: {
-    flexDirection: 'row',
+  manageContent: {
     alignItems: 'center',
-    gap: SPACING.sm,
-    paddingVertical: SPACING.xs,
+    paddingVertical: SPACING.md,
+    gap: SPACING.xs,
   },
-  coachName: {
+  manageLabel: {
     color: COLORS.textPrimary,
-    fontWeight: '500',
+    fontWeight: '600',
   },
   actions: {
     paddingHorizontal: SPACING.md,
