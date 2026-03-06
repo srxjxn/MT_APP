@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { ScrollView, View, StyleSheet } from 'react-native';
-import { Button, Menu, Text } from 'react-native-paper';
+import { Button, Menu, Text, Banner } from 'react-native-paper';
 import { router } from 'expo-router';
 import { useDashboardCoaches, DashboardCoach } from '@/lib/hooks/useDashboard';
 import { useCoachWorkLog, useGeneratePayroll } from '@/lib/hooks/useCoachPayroll';
+import { useUncompletedPastLessonsCount, useBulkCompletePastLessons } from '@/lib/hooks/useLessonInstances';
 import { PayrollSummary } from '@/components/payroll/PayrollSummary';
 import { WorkLogItem } from '@/components/payroll/WorkLogItem';
 import { DatePickerField } from '@/components/ui';
@@ -11,7 +12,7 @@ import { useUIStore } from '@/lib/stores/uiStore';
 import { COLORS, SPACING } from '@/constants/theme';
 import { LAYOUT } from '@/constants/layout';
 import { supabase } from '@/lib/supabase';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '@/lib/stores/authStore';
 
 function getDefaultPeriod() {
@@ -42,6 +43,8 @@ export default function GeneratePayrollScreen() {
   const orgId = useAuthStore((s) => s.userProfile?.org_id);
   const showSnackbar = useUIStore((s) => s.showSnackbar);
   const generatePayroll = useGeneratePayroll();
+  const bulkComplete = useBulkCompletePastLessons();
+  const queryClient = useQueryClient();
 
   const [selectedCoach, setSelectedCoach] = useState<DashboardCoach | null>(null);
   const [coachMenuVisible, setCoachMenuVisible] = useState(false);
@@ -70,6 +73,11 @@ export default function GeneratePayrollScreen() {
     calculated ? periodEnd : '',
   );
 
+  const { data: uncompletedCount } = useUncompletedPastLessonsCount(
+    calculated && selectedCoach ? selectedCoach.id : '',
+    calculated ? periodEnd : '',
+  );
+
   const groupRateCents = coachRates?.group_rate_cents ?? 0;
   const privateRateCents = coachRates?.drop_in_rate_cents ?? 0;
 
@@ -83,6 +91,21 @@ export default function GeneratePayrollScreen() {
       return;
     }
     setCalculated(true);
+  };
+
+  const handleBulkComplete = async () => {
+    if (!selectedCoach) return;
+    try {
+      const result = await bulkComplete.mutateAsync({
+        beforeDate: periodEnd,
+        coachId: selectedCoach.id,
+      });
+      showSnackbar(`Marked ${result?.length ?? 0} lesson(s) as completed`, 'success');
+      // Re-trigger worklog query
+      queryClient.invalidateQueries({ queryKey: ['coach_payouts', 'worklog'] });
+    } catch (err: any) {
+      showSnackbar(err.message ?? 'Failed to complete lessons', 'error');
+    }
   };
 
   const handleCreateDraft = async () => {
@@ -165,6 +188,22 @@ export default function GeneratePayrollScreen() {
         Calculate Hours
       </Button>
 
+      {calculated && (uncompletedCount ?? 0) > 0 && (
+        <Banner
+          visible
+          icon="alert-circle"
+          style={styles.warningBanner}
+          actions={[
+            {
+              label: 'Complete All Past Lessons',
+              onPress: handleBulkComplete,
+            },
+          ]}
+        >
+          {uncompletedCount} lesson(s) in this period are still "scheduled" and won't count toward payroll.
+        </Banner>
+      )}
+
       {calculated && workLog && (
         <View style={styles.results}>
           <PayrollSummary
@@ -231,6 +270,10 @@ const styles = StyleSheet.create({
   },
   buttonContent: {
     height: LAYOUT.buttonHeight,
+  },
+  warningBanner: {
+    marginTop: SPACING.md,
+    backgroundColor: COLORS.warningLight,
   },
   results: {
     marginTop: SPACING.lg,

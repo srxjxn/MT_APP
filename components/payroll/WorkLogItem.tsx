@@ -19,7 +19,7 @@ export function WorkLogItem({ instance, testID }: WorkLogItemProps) {
         </Text>
       </View>
       <View style={styles.row}>
-        <Text variant="bodySmall" style={styles.name}>{instance.templateName}</Text>
+        <Text variant="bodySmall" style={styles.name}>{instance.lessonName}</Text>
         <Chip compact style={styles.chip}>
           {instance.lessonType === 'group' ? 'Group' : 'Private'} • {instance.durationMinutes}min
         </Chip>

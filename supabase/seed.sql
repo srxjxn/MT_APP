@@ -180,28 +180,28 @@ BEGIN
   -- Lesson Instances (2 weeks: past + current/next)
   -- ============================================================
   -- PAST WEEK (completed)
-  INSERT INTO lesson_instances (org_id, template_id, coach_id, court_id, date, start_time, end_time, status)
+  INSERT INTO lesson_instances (org_id, template_id, coach_id, court_id, date, start_time, end_time, status, name, lesson_type, duration_minutes, max_students, price_cents)
   VALUES
-    (v_org_id, lt_1, coach_sarah_uid, court_1, last_monday, '09:00', '10:00', 'completed'),
-    (v_org_id, lt_3, coach_mike_uid, court_2, last_monday + 1, '10:00', '11:30', 'completed'),
-    (v_org_id, lt_5, coach_lisa_uid, court_3, last_monday + 1, '16:00', '17:00', 'completed'),
-    (v_org_id, lt_2, coach_sarah_uid, court_1, last_monday + 2, '09:00', '10:00', 'completed'),
-    (v_org_id, lt_4, coach_mike_uid, court_2, last_monday + 3, '14:00', '15:00', 'completed'),
-    (v_org_id, lt_7, coach_sarah_uid, court_1, last_monday + 4, '09:00', '10:00', 'completed'),
-    (v_org_id, lt_6, coach_lisa_uid, court_3, last_monday + 4, '10:00', '11:00', 'completed'),
-    (v_org_id, lt_8, coach_mike_uid, court_2, last_monday + 5, '08:00', '09:30', 'completed');
+    (v_org_id, lt_1, coach_sarah_uid, court_1, last_monday, '09:00', '10:00', 'completed', 'Beginner Group Mon', 'group', 60, 6, 3500),
+    (v_org_id, lt_3, coach_mike_uid, court_2, last_monday + 1, '10:00', '11:30', 'completed', 'Advanced Group Tue', 'group', 90, 4, 5500),
+    (v_org_id, lt_5, coach_lisa_uid, court_3, last_monday + 1, '16:00', '17:00', 'completed', 'Beginner Group Tue', 'group', 60, 6, 3500),
+    (v_org_id, lt_2, coach_sarah_uid, court_1, last_monday + 2, '09:00', '10:00', 'completed', 'Intermediate Group Wed', 'group', 60, 6, 4000),
+    (v_org_id, lt_4, coach_mike_uid, court_2, last_monday + 3, '14:00', '15:00', 'completed', 'Competitive Private Thu', 'private', 60, 1, 8000),
+    (v_org_id, lt_7, coach_sarah_uid, court_1, last_monday + 4, '09:00', '10:00', 'completed', 'Intermediate Group Fri', 'group', 60, 6, 4000),
+    (v_org_id, lt_6, coach_lisa_uid, court_3, last_monday + 4, '10:00', '11:00', 'completed', 'Semi-Private Fri', 'semi_private', 60, 2, 6000),
+    (v_org_id, lt_8, coach_mike_uid, court_2, last_monday + 5, '08:00', '09:30', 'completed', 'Advanced Group Sat', 'group', 90, 4, 5500);
 
   -- CURRENT/NEXT WEEK (scheduled)
-  INSERT INTO lesson_instances (org_id, template_id, coach_id, court_id, date, start_time, end_time, status)
+  INSERT INTO lesson_instances (org_id, template_id, coach_id, court_id, date, start_time, end_time, status, name, lesson_type, duration_minutes, max_students, price_cents)
   VALUES
-    (v_org_id, lt_1, coach_sarah_uid, court_1, this_monday, '09:00', '10:00', 'scheduled'),
-    (v_org_id, lt_3, coach_mike_uid, court_2, this_monday + 1, '10:00', '11:30', 'scheduled'),
-    (v_org_id, lt_5, coach_lisa_uid, court_3, this_monday + 1, '16:00', '17:00', 'scheduled'),
-    (v_org_id, lt_2, coach_sarah_uid, court_1, this_monday + 2, '09:00', '10:00', 'scheduled'),
-    (v_org_id, lt_4, coach_mike_uid, court_2, this_monday + 3, '14:00', '15:00', 'scheduled'),
-    (v_org_id, lt_7, coach_sarah_uid, court_1, this_monday + 4, '09:00', '10:00', 'scheduled'),
-    (v_org_id, lt_6, coach_lisa_uid, court_3, this_monday + 4, '10:00', '11:00', 'scheduled'),
-    (v_org_id, lt_8, coach_mike_uid, court_2, this_monday + 5, '08:00', '09:30', 'scheduled');
+    (v_org_id, lt_1, coach_sarah_uid, court_1, this_monday, '09:00', '10:00', 'scheduled', 'Beginner Group Mon', 'group', 60, 6, 3500),
+    (v_org_id, lt_3, coach_mike_uid, court_2, this_monday + 1, '10:00', '11:30', 'scheduled', 'Advanced Group Tue', 'group', 90, 4, 5500),
+    (v_org_id, lt_5, coach_lisa_uid, court_3, this_monday + 1, '16:00', '17:00', 'scheduled', 'Beginner Group Tue', 'group', 60, 6, 3500),
+    (v_org_id, lt_2, coach_sarah_uid, court_1, this_monday + 2, '09:00', '10:00', 'scheduled', 'Intermediate Group Wed', 'group', 60, 6, 4000),
+    (v_org_id, lt_4, coach_mike_uid, court_2, this_monday + 3, '14:00', '15:00', 'scheduled', 'Competitive Private Thu', 'private', 60, 1, 8000),
+    (v_org_id, lt_7, coach_sarah_uid, court_1, this_monday + 4, '09:00', '10:00', 'scheduled', 'Intermediate Group Fri', 'group', 60, 6, 4000),
+    (v_org_id, lt_6, coach_lisa_uid, court_3, this_monday + 4, '10:00', '11:00', 'scheduled', 'Semi-Private Fri', 'semi_private', 60, 2, 6000),
+    (v_org_id, lt_8, coach_mike_uid, court_2, this_monday + 5, '08:00', '09:30', 'scheduled', 'Advanced Group Sat', 'group', 90, 4, 5500);
 
   -- ============================================================
   -- Enrollments for past week (with attendance)

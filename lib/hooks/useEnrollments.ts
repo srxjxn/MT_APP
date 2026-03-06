@@ -145,8 +145,7 @@ export function useStudentAttendanceStats(studentId: string) {
         .select(`
           id, attended, status,
           lesson_instance:lesson_instances!enrollments_lesson_instance_id_fkey(
-            date, start_time,
-            template:lesson_templates!lesson_instances_template_id_fkey(name)
+            date, start_time, name
           )
         `)
         .eq('student_id', studentId)
@@ -158,7 +157,7 @@ export function useStudentAttendanceStats(studentId: string) {
       const records: AttendanceRecord[] = (data as any[]).map((e) => ({
         id: e.id,
         date: e.lesson_instance?.date ?? '',
-        lessonName: e.lesson_instance?.template?.name ?? 'Lesson',
+        lessonName: e.lesson_instance?.name ?? 'Lesson',
         attended: e.attended,
         startTime: e.lesson_instance?.start_time ?? '',
       }));
@@ -203,10 +202,7 @@ export function useEnrollOrWaitlist() {
       // Check current enrollment count vs max_students
       const { data: instance, error: instanceError } = await supabase
         .from('lesson_instances')
-        .select(`
-          id,
-          template:lesson_templates!lesson_instances_template_id_fkey(max_students)
-        `)
+        .select('id, max_students')
         .eq('id', lessonInstanceId)
         .single();
 
@@ -220,7 +216,7 @@ export function useEnrollOrWaitlist() {
 
       if (countError) throw countError;
 
-      const maxStudents = (instance as any)?.template?.max_students;
+      const maxStudents = instance?.max_students;
       const isFull = maxStudents != null && (count ?? 0) >= maxStudents;
       const status = isFull ? 'waitlisted' : 'enrolled';
 
@@ -267,10 +263,7 @@ export function useEnrollWithPayment() {
       // Check capacity
       const { data: instance, error: instanceError } = await supabase
         .from('lesson_instances')
-        .select(`
-          id,
-          template:lesson_templates!lesson_instances_template_id_fkey(max_students)
-        `)
+        .select('id, max_students')
         .eq('id', lessonInstanceId)
         .single();
 
@@ -284,7 +277,7 @@ export function useEnrollWithPayment() {
 
       if (countError) throw countError;
 
-      const maxStudents = (instance as any)?.template?.max_students;
+      const maxStudents = instance?.max_students;
       const isFull = maxStudents != null && (count ?? 0) >= maxStudents;
       const status = isFull ? 'waitlisted' : 'enrolled';
 

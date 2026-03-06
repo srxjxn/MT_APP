@@ -108,7 +108,7 @@ export function DayCalendarView({ instances, date, onDateChange, onInstancePress
           const endMin = timeToMinutes(inst.end_time);
           const top = ((startMin - START_HOUR * 60) / 60) * HOUR_HEIGHT;
           const height = ((endMin - startMin) / 60) * HOUR_HEIGHT;
-          const lessonType = inst.template?.lesson_type ?? 'group';
+          const lessonType = inst.lesson_type ?? 'group';
           const colors = LESSON_TYPE_COLORS[lessonType] ?? LESSON_TYPE_COLORS.group;
 
           return (
@@ -127,7 +127,7 @@ export function DayCalendarView({ instances, date, onDateChange, onInstancePress
               activeOpacity={0.7}
             >
               <Text variant="labelMedium" style={styles.lessonName} numberOfLines={1}>
-                {inst.template?.name ?? 'Lesson'}
+                {inst.name}
               </Text>
               <Text variant="bodySmall" style={styles.lessonTime}>
                 {inst.start_time} - {inst.end_time}

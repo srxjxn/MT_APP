@@ -33,7 +33,7 @@ export default function InstanceDetailScreen() {
   }
 
   const enrolledCount = instance.enrollments_list?.filter((e: any) => e.status === 'enrolled').length ?? 0;
-  const maxStudents = instance.template?.max_students;
+  const maxStudents = instance.max_students;
   const capacityRatio = maxStudents ? enrolledCount / maxStudents : 0;
   const capacityColor = capacityRatio >= 1 ? COLORS.error : capacityRatio >= 0.8 ? COLORS.warning : COLORS.success;
 
@@ -46,7 +46,7 @@ export default function InstanceDetailScreen() {
           (e: any) => e.status === 'enrolled' || e.status === 'waitlisted'
         );
         const parentIds = [...new Set(enrolledStudents.map((e: any) => e.student?.parent_id).filter(Boolean))];
-        const lessonName = instance.template?.name ?? 'Lesson';
+        const lessonName = instance.name;
         const lessonDate = instance.date;
         const lessonTime = instance.start_time;
 
@@ -88,14 +88,14 @@ export default function InstanceDetailScreen() {
         <Card.Content>
           <View style={styles.header}>
             <Text variant="headlineSmall" style={styles.title}>
-              {instance.template?.name ?? 'Ad-hoc Lesson'}
+              {instance.name}
             </Text>
             <StatusBadge status={instance.status} />
           </View>
 
-          {instance.template?.description && (
+          {instance.description && (
             <Text variant="bodyMedium" style={styles.description}>
-              {instance.template.description}
+              {instance.description}
             </Text>
           )}
 
@@ -108,14 +108,14 @@ export default function InstanceDetailScreen() {
           {instance.court && (
             <Text variant="bodyMedium" style={styles.info}>Court: {instance.court.name}</Text>
           )}
-          {instance.template?.lesson_type && (
+          {instance.lesson_type && (
             <Chip compact style={styles.typeBadge}>
-              {LESSON_TYPE_LABELS[instance.template.lesson_type]}
+              {LESSON_TYPE_LABELS[instance.lesson_type]}
             </Chip>
           )}
-          {instance.template?.price_cents != null && (
+          {instance.price_cents != null && (
             <Text variant="bodyMedium" style={styles.info}>
-              Price: ${(instance.template.price_cents / 100).toFixed(2)}
+              Price: ${(instance.price_cents / 100).toFixed(2)}
             </Text>
           )}
 

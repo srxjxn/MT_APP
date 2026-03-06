@@ -58,7 +58,7 @@ export function useDashboardStats() {
           .lte('ends_at', weekEndStr),
         supabase
           .from('lesson_instances')
-          .select('id, template:lesson_templates!lesson_instances_template_id_fkey(lesson_type)')
+          .select('id, lesson_type')
           .eq('org_id', orgId!)
           .eq('status', 'completed')
           .gte('date', monthStartStr)
@@ -71,7 +71,7 @@ export function useDashboardStats() {
       );
 
       const groupClasses = (groupClassesRes.data ?? []).filter(
-        (item: any) => item.template?.lesson_type === 'group'
+        (item: any) => item.lesson_type === 'group'
       ).length;
 
       return {

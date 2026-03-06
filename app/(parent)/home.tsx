@@ -147,7 +147,7 @@ export default function ParentHome() {
                 <Card.Content>
                   <Text variant="bodySmall" style={styles.upcomingChild}>{studentName}</Text>
                   <Text variant="titleSmall" style={styles.upcomingName}>
-                    {instance.template?.name ?? 'Lesson'}
+                    {instance.name}
                   </Text>
                   <Text variant="bodySmall" style={styles.detail}>
                     {instance.date} • {instance.start_time} - {instance.end_time}

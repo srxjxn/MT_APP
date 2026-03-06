@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { View, FlatList, StyleSheet, RefreshControl } from 'react-native';
-import { FAB, Text, Portal, Modal, Button, SegmentedButtons, Menu } from 'react-native-paper';
+import { FAB, Text, Portal, Modal, Button, SegmentedButtons, Menu, Banner } from 'react-native-paper';
 import { router } from 'expo-router';
-import { useLessonInstances, useGenerateInstances, LessonInstanceWithJoins } from '@/lib/hooks/useLessonInstances';
+import { useLessonInstances, useGenerateInstances, useBulkCompletePastLessons, LessonInstanceWithJoins } from '@/lib/hooks/useLessonInstances';
 import { useCoachUsers } from '@/lib/hooks/useStudents';
 import { LessonCard } from '@/components/lessons/LessonCard';
 import { DayCalendarView } from '@/components/lessons/DayCalendarView';
@@ -39,6 +39,7 @@ export default function ScheduleScreen() {
   const [coachMenuVisible, setCoachMenuVisible] = useState(false);
   const [viewMode, setViewMode] = useState<'calendar' | 'list'>('calendar');
   const [calendarDate, setCalendarDate] = useState(todayStr());
+  const [fabOpen, setFabOpen] = useState(false);
 
   const filters = {
     dateFrom: filterDateFrom || undefined,
@@ -51,6 +52,7 @@ export default function ScheduleScreen() {
   const { data: instances, isLoading, refetch, isRefetching } = useLessonInstances(filters);
   const { data: coaches } = useCoachUsers();
   const generateInstances = useGenerateInstances();
+  const bulkComplete = useBulkCompletePastLessons();
   const showSnackbar = useUIStore((s) => s.showSnackbar);
   const [showGenerate, setShowGenerate] = useState(false);
   const [dateFrom, setDateFrom] = useState('');
@@ -58,6 +60,12 @@ export default function ScheduleScreen() {
 
   const selectedCoach = coaches?.find((c) => c.id === filterCoachId);
   const hasFilters = filterDateFrom || filterDateTo || filterCoachId || filterStatus !== 'all' || filterLessonType !== 'all';
+
+  // Check for uncompleted past lessons
+  const today = todayStr();
+  const pastScheduledCount = instances?.filter(
+    (i) => i.status === 'scheduled' && i.date < today
+  ).length ?? 0;
 
   const clearFilters = () => {
     setFilterDateFrom('');
@@ -83,12 +91,33 @@ export default function ScheduleScreen() {
     }
   };
 
+  const handleBulkComplete = async () => {
+    try {
+      const result = await bulkComplete.mutateAsync({ beforeDate: today });
+      showSnackbar(`Marked ${result?.length ?? 0} past lesson(s) as completed`, 'success');
+    } catch (err: any) {
+      showSnackbar(err.message ?? 'Failed to complete lessons', 'error');
+    }
+  };
+
   if (isLoading) {
     return <LoadingScreen message="Loading schedule..." testID="schedule-loading" />;
   }
 
   return (
     <View style={styles.container} testID="admin-schedule">
+      {pastScheduledCount > 0 && (
+        <Banner
+          visible
+          icon="clock-alert-outline"
+          style={styles.warningBanner}
+          actions={[
+            { label: 'Mark Complete', onPress: handleBulkComplete },
+          ]}
+        >
+          {pastScheduledCount} past lesson(s) still marked as "scheduled".
+        </Banner>
+      )}
       <View style={styles.filterBar}>
         <LessonTypeToggle
           value={filterLessonType}
@@ -199,12 +228,25 @@ export default function ScheduleScreen() {
         />
       )}
 
-      <FAB
-        icon="calendar-plus"
-        style={styles.fab}
-        onPress={() => setShowGenerate(true)}
-        testID="generate-fab"
-        label="Generate"
+      <FAB.Group
+        open={fabOpen}
+        visible
+        icon={fabOpen ? 'close' : 'plus'}
+        actions={[
+          {
+            icon: 'calendar-plus',
+            label: 'Generate Schedule',
+            onPress: () => setShowGenerate(true),
+          },
+          {
+            icon: 'plus-circle',
+            label: 'Create Lesson',
+            onPress: () => router.push('/(admin)/lessons/create'),
+          },
+        ]}
+        onStateChange={({ open }) => setFabOpen(open)}
+        fabStyle={styles.fab}
+        testID="schedule-fab-group"
       />
 
       <Portal>
@@ -253,6 +295,9 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: COLORS.background,
   },
+  warningBanner: {
+    backgroundColor: COLORS.warningLight,
+  },
   filterBar: {
     padding: SPACING.md,
     paddingBottom: SPACING.xs,
@@ -286,10 +331,6 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   fab: {
-    position: 'absolute',
-    margin: SPACING.md,
-    right: 0,
-    bottom: 0,
     backgroundColor: COLORS.primary,
   },
   modal: {

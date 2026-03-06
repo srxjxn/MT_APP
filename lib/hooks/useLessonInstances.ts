@@ -63,9 +63,9 @@ export function useLessonInstances(filters?: InstanceFilters) {
       }));
 
       if (filters?.lessonType === 'group') {
-        results = results.filter((r) => r.template?.lesson_type === 'group');
+        results = results.filter((r) => r.lesson_type === 'group');
       } else if (filters?.lessonType === 'private') {
-        results = results.filter((r) => r.template?.lesson_type === 'private' || r.template?.lesson_type === 'semi_private');
+        results = results.filter((r) => r.lesson_type === 'private' || r.lesson_type === 'semi_private');
       }
 
       return results;
@@ -203,9 +203,9 @@ export function useCoachLessonInstances(lessonType?: string) {
       }));
 
       if (lessonType === 'group') {
-        results = results.filter((r) => r.template?.lesson_type === 'group');
+        results = results.filter((r) => r.lesson_type === 'group');
       } else if (lessonType === 'private') {
-        results = results.filter((r) => r.template?.lesson_type === 'private' || r.template?.lesson_type === 'semi_private');
+        results = results.filter((r) => r.lesson_type === 'private' || r.lesson_type === 'semi_private');
       }
 
       return results;
@@ -382,6 +382,49 @@ export function useCheckCoachConflict() {
       const { data, error } = await query;
       if (error) throw error;
       return data ?? [];
+    },
+  });
+}
+
+export function useUncompletedPastLessonsCount(coachId: string, periodEnd: string) {
+  return useQuery({
+    queryKey: [...instanceKeys.all, 'uncompleted_count', coachId, periodEnd],
+    queryFn: async (): Promise<number> => {
+      const { count, error } = await supabase
+        .from('lesson_instances')
+        .select('id', { count: 'exact', head: true })
+        .eq('coach_id', coachId)
+        .eq('status', 'scheduled')
+        .lte('date', periodEnd);
+
+      if (error) throw error;
+      return count ?? 0;
+    },
+    enabled: !!coachId && !!periodEnd,
+  });
+}
+
+export function useBulkCompletePastLessons() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ beforeDate, coachId }: { beforeDate: string; coachId?: string }) => {
+      let query = supabase
+        .from('lesson_instances')
+        .update({ status: 'completed' as const })
+        .eq('status', 'scheduled')
+        .lte('date', beforeDate);
+
+      if (coachId) {
+        query = query.eq('coach_id', coachId);
+      }
+
+      const { data, error } = await query.select();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: instanceKeys.all });
     },
   });
 }

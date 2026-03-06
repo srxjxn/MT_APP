@@ -137,8 +137,7 @@ export function useCourtsWithPrivateLessons() {
       const { data: instances, error: instError } = await supabase
         .from('lesson_instances')
         .select(`
-          court_id, date, start_time,
-          template:lesson_templates!lesson_instances_template_id_fkey(lesson_type),
+          court_id, date, start_time, lesson_type,
           coach:users!lesson_instances_coach_id_fkey(first_name, last_name)
         `)
         .eq('org_id', orgId!)
@@ -152,7 +151,7 @@ export function useCourtsWithPrivateLessons() {
       // Build map: court_id -> first private instance
       const courtNextPrivate = new Map<string, { date: string; start_time: string; coachName: string }>();
       for (const inst of (instances as any[]) ?? []) {
-        if (inst.template?.lesson_type !== 'private' && inst.template?.lesson_type !== 'semi_private') continue;
+        if (inst.lesson_type !== 'private' && inst.lesson_type !== 'semi_private') continue;
         if (!inst.court_id || courtNextPrivate.has(inst.court_id)) continue;
         courtNextPrivate.set(inst.court_id, {
           date: inst.date,

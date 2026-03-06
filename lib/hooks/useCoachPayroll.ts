@@ -57,7 +57,7 @@ export interface WorkLogInstance {
   start_time: string;
   end_time: string;
   lessonType: string;
-  templateName: string;
+  lessonName: string;
   durationMinutes: number;
 }
 
@@ -73,10 +73,7 @@ export function useCoachWorkLog(coachId: string, start: string, end: string) {
     queryFn: async (): Promise<WorkLogResult> => {
       const { data, error } = await supabase
         .from('lesson_instances')
-        .select(`
-          id, date, start_time, end_time,
-          template:lesson_templates!lesson_instances_template_id_fkey(name, lesson_type, duration_minutes)
-        `)
+        .select('id, date, start_time, end_time, name, lesson_type, duration_minutes')
         .eq('coach_id', coachId)
         .eq('status', 'completed')
         .gte('date', start)
@@ -91,9 +88,8 @@ export function useCoachWorkLog(coachId: string, start: string, end: string) {
       const instances: WorkLogInstance[] = [];
 
       for (const item of (data as any[]) ?? []) {
-        const template = item.template;
-        const lessonType = template?.lesson_type ?? 'group';
-        const duration = template?.duration_minutes ?? 60;
+        const lessonType = item.lesson_type ?? 'group';
+        const duration = item.duration_minutes ?? 60;
 
         if (lessonType === 'group') {
           groupMinutes += duration;
@@ -107,7 +103,7 @@ export function useCoachWorkLog(coachId: string, start: string, end: string) {
           start_time: item.start_time,
           end_time: item.end_time,
           lessonType,
-          templateName: template?.name ?? 'Unknown',
+          lessonName: item.name ?? 'Unknown',
           durationMinutes: duration,
         });
       }

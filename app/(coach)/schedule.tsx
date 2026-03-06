@@ -88,7 +88,7 @@ export default function CoachSchedule() {
           {selectedInstance && (
             <ScrollView>
               <Text variant="titleLarge" style={styles.modalTitle}>
-                {selectedInstance.template?.name ?? 'Lesson'}
+                {selectedInstance.name}
               </Text>
               <Text variant="bodyMedium" style={styles.modalInfo}>
                 {selectedInstance.date} • {selectedInstance.start_time} - {selectedInstance.end_time}

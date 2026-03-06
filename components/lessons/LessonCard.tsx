@@ -13,15 +13,15 @@ interface LessonCardProps {
 }
 
 export function LessonCard({ instance, onPress, testID }: LessonCardProps) {
-  const maxStudents = instance.template?.max_students;
-  const lessonType = instance.template?.lesson_type;
+  const maxStudents = instance.max_students;
+  const lessonType = instance.lesson_type;
 
   return (
     <Card style={styles.card} onPress={onPress} testID={testID}>
       <Card.Content>
         <View style={styles.header}>
           <Text variant="titleMedium" style={styles.name}>
-            {instance.template?.name ?? 'Ad-hoc Lesson'}
+            {instance.name}
           </Text>
           <StatusBadge status={instance.status} />
         </View>
@@ -32,9 +32,9 @@ export function LessonCard({ instance, onPress, testID }: LessonCardProps) {
           {instance.coach ? `${instance.coach.first_name} ${instance.coach.last_name}` : ''}
           {instance.court ? ` • ${instance.court.name}` : ''}
         </Text>
-        {instance.template?.description && (
+        {instance.description && (
           <Text variant="bodySmall" style={styles.descriptionSnippet} numberOfLines={1}>
-            {instance.template.description}
+            {instance.description}
           </Text>
         )}
         <View style={styles.footer}>

@@ -11,7 +11,7 @@ import { StatusBadge } from '@/components/ui';
 import { LESSON_TYPE_LABELS } from '@/lib/validation/lessonTemplate';
 
 function BrowseLessonCard({ instance, onPress, testID }: { instance: LessonInstanceWithJoins; onPress?: () => void; testID?: string }) {
-  const maxStudents = instance.template?.max_students;
+  const maxStudents = instance.max_students;
   const enrollmentCount = instance.enrollment_count ?? 0;
   const isFull = maxStudents != null && enrollmentCount >= maxStudents;
   const enrollmentColor = isFull ? COLORS.error : COLORS.success;
@@ -21,7 +21,7 @@ function BrowseLessonCard({ instance, onPress, testID }: { instance: LessonInsta
       <Card.Content>
         <View style={styles.cardHeader}>
           <Text variant="titleMedium" style={styles.cardName}>
-            {instance.template?.name ?? 'Ad-hoc Lesson'}
+            {instance.name}
           </Text>
           <StatusBadge status={instance.status} />
         </View>
@@ -33,9 +33,9 @@ function BrowseLessonCard({ instance, onPress, testID }: { instance: LessonInsta
           {instance.court ? ` • ${instance.court.name}` : ''}
         </Text>
         <View style={styles.cardFooter}>
-          {instance.template?.lesson_type && (
+          {instance.lesson_type && (
             <Text variant="bodySmall" style={styles.cardType}>
-              {LESSON_TYPE_LABELS[instance.template.lesson_type] ?? instance.template.lesson_type}
+              {LESSON_TYPE_LABELS[instance.lesson_type] ?? instance.lesson_type}
             </Text>
           )}
           <Text variant="bodySmall" style={[styles.cardEnrollment, { color: enrollmentColor }]}>
@@ -53,7 +53,7 @@ function MyLessonCard({ instance, testID }: { instance: ParentLessonInstance; te
       <Card.Content>
         <View style={styles.cardHeader}>
           <Text variant="titleMedium" style={styles.cardName}>
-            {instance.template?.name ?? 'Ad-hoc Lesson'}
+            {instance.name}
           </Text>
           <StatusBadge status={instance.status} />
         </View>
@@ -91,7 +91,7 @@ export default function ParentSchedule() {
   const filteredMyInstances = useMemo(() => {
     if (!myInstances || lessonTypeFilter === 'all') return myInstances;
     return (myInstances as ParentLessonInstance[]).filter((inst) => {
-      const type = inst.template?.lesson_type;
+      const type = inst.lesson_type;
       if (lessonTypeFilter === 'group') return type === 'group';
       return type === 'private' || type === 'semi_private';
     });
@@ -198,9 +198,9 @@ export default function ParentSchedule() {
         <EnrollChildDialog
           visible={!!selectedInstance}
           lessonInstanceId={selectedInstance.id}
-          maxStudents={selectedInstance.template?.max_students}
+          maxStudents={selectedInstance.max_students}
           enrollmentCount={selectedInstance.enrollment_count}
-          priceCents={selectedInstance.template?.price_cents}
+          priceCents={selectedInstance.price_cents}
           onDismiss={() => setSelectedInstance(null)}
           testID="parent-enroll-dialog"
         />

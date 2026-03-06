@@ -370,10 +370,16 @@ export type Database = {
           court_id: string | null
           created_at: string
           date: string
+          description: string | null
+          duration_minutes: number
           end_time: string
           id: string
+          lesson_type: Database["public"]["Enums"]["lesson_type"]
+          max_students: number
+          name: string
           notes: string | null
           org_id: string
+          price_cents: number
           start_time: string
           status: Database["public"]["Enums"]["lesson_status"]
           template_id: string | null
@@ -384,10 +390,16 @@ export type Database = {
           court_id?: string | null
           created_at?: string
           date: string
+          description?: string | null
+          duration_minutes?: number
           end_time: string
           id?: string
+          lesson_type?: Database["public"]["Enums"]["lesson_type"]
+          max_students?: number
+          name?: string
           notes?: string | null
           org_id: string
+          price_cents?: number
           start_time: string
           status?: Database["public"]["Enums"]["lesson_status"]
           template_id?: string | null
@@ -398,10 +410,16 @@ export type Database = {
           court_id?: string | null
           created_at?: string
           date?: string
+          description?: string | null
+          duration_minutes?: number
           end_time?: string
           id?: string
+          lesson_type?: Database["public"]["Enums"]["lesson_type"]
+          max_students?: number
+          name?: string
           notes?: string | null
           org_id?: string
+          price_cents?: number
           start_time?: string
           status?: Database["public"]["Enums"]["lesson_status"]
           template_id?: string | null

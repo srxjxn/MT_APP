@@ -39,7 +39,7 @@ export function useParentMonthlyGroupAttendance() {
             lesson_instance:lesson_instances!enrollments_lesson_instance_id_fkey(
               date,
               status,
-              template:lesson_templates!lesson_instances_template_id_fkey(lesson_type)
+              lesson_type
             )
           `)
           .eq('student_id', student.id)
@@ -50,7 +50,7 @@ export function useParentMonthlyGroupAttendance() {
         const groupCount = (enrollments as any[] ?? []).filter((e) => {
           const inst = e.lesson_instance;
           if (!inst) return false;
-          const isGroup = inst.template?.lesson_type === 'group';
+          const isGroup = inst.lesson_type === 'group';
           const inMonth = inst.date >= monthStartStr && inst.date <= todayStr;
           return isGroup && inMonth;
         }).length;
