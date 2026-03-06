@@ -16,9 +16,10 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.moderntennis.app",
-      "buildNumber": "8",
+      "buildNumber": "12",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSCameraUsageDescription": "Used to scan credit cards for faster payment entry."
       }
     },
     "android": {
@@ -38,7 +39,13 @@
       "expo-secure-store",
       "expo-apple-authentication",
       "@react-native-community/datetimepicker",
-      "@stripe/stripe-react-native"
+      [
+        "@stripe/stripe-react-native",
+        {
+          "merchantIdentifier": [],
+          "enableGooglePay": false
+        }
+      ]
     ],
     "extra": {
       "router": {},
