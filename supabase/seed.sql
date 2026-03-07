@@ -67,6 +67,10 @@ DECLARE
   -- Lesson request IDs
   lr_1 UUID := 'a4000000-0000-0000-0000-000000000001';
   lr_2 UUID := 'a4000000-0000-0000-0000-000000000002';
+  -- Membership plan IDs
+  mp_1 UUID := 'a5000000-0000-0000-0000-000000000001';
+  mp_2 UUID := 'a5000000-0000-0000-0000-000000000002';
+  mp_3 UUID := 'a5000000-0000-0000-0000-000000000003';
   -- Password hash for 'password123'
   pw_hash TEXT := crypt('password123', gen_salt('bf'));
   -- Date references
@@ -374,5 +378,14 @@ BEGIN
   VALUES
     (lr_1, v_org_id, student_3, coach_mike_uid, parent_williams_uid, today + 7, '14:00', 'pending'),
     (lr_2, v_org_id, student_7, coach_mike_uid, parent_chen_uid, today + 3, '10:00', 'approved');
+
+  -- ============================================================
+  -- Membership Plans (3 plans for self-service subscription)
+  -- ============================================================
+  INSERT INTO membership_plans (id, org_id, name, description, price_cents, lessons_per_month, is_active)
+  VALUES
+    (mp_1, v_org_id, 'Monthly Group', 'Unlimited group lessons per month', 15000, NULL, TRUE),
+    (mp_2, v_org_id, 'Monthly Premium', '4 private lessons + unlimited group per month', 35000, 4, TRUE),
+    (mp_3, v_org_id, 'Summer Camp Pass', 'Access to all summer camp sessions (inactive)', 50000, NULL, FALSE);
 
 END $$;

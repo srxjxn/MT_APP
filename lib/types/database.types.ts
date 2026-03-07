@@ -364,6 +364,53 @@ export type Database = {
           },
         ]
       }
+      membership_plans: {
+        Row: {
+          id: string
+          org_id: string
+          name: string
+          description: string | null
+          price_cents: number
+          lessons_per_month: number | null
+          stripe_price_id: string | null
+          is_active: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          name: string
+          description?: string | null
+          price_cents?: number
+          lessons_per_month?: number | null
+          stripe_price_id?: string | null
+          is_active?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          name?: string
+          description?: string | null
+          price_cents?: number
+          lessons_per_month?: number | null
+          stripe_price_id?: string | null
+          is_active?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "membership_plans_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lesson_instances: {
         Row: {
           coach_id: string

@@ -61,6 +61,14 @@ export default function SubscriptionsListScreen() {
         >
           View Packages
         </Button>
+        <Button
+          mode="text"
+          icon="tag-multiple"
+          onPress={() => router.push('/(admin)/subscriptions/plans')}
+          testID="manage-plans-button"
+        >
+          Manage Plans
+        </Button>
       </View>
 
       <FlatList

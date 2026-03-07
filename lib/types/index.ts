@@ -70,6 +70,10 @@ export type Invite = Database['public']['Tables']['invites']['Row'];
 export type InviteInsert = Database['public']['Tables']['invites']['Insert'];
 export type InviteUpdate = Database['public']['Tables']['invites']['Update'];
 
+export type MembershipPlan = Database['public']['Tables']['membership_plans']['Row'];
+export type MembershipPlanInsert = Database['public']['Tables']['membership_plans']['Insert'];
+export type MembershipPlanUpdate = Database['public']['Tables']['membership_plans']['Update'];
+
 // Enum types
 export type UserRole = Database['public']['Enums']['user_role'];
 export type SkillLevel = Database['public']['Enums']['skill_level'];

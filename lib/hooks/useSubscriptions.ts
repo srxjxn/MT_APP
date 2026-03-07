@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../supabase';
 import { useAuthStore } from '../stores/authStore';
-import { Subscription, SubscriptionInsert, SubscriptionUpdate, UserProfile, SubscriptionStatus } from '../types';
+import { Subscription, SubscriptionInsert, SubscriptionUpdate, UserProfile, SubscriptionStatus, MembershipPlan } from '../types';
 
 export const subscriptionKeys = {
   all: ['subscriptions'] as const,
@@ -161,6 +161,41 @@ export function useExpiringSubscriptions() {
       return data as any;
     },
     enabled: !!orgId,
+  });
+}
+
+/** Parent creates a subscription from a membership plan (self-service) */
+export function useCreateSelfSubscription() {
+  const queryClient = useQueryClient();
+  const userProfile = useAuthStore((s) => s.userProfile);
+
+  return useMutation({
+    mutationFn: async ({ plan, studentId }: { plan: MembershipPlan; studentId?: string }) => {
+      if (!userProfile) throw new Error('User not logged in');
+
+      const { data, error } = await supabase
+        .from('subscriptions')
+        .insert({
+          org_id: userProfile.org_id,
+          user_id: userProfile.id,
+          student_id: studentId ?? null,
+          name: plan.name,
+          description: plan.description,
+          price_cents: plan.price_cents,
+          lessons_per_month: plan.lessons_per_month,
+          stripe_price_id: plan.stripe_price_id,
+          starts_at: new Date().toISOString(),
+          status: 'active',
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: subscriptionKeys.all });
+    },
   });
 }
 

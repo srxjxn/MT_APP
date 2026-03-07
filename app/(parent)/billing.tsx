@@ -1,25 +1,30 @@
 import React, { useState } from 'react';
 import { View, ScrollView, StyleSheet, RefreshControl } from 'react-native';
-import { Text, Button, Portal, Dialog, TextInput } from 'react-native-paper';
-import { useUserSubscriptions } from '@/lib/hooks/useSubscriptions';
+import { Text, Button, Portal, Dialog, TextInput, Card, RadioButton } from 'react-native-paper';
+import { useUserSubscriptions, useCreateSelfSubscription } from '@/lib/hooks/useSubscriptions';
 import { useUserPayments } from '@/lib/hooks/usePayments';
 import { useRecordExternalPayment, useStripePayment } from '@/lib/hooks/useStripePayments';
 import { useStripeSubscription, useCancelStripeSubscription } from '@/lib/hooks/useStripeSubscription';
+import { useMembershipPlans } from '@/lib/hooks/useMembershipPlans';
+import { useParentStudents } from '@/lib/hooks/useStudents';
 import { MembershipPayCard } from '@/components/billing/MembershipPayCard';
 import { PaymentCard } from '@/components/payments/PaymentCard';
 import { PaymentMethodSelector } from '@/components/payments/PaymentMethodSelector';
 import { LoadingScreen } from '@/components/ui';
 import { useUIStore } from '@/lib/stores/uiStore';
 import { COLORS, SPACING } from '@/constants/theme';
-import { Subscription } from '@/lib/types';
+import { Subscription, MembershipPlan } from '@/lib/types';
 
 export default function ParentBilling() {
   const { data: subscriptions, isLoading: subsLoading, refetch: refetchSubs, isRefetching: subsRefetching } = useUserSubscriptions();
   const { data: payments, isLoading: paymentsLoading, refetch: refetchPayments, isRefetching: paymentsRefetching } = useUserPayments();
+  const { data: plans, isLoading: plansLoading } = useMembershipPlans();
+  const { data: students } = useParentStudents();
   const recordExternal = useRecordExternalPayment();
   const stripePayment = useStripePayment();
   const stripeSubscription = useStripeSubscription();
   const cancelSubscription = useCancelStripeSubscription();
+  const createSelfSub = useCreateSelfSubscription();
   const showSnackbar = useUIStore((s) => s.showSnackbar);
 
   const [showPaymentSelector, setShowPaymentSelector] = useState(false);
@@ -28,7 +33,12 @@ export default function ParentBilling() {
   const [externalAmount, setExternalAmount] = useState('');
   const [externalDescription, setExternalDescription] = useState('');
 
-  const isLoading = subsLoading || paymentsLoading;
+  // Self-subscribe state
+  const [selectedPlan, setSelectedPlan] = useState<MembershipPlan | null>(null);
+  const [showPlanStudentPicker, setShowPlanStudentPicker] = useState(false);
+  const [selectedPlanStudentId, setSelectedPlanStudentId] = useState<string>('');
+
+  const isLoading = subsLoading || paymentsLoading || plansLoading;
   const isRefetching = subsRefetching || paymentsRefetching;
 
   const refetch = () => {
@@ -112,7 +122,46 @@ export default function ParentBilling() {
     }
   };
 
+  const handlePlanSubscribe = (plan: MembershipPlan) => {
+    setSelectedPlan(plan);
+    if (students && students.length > 0) {
+      setSelectedPlanStudentId(students[0].id);
+      setShowPlanStudentPicker(true);
+    } else {
+      confirmPlanSubscription(plan, undefined);
+    }
+  };
+
+  const confirmPlanSubscription = async (plan: MembershipPlan, studentId?: string) => {
+    setShowPlanStudentPicker(false);
+    try {
+      const newSub = await createSelfSub.mutateAsync({ plan, studentId });
+
+      if (plan.stripe_price_id) {
+        // Use Stripe recurring billing
+        try {
+          await stripeSubscription.mutateAsync({
+            subscription_id: newSub.id,
+            stripe_price_id: plan.stripe_price_id,
+          });
+          showSnackbar('Subscription activated!', 'success');
+        } catch (err: any) {
+          if (err.message !== 'Payment cancelled') {
+            showSnackbar(err.message ?? 'Subscription failed', 'error');
+          }
+        }
+      } else {
+        // Show payment method selector for one-time payment
+        setSelectedSub(newSub);
+        setShowPaymentSelector(true);
+      }
+    } catch (err: any) {
+      showSnackbar(err.message ?? 'Failed to create subscription', 'error');
+    }
+  };
+
   const activeSubs = subscriptions?.filter((s) => s.status === 'active') ?? [];
+  const hasActiveSubs = activeSubs.length > 0;
 
   return (
     <View style={styles.container} testID="parent-billing">
@@ -123,7 +172,7 @@ export default function ParentBilling() {
       >
         <View style={styles.section}>
           <Text variant="titleMedium" style={styles.sectionTitle}>Membership</Text>
-          {activeSubs.length > 0 ? (
+          {hasActiveSubs ? (
             activeSubs.map((sub) => (
               <MembershipPayCard
                 key={sub.id}
@@ -140,6 +189,41 @@ export default function ParentBilling() {
             <Text variant="bodyMedium" style={styles.emptyText}>No active memberships</Text>
           )}
         </View>
+
+        {/* Available Plans — show when no active subscriptions */}
+        {!hasActiveSubs && plans && plans.length > 0 && (
+          <View style={styles.section}>
+            <Text variant="titleMedium" style={styles.sectionTitle}>Available Plans</Text>
+            {plans.map((plan) => (
+              <Card key={plan.id} style={styles.planCard} testID={`plan-card-${plan.id}`}>
+                <Card.Content>
+                  <Text variant="titleMedium" style={styles.planName}>{plan.name}</Text>
+                  {plan.description && (
+                    <Text variant="bodySmall" style={styles.planDescription}>{plan.description}</Text>
+                  )}
+                  <Text variant="headlineMedium" style={styles.planPrice}>
+                    ${(plan.price_cents / 100).toFixed(2)}/month
+                  </Text>
+                  {plan.lessons_per_month && (
+                    <Text variant="bodySmall" style={styles.planLessons}>
+                      {plan.lessons_per_month} lessons/month
+                    </Text>
+                  )}
+                  <Button
+                    mode="contained"
+                    onPress={() => handlePlanSubscribe(plan)}
+                    loading={createSelfSub.isPending && selectedPlan?.id === plan.id}
+                    disabled={createSelfSub.isPending}
+                    style={styles.subscribeButton}
+                    testID={`subscribe-plan-${plan.id}`}
+                  >
+                    Subscribe
+                  </Button>
+                </Card.Content>
+              </Card>
+            ))}
+          </View>
+        )}
 
         <View style={styles.section}>
           <Text variant="titleMedium" style={styles.sectionTitle}>Payment History</Text>
@@ -200,6 +284,45 @@ export default function ParentBilling() {
           </Dialog.Actions>
         </Dialog>
       </Portal>
+
+      {/* Student picker for plan subscription */}
+      <Portal>
+        <Dialog
+          visible={showPlanStudentPicker}
+          onDismiss={() => setShowPlanStudentPicker(false)}
+          testID="plan-student-picker"
+        >
+          <Dialog.Title>Select Student</Dialog.Title>
+          <Dialog.Content>
+            <RadioButton.Group
+              value={selectedPlanStudentId}
+              onValueChange={setSelectedPlanStudentId}
+            >
+              {students?.map((student) => (
+                <RadioButton.Item
+                  key={student.id}
+                  label={`${student.first_name} ${student.last_name}`}
+                  value={student.id}
+                  testID={`student-radio-${student.id}`}
+                />
+              ))}
+            </RadioButton.Group>
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button onPress={() => setShowPlanStudentPicker(false)}>Cancel</Button>
+            <Button
+              onPress={() => {
+                if (selectedPlan) {
+                  confirmPlanSubscription(selectedPlan, selectedPlanStudentId || undefined);
+                }
+              }}
+              testID="confirm-plan-subscribe"
+            >
+              Continue
+            </Button>
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
     </View>
   );
 }
@@ -226,5 +349,30 @@ const styles = StyleSheet.create({
   },
   input: {
     marginBottom: SPACING.sm,
+  },
+  planCard: {
+    backgroundColor: COLORS.surface,
+    marginBottom: SPACING.sm,
+  },
+  planName: {
+    color: COLORS.textPrimary,
+    fontWeight: '600',
+  },
+  planDescription: {
+    color: COLORS.textSecondary,
+    marginTop: SPACING.xs,
+  },
+  planPrice: {
+    color: COLORS.primary,
+    fontWeight: '700',
+    marginVertical: SPACING.sm,
+  },
+  planLessons: {
+    color: COLORS.textSecondary,
+    marginBottom: SPACING.sm,
+  },
+  subscribeButton: {
+    marginTop: SPACING.sm,
+    backgroundColor: COLORS.primary,
   },
 });

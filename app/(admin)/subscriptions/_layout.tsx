@@ -14,6 +14,7 @@ export default function SubscriptionsLayout() {
       <Stack.Screen name="[id]" options={{ title: 'Subscription Details' }} />
       <Stack.Screen name="payments" options={{ title: 'Payments' }} />
       <Stack.Screen name="packages" options={{ title: 'Student Packages' }} />
+      <Stack.Screen name="plans" options={{ title: 'Membership Plans' }} />
     </Stack>
   );
 }
