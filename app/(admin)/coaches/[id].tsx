@@ -18,7 +18,6 @@ import { StatusBadge } from '@/components/ui';
 import {
   useCoachDetail,
   useCoachDirectory,
-  useUpdateCoachDropInRate,
   useCreateCoachPackage,
   useUpdateCoachPackage,
   useDeleteCoachPackage,
@@ -71,11 +70,8 @@ export default function CoachDetailScreen() {
   });
 
   // Rate editing state
-  const [editingDropIn, setEditingDropIn] = useState(false);
   const [editingGroup, setEditingGroup] = useState(false);
-  const [dropInInput, setDropInInput] = useState('');
   const [groupInput, setGroupInput] = useState('');
-  const updateRate = useUpdateCoachDropInRate();
 
   // Package state
   const [packageModalVisible, setPackageModalVisible] = useState(false);
@@ -116,27 +112,6 @@ export default function CoachDetailScreen() {
   const initials = `${coach.first_name?.[0] ?? ''}${coach.last_name?.[0] ?? ''}`.toUpperCase();
 
   // Rate edit handlers
-  const handleStartEditDropIn = () => {
-    setDropInInput(coach.drop_in_rate_cents != null ? (coach.drop_in_rate_cents / 100).toString() : '');
-    setEditingDropIn(true);
-  };
-
-  const handleSaveDropIn = async () => {
-    const cents = Math.round(parseFloat(dropInInput) * 100);
-    if (isNaN(cents) || cents < 0) {
-      showSnackbar('Enter a valid rate', 'error');
-      return;
-    }
-    try {
-      await updateRate.mutateAsync({ coachId: id!, dropInRateCents: cents });
-      queryClient.invalidateQueries({ queryKey: coachPricingKeys.detail(id!) });
-      showSnackbar('Drop-in rate updated', 'success');
-      setEditingDropIn(false);
-    } catch (err: any) {
-      showSnackbar(err.message ?? 'Failed to update rate', 'error');
-    }
-  };
-
   const handleStartEditGroup = () => {
     setGroupInput(coach.group_rate_cents != null ? (coach.group_rate_cents / 100).toString() : '');
     setEditingGroup(true);
@@ -256,34 +231,7 @@ export default function CoachDetailScreen() {
         {/* Rates & Packages Card */}
         <Card style={styles.card}>
           <Card.Content>
-            <Text variant="titleMedium" style={styles.sectionTitle}>Rates & Packages</Text>
-
-            {/* Drop-in Rate */}
-            <View style={styles.rateRow}>
-              <Text variant="bodyMedium" style={styles.rateLabel}>Drop-in Rate</Text>
-              {editingDropIn ? (
-                <View style={styles.rateEditRow}>
-                  <RNTextInput
-                    style={styles.rateInput}
-                    value={dropInInput}
-                    onChangeText={setDropInInput}
-                    keyboardType="decimal-pad"
-                    placeholder="0.00"
-                    autoFocus
-                  />
-                  <Text style={styles.rateUnit}>/hr</Text>
-                  <IconButton icon="check" size={20} iconColor={COLORS.success} onPress={handleSaveDropIn} />
-                  <IconButton icon="close" size={20} iconColor={COLORS.error} onPress={() => setEditingDropIn(false)} />
-                </View>
-              ) : (
-                <View style={styles.rateValueRow}>
-                  <Text variant="bodyMedium" style={styles.rateValue}>
-                    {formatCents(coach.drop_in_rate_cents)}
-                  </Text>
-                  <IconButton icon="pencil" size={18} iconColor={COLORS.textSecondary} onPress={handleStartEditDropIn} />
-                </View>
-              )}
-            </View>
+            <Text variant="titleMedium" style={styles.sectionTitle}>Rate & Packages</Text>
 
             {/* Group Rate */}
             <View style={styles.rateRow}>

@@ -20,7 +20,7 @@ export function useCoachDetail(id: string) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('users')
-        .select('id, first_name, last_name, email, phone, avatar_url, is_active, drop_in_rate_cents, group_rate_cents, created_at')
+        .select('id, first_name, last_name, email, phone, avatar_url, is_active, group_rate_cents, created_at')
         .eq('id', id)
         .eq('role', 'coach')
         .single();
