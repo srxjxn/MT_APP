@@ -1,16 +1,15 @@
 // Supabase Edge Function: stripe-webhook
-// Handles Stripe webhook events as a server-side safety net.
-// Events: payment_intent.succeeded, payment_intent.payment_failed
-//
-// Setup:
-// 1. Set STRIPE_WEBHOOK_SECRET in Supabase secrets
-// 2. Configure webhook URL in Stripe Dashboard:
-//    https://<project>.supabase.co/functions/v1/stripe-webhook
-// 3. Select events: payment_intent.succeeded, payment_intent.payment_failed
+// Handles Stripe webhook events for one-time payments and recurring subscriptions.
+// Events:
+//   payment_intent.succeeded — create/update payment record
+//   payment_intent.payment_failed — mark payment failed
+//   invoice.paid — record recurring subscription payment
+//   invoice.payment_failed — record failed subscription payment
+//   customer.subscription.updated — sync subscription status/period
+//   customer.subscription.deleted — mark subscription cancelled
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { createHmac } from 'https://deno.land/std@0.168.0/crypto/mod.ts';
 
 const STRIPE_WEBHOOK_SECRET = Deno.env.get('STRIPE_WEBHOOK_SECRET');
 
@@ -87,18 +86,40 @@ serve(async (req) => {
     switch (event.type) {
       case 'payment_intent.succeeded': {
         const paymentIntent = event.data.object;
-        // Update payment record if it exists
-        const { error } = await supabase
-          .from('payments')
-          .update({
-            payment_status: 'completed',
-            paid_at: new Date().toISOString(),
-          })
-          .eq('stripe_payment_intent_id', paymentIntent.id)
-          .eq('payment_status', 'pending');
 
-        if (error) {
-          console.error('Failed to update payment:', error.message);
+        // Try to update existing payment record first
+        const { data: existing } = await supabase
+          .from('payments')
+          .select('id')
+          .eq('stripe_payment_intent_id', paymentIntent.id)
+          .maybeSingle();
+
+        if (existing) {
+          // Update existing record
+          await supabase
+            .from('payments')
+            .update({
+              payment_status: 'completed',
+              paid_at: new Date().toISOString(),
+            })
+            .eq('stripe_payment_intent_id', paymentIntent.id);
+        } else {
+          // Create payment record from PaymentIntent metadata
+          const meta = paymentIntent.metadata || {};
+          if (meta.user_id && meta.org_id) {
+            await supabase.from('payments').insert({
+              org_id: meta.org_id,
+              user_id: meta.user_id,
+              amount_cents: paymentIntent.amount,
+              payment_type: meta.payment_type || 'subscription',
+              payment_platform: 'stripe',
+              payment_status: 'completed',
+              stripe_payment_intent_id: paymentIntent.id,
+              subscription_id: meta.subscription_id || null,
+              description: paymentIntent.description || null,
+              paid_at: new Date().toISOString(),
+            });
+          }
         }
         break;
       }
@@ -108,12 +129,111 @@ serve(async (req) => {
         const { error } = await supabase
           .from('payments')
           .update({ payment_status: 'failed' })
-          .eq('stripe_payment_intent_id', paymentIntent.id)
-          .eq('payment_status', 'pending');
+          .eq('stripe_payment_intent_id', paymentIntent.id);
 
         if (error) {
           console.error('Failed to update payment:', error.message);
         }
+        break;
+      }
+
+      case 'invoice.paid': {
+        const invoice = event.data.object;
+        const stripeSubId = invoice.subscription;
+        if (!stripeSubId) break;
+
+        // Find local subscription
+        const { data: sub } = await supabase
+          .from('subscriptions')
+          .select('id, user_id, org_id')
+          .eq('stripe_subscription_id', stripeSubId)
+          .maybeSingle();
+
+        if (sub) {
+          // Record the recurring payment
+          await supabase.from('payments').insert({
+            org_id: sub.org_id,
+            user_id: sub.user_id,
+            amount_cents: invoice.amount_paid,
+            payment_type: 'subscription',
+            payment_platform: 'stripe',
+            payment_status: 'completed',
+            stripe_payment_intent_id: invoice.payment_intent || null,
+            stripe_invoice_id: invoice.id,
+            subscription_id: sub.id,
+            description: `Recurring payment – ${invoice.lines?.data?.[0]?.description || 'Subscription'}`,
+            paid_at: new Date(invoice.status_transitions?.paid_at * 1000 || Date.now()).toISOString(),
+          });
+        }
+        break;
+      }
+
+      case 'invoice.payment_failed': {
+        const invoice = event.data.object;
+        const stripeSubId = invoice.subscription;
+        if (!stripeSubId) break;
+
+        const { data: sub } = await supabase
+          .from('subscriptions')
+          .select('id, user_id, org_id')
+          .eq('stripe_subscription_id', stripeSubId)
+          .maybeSingle();
+
+        if (sub) {
+          await supabase.from('payments').insert({
+            org_id: sub.org_id,
+            user_id: sub.user_id,
+            amount_cents: invoice.amount_due,
+            payment_type: 'subscription',
+            payment_platform: 'stripe',
+            payment_status: 'failed',
+            stripe_payment_intent_id: invoice.payment_intent || null,
+            stripe_invoice_id: invoice.id,
+            subscription_id: sub.id,
+            description: `Failed recurring payment – ${invoice.lines?.data?.[0]?.description || 'Subscription'}`,
+          });
+        }
+        break;
+      }
+
+      case 'customer.subscription.updated': {
+        const stripeSub = event.data.object;
+
+        // Map Stripe status to local status
+        const statusMap: Record<string, string> = {
+          active: 'active',
+          past_due: 'active',
+          canceled: 'cancelled',
+          unpaid: 'paused',
+          incomplete: 'active',
+          incomplete_expired: 'expired',
+          trialing: 'active',
+          paused: 'paused',
+        };
+
+        const localStatus = statusMap[stripeSub.status] || 'active';
+
+        await supabase
+          .from('subscriptions')
+          .update({
+            status: localStatus,
+            current_period_start: new Date(stripeSub.current_period_start * 1000).toISOString(),
+            current_period_end: new Date(stripeSub.current_period_end * 1000).toISOString(),
+            cancel_at_period_end: stripeSub.cancel_at_period_end ?? false,
+          })
+          .eq('stripe_subscription_id', stripeSub.id);
+        break;
+      }
+
+      case 'customer.subscription.deleted': {
+        const stripeSub = event.data.object;
+        await supabase
+          .from('subscriptions')
+          .update({
+            status: 'cancelled',
+            cancel_at_period_end: false,
+          })
+          .eq('stripe_subscription_id', stripeSub.id);
         break;
       }
 

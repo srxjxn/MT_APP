@@ -1,16 +1,7 @@
 // Supabase Edge Function: create-payment-intent
 // Creates a Stripe PaymentIntent and returns the client secret.
-//
-// Prerequisites:
-// 1. Set STRIPE_SECRET_KEY in Supabase Edge Function secrets
-// 2. Install @stripe/stripe-react-native in the app
-// 3. Add StripeProvider to root layout with publishable key
-//
-// Usage from the app:
-//   const { data } = await supabase.functions.invoke('create-payment-intent', {
-//     body: { amount_cents: 22500, description: 'Monthly Membership' }
-//   });
-//   // data.clientSecret can be used with PaymentSheet
+// Passes metadata (user_id, org_id, payment_type, subscription_id) so the
+// stripe-webhook can create a payment record server-side on success.
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 
@@ -32,7 +23,7 @@ serve(async (req) => {
       );
     }
 
-    const { amount_cents, description, customer_id } = await req.json();
+    const { amount_cents, description, customer_id, user_id, org_id, payment_type, subscription_id } = await req.json();
 
     if (!amount_cents || amount_cents <= 0) {
       return new Response(
@@ -47,6 +38,12 @@ serve(async (req) => {
     params.append('currency', 'usd');
     if (description) params.append('description', description);
     if (customer_id) params.append('customer', customer_id);
+
+    // Attach metadata for server-side payment record creation
+    if (user_id) params.append('metadata[user_id]', user_id);
+    if (org_id) params.append('metadata[org_id]', org_id);
+    if (payment_type) params.append('metadata[payment_type]', payment_type);
+    if (subscription_id) params.append('metadata[subscription_id]', subscription_id);
 
     const stripeRes = await fetch('https://api.stripe.com/v1/payment_intents', {
       method: 'POST',

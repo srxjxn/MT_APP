@@ -207,15 +207,17 @@ export default function ParentHome() {
           onDismiss={() => setShowAddForm(false)}
           contentContainerStyle={styles.modal}
         >
-          <Text variant="titleLarge" style={styles.modalTitle}>Add Child</Text>
-          <StudentForm
-            initialValues={{ parent_id: userProfile?.id }}
-            showParentPicker={false}
-            onSubmit={handleAddChild}
-            loading={createStudent.isPending}
-            submitLabel="Add Child"
-            testID="add-child-form"
-          />
+          <ScrollView keyboardShouldPersistTaps="handled">
+            <Text variant="titleLarge" style={styles.modalTitle}>Add Child</Text>
+            <StudentForm
+              initialValues={{ parent_id: userProfile?.id }}
+              showParentPicker={false}
+              onSubmit={handleAddChild}
+              loading={createStudent.isPending}
+              submitLabel="Add Child"
+              testID="add-child-form"
+            />
+          </ScrollView>
         </Modal>
       </Portal>
 

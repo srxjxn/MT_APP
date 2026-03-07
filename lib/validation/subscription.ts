@@ -12,6 +12,7 @@ export const subscriptionSchema = z.object({
   starts_at: z.string().min(1, 'Start date is required'),
   ends_at: z.string().optional(),
   status: z.enum(SUBSCRIPTION_STATUSES),
+  stripe_price_id: z.string().optional(),
 });
 
 export type SubscriptionFormData = z.infer<typeof subscriptionSchema>;

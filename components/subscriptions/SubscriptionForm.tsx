@@ -39,6 +39,7 @@ export function SubscriptionForm({
   const [startsAt, setStartsAt] = useState(initialValues?.starts_at ?? '');
   const [endsAt, setEndsAt] = useState(initialValues?.ends_at ?? '');
   const [status, setStatus] = useState<string>(initialValues?.status ?? 'active');
+  const [stripePriceId, setStripePriceId] = useState(initialValues?.stripe_price_id ?? '');
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [userMenuVisible, setUserMenuVisible] = useState(false);
   const [studentMenuVisible, setStudentMenuVisible] = useState(false);
@@ -72,6 +73,7 @@ export function SubscriptionForm({
       starts_at: startsAt,
       ends_at: endsAt || undefined,
       status,
+      stripe_price_id: stripePriceId || undefined,
     });
 
     if (!result.success) {
@@ -121,6 +123,13 @@ export function SubscriptionForm({
         onChangeText={setLessonsPerMonth}
         keyboardType="numeric"
         testID="sub-lessons-input"
+      />
+
+      <FormField
+        label="Stripe Price ID (optional, e.g. price_...)"
+        value={stripePriceId}
+        onChangeText={setStripePriceId}
+        testID="sub-stripe-price-input"
       />
 
       {parentUsers && (

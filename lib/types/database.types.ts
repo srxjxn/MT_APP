@@ -746,6 +746,7 @@ export type Database = {
             | null
           payment_status: Database["public"]["Enums"]["payment_status"]
           payment_type: Database["public"]["Enums"]["payment_type"]
+          stripe_invoice_id: string | null
           stripe_payment_intent_id: string | null
           subscription_id: string | null
           updated_at: string
@@ -764,6 +765,7 @@ export type Database = {
             | null
           payment_status?: Database["public"]["Enums"]["payment_status"]
           payment_type: Database["public"]["Enums"]["payment_type"]
+          stripe_invoice_id?: string | null
           stripe_payment_intent_id?: string | null
           subscription_id?: string | null
           updated_at?: string
@@ -782,6 +784,7 @@ export type Database = {
             | null
           payment_status?: Database["public"]["Enums"]["payment_status"]
           payment_type?: Database["public"]["Enums"]["payment_type"]
+          stripe_invoice_id?: string | null
           stripe_payment_intent_id?: string | null
           subscription_id?: string | null
           updated_at?: string
@@ -1008,7 +1011,10 @@ export type Database = {
       }
       subscriptions: {
         Row: {
+          cancel_at_period_end: boolean | null
           created_at: string
+          current_period_end: string | null
+          current_period_start: string | null
           description: string | null
           ends_at: string | null
           id: string
@@ -1018,12 +1024,17 @@ export type Database = {
           price_cents: number
           starts_at: string
           status: Database["public"]["Enums"]["subscription_status"]
+          stripe_price_id: string | null
+          stripe_subscription_id: string | null
           student_id: string | null
           updated_at: string
           user_id: string
         }
         Insert: {
+          cancel_at_period_end?: boolean | null
           created_at?: string
+          current_period_end?: string | null
+          current_period_start?: string | null
           description?: string | null
           ends_at?: string | null
           id?: string
@@ -1033,12 +1044,17 @@ export type Database = {
           price_cents?: number
           starts_at: string
           status?: Database["public"]["Enums"]["subscription_status"]
+          stripe_price_id?: string | null
+          stripe_subscription_id?: string | null
           student_id?: string | null
           updated_at?: string
           user_id: string
         }
         Update: {
+          cancel_at_period_end?: boolean | null
           created_at?: string
+          current_period_end?: string | null
+          current_period_start?: string | null
           description?: string | null
           ends_at?: string | null
           id?: string
@@ -1048,6 +1064,8 @@ export type Database = {
           price_cents?: number
           starts_at?: string
           status?: Database["public"]["Enums"]["subscription_status"]
+          stripe_price_id?: string | null
+          stripe_subscription_id?: string | null
           student_id?: string | null
           updated_at?: string
           user_id?: string

@@ -5,6 +5,7 @@ import { useUserSubscriptions } from '@/lib/hooks/useSubscriptions';
 import { useUserPayments } from '@/lib/hooks/usePayments';
 import { useParentAllStudentPackages, StudentPackageWithDetails } from '@/lib/hooks/useStudentPackages';
 import { useRecordExternalPayment, useStripePayment } from '@/lib/hooks/useStripePayments';
+import { useStripeSubscription, useCancelStripeSubscription } from '@/lib/hooks/useStripeSubscription';
 import { MembershipPayCard } from '@/components/billing/MembershipPayCard';
 import { PaymentCard } from '@/components/payments/PaymentCard';
 import { PaymentMethodSelector } from '@/components/payments/PaymentMethodSelector';
@@ -51,6 +52,8 @@ export default function ParentBilling() {
   const { data: packages, isLoading: packagesLoading, refetch: refetchPackages, isRefetching: packagesRefetching } = useParentAllStudentPackages();
   const recordExternal = useRecordExternalPayment();
   const stripePayment = useStripePayment();
+  const stripeSubscription = useStripeSubscription();
+  const cancelSubscription = useCancelStripeSubscription();
   const showSnackbar = useUIStore((s) => s.showSnackbar);
 
   const [tab, setTab] = useState<BillingTab>('membership');
@@ -117,6 +120,34 @@ export default function ParentBilling() {
     }
   };
 
+  const handleSubscribe = async (sub: Subscription) => {
+    const stripePriceId = (sub as any).stripe_price_id;
+    if (!stripePriceId) return;
+    try {
+      await stripeSubscription.mutateAsync({
+        subscription_id: sub.id,
+        stripe_price_id: stripePriceId,
+      });
+      showSnackbar('Subscription activated!', 'success');
+    } catch (err: any) {
+      if (err.message !== 'Payment cancelled') {
+        showSnackbar(err.message ?? 'Subscription failed', 'error');
+      }
+    }
+  };
+
+  const handleCancelSubscription = async (sub: Subscription) => {
+    if (!sub.stripe_subscription_id) return;
+    try {
+      await cancelSubscription.mutateAsync({
+        stripe_subscription_id: sub.stripe_subscription_id,
+      });
+      showSnackbar('Subscription will cancel at end of billing period', 'success');
+    } catch (err: any) {
+      showSnackbar(err.message ?? 'Failed to cancel subscription', 'error');
+    }
+  };
+
   const activeSubs = subscriptions?.filter((s) => s.status === 'active') ?? [];
 
   return (
@@ -145,6 +176,10 @@ export default function ParentBilling() {
                   key={sub.id}
                   subscription={sub}
                   onPayNow={() => handlePayNow(sub)}
+                  onSubscribe={() => handleSubscribe(sub)}
+                  onCancelSubscription={() => handleCancelSubscription(sub)}
+                  loading={stripeSubscription.isPending}
+                  cancelLoading={cancelSubscription.isPending}
                   testID={`membership-card-${sub.id}`}
                 />
               ))

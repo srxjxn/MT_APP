@@ -4,6 +4,7 @@ import { supabase } from '../supabase';
 import { useAuthStore } from '../stores/authStore';
 import { paymentKeys } from './usePayments';
 import { PaymentType, PaymentPlatform } from '../types';
+import { ensureStripeCustomer } from '../stripe/ensureCustomer';
 
 /**
  * Records an external payment (cash, check, etc.) in the database.
@@ -54,41 +55,11 @@ export function useRecordExternalPayment() {
 }
 
 /**
- * Ensures the current user has a Stripe Customer ID.
- * Creates one via edge function if not already set.
- * Returns the customer_id.
- */
-async function ensureStripeCustomer(userProfile: {
-  id: string;
-  email: string;
-  first_name: string;
-  last_name: string;
-  stripe_customer_id: string | null;
-}): Promise<string> {
-  if (userProfile.stripe_customer_id) {
-    return userProfile.stripe_customer_id;
-  }
-
-  const { data, error } = await supabase.functions.invoke('create-stripe-customer', {
-    body: {
-      email: userProfile.email,
-      name: `${userProfile.first_name} ${userProfile.last_name}`,
-      user_id: userProfile.id,
-    },
-  });
-
-  if (error) throw new Error('Failed to create Stripe customer: ' + error.message);
-  if (!data?.customer_id) throw new Error('No customer_id returned from Stripe');
-
-  return data.customer_id;
-}
-
-/**
  * Processes a Stripe payment using the PaymentSheet flow.
  * 1. Ensures Stripe Customer exists (lazy creation)
- * 2. Creates a PaymentIntent via edge function
+ * 2. Creates a PaymentIntent via edge function (with metadata for server-side recording)
  * 3. Presents the native Stripe PaymentSheet
- * 4. Records the completed payment in the database
+ * 4. Payment record is created server-side by the stripe-webhook
  */
 export function useStripePayment() {
   const { initPaymentSheet, presentPaymentSheet } = useStripe();
@@ -121,7 +92,7 @@ export function useStripePayment() {
         });
       }
 
-      // 2. Create PaymentIntent via edge function
+      // 2. Create PaymentIntent via edge function (with metadata)
       const { data: intentData, error: intentError } = await supabase.functions.invoke(
         'create-payment-intent',
         {
@@ -129,6 +100,10 @@ export function useStripePayment() {
             amount_cents,
             description: description ?? undefined,
             customer_id: customerId,
+            user_id: userProfile.id,
+            org_id: orgId,
+            payment_type,
+            subscription_id: subscription_id ?? undefined,
           },
         }
       );
@@ -136,7 +111,7 @@ export function useStripePayment() {
       if (intentError) throw new Error('Failed to create payment: ' + intentError.message);
       if (!intentData?.clientSecret) throw new Error('No client secret returned');
 
-      const { clientSecret, paymentIntentId } = intentData;
+      const { clientSecret } = intentData;
 
       // 3. Initialize PaymentSheet
       const { error: initError } = await initPaymentSheet({
@@ -158,26 +133,8 @@ export function useStripePayment() {
         throw new Error(presentError.message);
       }
 
-      // 5. Record completed payment in database
-      const { data: payment, error: dbError } = await supabase
-        .from('payments')
-        .insert({
-          org_id: orgId!,
-          user_id: userProfile.id,
-          amount_cents,
-          payment_type,
-          payment_platform: 'stripe',
-          payment_status: 'completed',
-          subscription_id: subscription_id ?? null,
-          description: description ?? null,
-          stripe_payment_intent_id: paymentIntentId,
-          paid_at: new Date().toISOString(),
-        })
-        .select()
-        .single();
-
-      if (dbError) throw dbError;
-      return payment;
+      // Payment record is created server-side by the stripe-webhook
+      // on payment_intent.succeeded event
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: paymentKeys.all });
