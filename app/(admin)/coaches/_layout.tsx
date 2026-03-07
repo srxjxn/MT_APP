@@ -10,6 +10,7 @@ export default function CoachesLayout() {
       }}
     >
       <Stack.Screen name="index" options={{ title: 'Coaches' }} />
+      <Stack.Screen name="[id]" options={{ title: 'Coach Details' }} />
     </Stack>
   );
 }

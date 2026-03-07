@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { ScrollView, View, StyleSheet } from 'react-native';
 import { Card, Text, Button, FAB, Chip, ActivityIndicator } from 'react-native-paper';
+import { router } from 'expo-router';
 import { EmptyState, ConfirmDialog } from '@/components/ui';
 import { InviteCoachDialog } from '@/components/team/InviteCoachDialog';
 import { useCoaches, useInvites, useRevokeInvite, usePendingUsers, useConfirmUser } from '@/lib/hooks/useInvites';
@@ -56,7 +57,7 @@ export default function CoachesScreen() {
         <Text variant="titleMedium" style={styles.sectionTitle}>Coaches</Text>
         {coaches && coaches.length > 0 ? (
           coaches.map((coach) => (
-            <Card key={coach.id} style={styles.card}>
+            <Card key={coach.id} style={styles.card} onPress={() => router.push(`/(admin)/coaches/${coach.id}`)}>
               <Card.Content style={styles.cardContent}>
                 <View style={styles.cardInfo}>
                   <Text variant="bodyLarge" style={styles.name}>

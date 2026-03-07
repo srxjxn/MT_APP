@@ -6,12 +6,30 @@ import { UserProfile, CoachPackage, CoachPackageInsert, CoachPackageUpdate } fro
 export const coachPricingKeys = {
   all: ['coach_pricing'] as const,
   directory: (orgId: string) => [...coachPricingKeys.all, 'directory', orgId] as const,
+  detail: (id: string) => [...coachPricingKeys.all, 'detail', id] as const,
 };
 
 export type CoachWithPricing = Pick<UserProfile, 'id' | 'first_name' | 'last_name' | 'email'> & {
   drop_in_rate_cents: number | null;
   packages: CoachPackage[];
 };
+
+export function useCoachDetail(id: string) {
+  return useQuery({
+    queryKey: coachPricingKeys.detail(id),
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('users')
+        .select('id, first_name, last_name, email, phone, avatar_url, is_active, drop_in_rate_cents, group_rate_cents, created_at')
+        .eq('id', id)
+        .eq('role', 'coach')
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!id,
+  });
+}
 
 export function useCoachDirectory() {
   const orgId = useAuthStore((s) => s.userProfile?.org_id);

@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ScrollView, View, StyleSheet } from 'react-native';
 import { Button, Menu, Text, Banner } from 'react-native-paper';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useDashboardCoaches, DashboardCoach } from '@/lib/hooks/useDashboard';
 import { useCoachWorkLog, useGeneratePayroll } from '@/lib/hooks/useCoachPayroll';
 import { useUncompletedPastLessonsCount, useBulkCompletePastLessons } from '@/lib/hooks/useLessonInstances';
@@ -39,6 +39,7 @@ function toDateStr(d: Date): string {
 }
 
 export default function GeneratePayrollScreen() {
+  const { coachId: preselectedCoachId } = useLocalSearchParams<{ coachId?: string }>();
   const { data: coaches } = useDashboardCoaches();
   const orgId = useAuthStore((s) => s.userProfile?.org_id);
   const showSnackbar = useUIStore((s) => s.showSnackbar);
@@ -48,6 +49,13 @@ export default function GeneratePayrollScreen() {
 
   const [selectedCoach, setSelectedCoach] = useState<DashboardCoach | null>(null);
   const [coachMenuVisible, setCoachMenuVisible] = useState(false);
+
+  useEffect(() => {
+    if (preselectedCoachId && coaches && !selectedCoach) {
+      const match = coaches.find((c) => c.id === preselectedCoachId);
+      if (match) setSelectedCoach(match);
+    }
+  }, [preselectedCoachId, coaches, selectedCoach]);
   const defaultPeriod = getDefaultPeriod();
   const [periodStart, setPeriodStart] = useState(defaultPeriod.start);
   const [periodEnd, setPeriodEnd] = useState(defaultPeriod.end);
