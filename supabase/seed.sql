@@ -136,6 +136,11 @@ BEGIN
   -- Set org owner (owner_id references users.id)
   UPDATE organizations SET owner_id = v_owner_uid WHERE id = v_org_id;
 
+  -- Assign coaches to parents
+  UPDATE users SET assigned_coach_id = coach_sarah_uid WHERE id IN (parent_johnson_uid, parent_williams_uid);
+  UPDATE users SET assigned_coach_id = coach_mike_uid WHERE id IN (parent_garcia_uid, parent_chen_uid);
+  UPDATE users SET assigned_coach_id = coach_lisa_uid WHERE id = parent_patel_uid;
+
   -- ============================================================
   -- Students (2 per parent, parent_id references users.id)
   -- ============================================================

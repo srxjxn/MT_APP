@@ -1096,6 +1096,7 @@ export type Database = {
       }
       users: {
         Row: {
+          assigned_coach_id: string | null
           auth_id: string
           avatar_url: string | null
           created_at: string
@@ -1114,6 +1115,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          assigned_coach_id?: string | null
           auth_id: string
           avatar_url?: string | null
           created_at?: string
@@ -1132,6 +1134,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          assigned_coach_id?: string | null
           auth_id?: string
           avatar_url?: string | null
           created_at?: string
@@ -1155,6 +1158,13 @@ export type Database = {
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "users_assigned_coach_id_fkey"
+            columns: ["assigned_coach_id"]
+            isOneToOne: false
+            referencedRelation: "users"
             referencedColumns: ["id"]
           },
         ]

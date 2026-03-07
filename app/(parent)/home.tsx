@@ -1,18 +1,23 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { View, StyleSheet, RefreshControl, ScrollView } from 'react-native';
-import { Card, Text, Button, Portal, Modal } from 'react-native-paper';
+import { Card, Text, Button, Portal, Modal, Dialog, RadioButton } from 'react-native-paper';
 import { useAuthStore } from '@/lib/stores/authStore';
 import { useParentStudents, useCreateStudent } from '@/lib/hooks/useStudents';
 import { useParentUpcomingLessons } from '@/lib/hooks/useLessonInstances';
 import { useParentMonthlyGroupAttendance } from '@/lib/hooks/useParentAttendance';
 import { useStudentNotes } from '@/lib/hooks/useStudentNotes';
+import { useAssignedCoachWithPackages } from '@/lib/hooks/useAssignedCoach';
+import { useParentAllStudentPackages, useCreateStudentPackage } from '@/lib/hooks/useStudentPackages';
+import { useStripePayment, useRecordExternalPayment } from '@/lib/hooks/useStripePayments';
 import { useUIStore } from '@/lib/stores/uiStore';
 import { StudentForm } from '@/components/students/StudentForm';
 import { NoteCard } from '@/components/students/NoteCard';
 import { MonthlyAttendanceCard } from '@/components/billing/MonthlyAttendanceCard';
+import { CoachPricingCard } from '@/components/private-lessons/CoachPricingCard';
+import { PaymentMethodSelector } from '@/components/payments/PaymentMethodSelector';
 import { LoadingScreen, EmptyState, StatusBadge } from '@/components/ui';
 import { COLORS, SPACING } from '@/constants/theme';
-import { Student } from '@/lib/types';
+import { Student, CoachPackage } from '@/lib/types';
 import { StudentFormData } from '@/lib/validation/student';
 import { LessonInstanceWithJoins } from '@/lib/hooks/useLessonInstances';
 
@@ -57,10 +62,22 @@ export default function ParentHome() {
   const { data: students, isLoading, refetch, isRefetching } = useParentStudents();
   const { data: upcomingData } = useParentUpcomingLessons();
   const { data: attendance } = useParentMonthlyGroupAttendance();
+  const { data: assignedCoach } = useAssignedCoachWithPackages();
+  const { data: ownedPackages } = useParentAllStudentPackages();
   const createStudent = useCreateStudent();
+  const createStudentPackage = useCreateStudentPackage();
+  const stripePayment = useStripePayment();
+  const recordExternal = useRecordExternalPayment();
   const showSnackbar = useUIStore((s) => s.showSnackbar);
   const [showAddForm, setShowAddForm] = useState(false);
   const [notesStudent, setNotesStudent] = useState<{ id: string; name: string } | null>(null);
+
+  // Package purchase state
+  const [buyingPackage, setBuyingPackage] = useState<CoachPackage | null>(null);
+  const [buyingCoachName, setBuyingCoachName] = useState('');
+  const [showStudentPicker, setShowStudentPicker] = useState(false);
+  const [selectedBuyStudentId, setSelectedBuyStudentId] = useState<string>('');
+  const [showBuyPaymentSelector, setShowBuyPaymentSelector] = useState(false);
 
   const handleAddChild = async (data: StudentFormData) => {
     try {
@@ -72,6 +89,74 @@ export default function ParentHome() {
     }
   };
 
+  // Package purchase handlers
+  const handleBuyPackage = useCallback((pkg: CoachPackage, coachName: string) => {
+    setBuyingPackage(pkg);
+    setBuyingCoachName(coachName);
+    setSelectedBuyStudentId('');
+    setShowStudentPicker(true);
+  }, []);
+
+  const handleConfirmStudentForPackage = useCallback(() => {
+    if (!selectedBuyStudentId) return;
+    setShowStudentPicker(false);
+    setShowBuyPaymentSelector(true);
+  }, [selectedBuyStudentId]);
+
+  const createPackageRecord = async () => {
+    if (!buyingPackage || !selectedBuyStudentId) return;
+    await createStudentPackage.mutateAsync({
+      student_id: selectedBuyStudentId,
+      coach_package_id: buyingPackage.id,
+      hours_purchased: buyingPackage.num_hours,
+      hours_used: 0,
+      status: 'active',
+      purchased_at: new Date().toISOString(),
+    });
+  };
+
+  const handleBuyStripePayment = async () => {
+    setShowBuyPaymentSelector(false);
+    if (!buyingPackage) return;
+    try {
+      await stripePayment.mutateAsync({
+        amount_cents: buyingPackage.price_cents,
+        payment_type: 'lesson',
+        description: `Package: ${buyingPackage.name} (${buyingPackage.num_hours}hrs) from ${buyingCoachName}`,
+      });
+      await createPackageRecord();
+      showSnackbar('Package purchased!', 'success');
+      setBuyingPackage(null);
+    } catch (err: any) {
+      if (err.message !== 'Payment cancelled') {
+        showSnackbar(err.message ?? 'Payment failed', 'error');
+      }
+    }
+  };
+
+  const handleBuyExternalPayment = async () => {
+    setShowBuyPaymentSelector(false);
+    if (!buyingPackage) return;
+    try {
+      await recordExternal.mutateAsync({
+        amount_cents: buyingPackage.price_cents,
+        payment_type: 'lesson',
+        payment_platform: 'cash',
+        description: `Package: ${buyingPackage.name} (${buyingPackage.num_hours}hrs) from ${buyingCoachName}`,
+      });
+      await createPackageRecord();
+      showSnackbar('Package purchased!', 'success');
+      setBuyingPackage(null);
+    } catch (err: any) {
+      showSnackbar(err.message ?? 'Failed to record payment', 'error');
+    }
+  };
+
+  // Owned packages from assigned coach
+  const coachPackages = assignedCoach
+    ? (ownedPackages ?? []).filter((p) => p.coach_package.coach_id === assignedCoach.id && p.status === 'active')
+    : [];
+
   if (isLoading) {
     return <LoadingScreen message="Loading..." testID="parent-home-loading" />;
   }
@@ -81,6 +166,7 @@ export default function ParentHome() {
   if (upcomingData) {
     for (const group of upcomingData) {
       for (const instance of group.instances) {
+        if (instance.lesson_type !== 'group') continue;
         upcomingLessons.push({ studentName: group.studentName, instance });
       }
     }
@@ -170,6 +256,30 @@ export default function ParentHome() {
           </View>
         )}
 
+        {assignedCoach && (
+          <View style={styles.coachSection}>
+            <Text variant="titleMedium" style={styles.sectionTitle}>
+              Your Coach
+            </Text>
+            <CoachPricingCard
+              coach={assignedCoach}
+              onBuyPackage={(pkg) => handleBuyPackage(pkg, `${assignedCoach.first_name} ${assignedCoach.last_name}`)}
+            />
+            {coachPackages.length > 0 && (
+              <View style={styles.ownedPackages}>
+                <Text variant="bodySmall" style={styles.ownedLabel}>
+                  Your active packages with {assignedCoach.first_name}:
+                </Text>
+                {coachPackages.map((p) => (
+                  <Text key={p.id} variant="bodySmall" style={styles.ownedItem}>
+                    {p.coach_package.name} — {p.hours_purchased - p.hours_used}h remaining
+                  </Text>
+                ))}
+              </View>
+            )}
+          </View>
+        )}
+
         <View style={styles.childrenSection}>
           <Text variant="titleMedium" style={styles.sectionTitle}>
             My Children
@@ -229,6 +339,54 @@ export default function ParentHome() {
           onDismiss={() => setNotesStudent(null)}
         />
       )}
+
+      {/* Student picker for package purchase */}
+      <Portal>
+        <Dialog visible={showStudentPicker} onDismiss={() => setShowStudentPicker(false)}>
+          <Dialog.Title>Select Child</Dialog.Title>
+          <Dialog.Content>
+            {buyingPackage && (
+              <Text variant="bodyMedium" style={styles.confirmText}>
+                Buy {buyingPackage.name} ({buyingPackage.num_hours}hrs) from {buyingCoachName} for ${(buyingPackage.price_cents / 100).toFixed(0)}?
+              </Text>
+            )}
+            <Text variant="bodySmall" style={styles.selectLabel}>Which child is this package for?</Text>
+            <RadioButton.Group onValueChange={setSelectedBuyStudentId} value={selectedBuyStudentId}>
+              {(students ?? []).map((s) => (
+                <RadioButton.Item
+                  key={s.id}
+                  label={`${s.first_name} ${s.last_name}`}
+                  value={s.id}
+                  color={COLORS.primary}
+                  labelStyle={styles.radioLabel}
+                />
+              ))}
+            </RadioButton.Group>
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button onPress={() => setShowStudentPicker(false)}>Cancel</Button>
+            <Button
+              mode="contained"
+              onPress={handleConfirmStudentForPackage}
+              disabled={!selectedBuyStudentId}
+              style={styles.continueButton}
+            >
+              Continue to Payment
+            </Button>
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
+
+      {/* Package purchase payment selector */}
+      <PaymentMethodSelector
+        visible={showBuyPaymentSelector}
+        onDismiss={() => {
+          setShowBuyPaymentSelector(false);
+          setBuyingPackage(null);
+        }}
+        onSelectStripe={handleBuyStripePayment}
+        onSelectExternal={handleBuyExternalPayment}
+      />
     </View>
   );
 }
@@ -318,5 +476,35 @@ const styles = StyleSheet.create({
   },
   closeButton: {
     margin: SPACING.md,
+  },
+  coachSection: {
+    paddingHorizontal: SPACING.md,
+    paddingBottom: SPACING.sm,
+  },
+  ownedPackages: {
+    marginTop: SPACING.xs,
+  },
+  ownedLabel: {
+    color: COLORS.textSecondary,
+    marginBottom: SPACING.xs,
+  },
+  ownedItem: {
+    color: COLORS.textPrimary,
+    marginBottom: 2,
+  },
+  confirmText: {
+    color: COLORS.textPrimary,
+    marginBottom: SPACING.md,
+    fontWeight: '600',
+  },
+  selectLabel: {
+    color: COLORS.textSecondary,
+    marginBottom: SPACING.sm,
+  },
+  radioLabel: {
+    color: COLORS.textPrimary,
+  },
+  continueButton: {
+    backgroundColor: COLORS.primary,
   },
 });
