@@ -17,9 +17,11 @@ export function useAuth() {
     isLoading,
     isAuthenticated,
     userRole,
+    needsRoleSelection,
     setSession,
     setUserProfile,
     setIsLoading,
+    setNeedsRoleSelection,
     reset,
   } = useAuthStore();
 
@@ -69,6 +71,64 @@ export function useAuth() {
       .eq('id', inviteId);
   };
 
+  const extractFirstName = (user: { user_metadata?: Record<string, any> }): string => {
+    const meta = user.user_metadata ?? {};
+    if (meta.first_name) return meta.first_name;
+    if (meta.given_name) return meta.given_name;
+    const fullName = meta.full_name || meta.name || '';
+    if (fullName) return fullName.split(' ')[0];
+    return '';
+  };
+
+  const extractLastName = (user: { user_metadata?: Record<string, any> }): string => {
+    const meta = user.user_metadata ?? {};
+    if (meta.last_name) return meta.last_name;
+    if (meta.family_name) return meta.family_name;
+    const fullName = meta.full_name || meta.name || '';
+    if (fullName) {
+      const parts = fullName.split(' ');
+      return parts.length > 1 ? parts.slice(1).join(' ') : '';
+    }
+    return '';
+  };
+
+  const createSocialProfile = useCallback(async (role: 'parent' | 'coach') => {
+    // Refresh session to ensure valid JWT for RLS
+    await supabase.auth.refreshSession();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('No authenticated user');
+
+    const isActive = role === 'coach' ? false : true;
+
+    // Insert without .select() to avoid SELECT policy issues
+    const { error: insertError } = await supabase
+      .from('users')
+      .insert({
+        auth_id: user.id,
+        org_id: DEFAULT_ORG_ID,
+        role,
+        first_name: extractFirstName(user),
+        last_name: extractLastName(user),
+        email: user.email!,
+        phone: null,
+        is_active: isActive,
+      });
+
+    if (insertError) throw insertError;
+
+    // Fetch the profile separately
+    const { data: newProfile, error: fetchError } = await supabase
+      .from('users')
+      .select('*')
+      .eq('auth_id', user.id)
+      .single();
+
+    if (fetchError) throw fetchError;
+
+    setNeedsRoleSelection(false);
+    setUserProfile(newProfile);
+  }, []);
+
   const fetchUserProfile = async (userId: string) => {
     try {
       const { data, error } = await supabase
@@ -80,35 +140,67 @@ export function useAuth() {
       if (error && error.code === 'PGRST116') {
         // No profile row — auto-create from auth user metadata
         const { data: { user } } = await supabase.auth.getUser();
-        if (user?.user_metadata?.first_name) {
-          // Check for pending invite
-          const invite = await checkPendingInvite(user.email!);
-          const selfRole = (user.user_metadata.role as 'parent' | 'coach') ?? 'parent';
-          const role = invite ? invite.role : selfRole;
-          const orgId = invite ? invite.org_id : DEFAULT_ORG_ID;
-          const isActive = role === 'coach' && !invite ? false : true;
+        if (!user) {
+          setUserProfile(null);
+          return;
+        }
 
-          const { data: newProfile, error: insertError } = await supabase
+        // Check for pending invite first
+        const invite = await checkPendingInvite(user.email!);
+
+        if (invite) {
+          // Invite exists — auto-create with invite role
+          const { error: insertError } = await supabase
             .from('users')
             .insert({
               auth_id: userId,
-              org_id: orgId,
-              role,
-              first_name: user.user_metadata.first_name,
-              last_name: user.user_metadata.last_name,
+              org_id: invite.org_id,
+              role: invite.role,
+              first_name: extractFirstName(user),
+              last_name: extractLastName(user),
               email: user.email!,
-              phone: user.user_metadata.phone ?? null,
-              is_active: isActive,
-            })
-            .select()
-            .single();
+              phone: user.user_metadata?.phone ?? null,
+              is_active: true,
+            });
           if (!insertError) {
-            if (invite) await acceptInvite(invite.id);
+            await acceptInvite(invite.id);
+            const { data: newProfile } = await supabase
+              .from('users').select('*').eq('auth_id', userId).single();
             setUserProfile(newProfile);
             return;
           }
           console.error('Error auto-creating user profile:', insertError);
+        } else if (user.user_metadata?.role) {
+          // Email registration — role set in metadata
+          const selfRole = user.user_metadata.role as 'parent' | 'coach';
+          const isActive = selfRole === 'coach' ? false : true;
+
+          const { error: insertError } = await supabase
+            .from('users')
+            .insert({
+              auth_id: userId,
+              org_id: DEFAULT_ORG_ID,
+              role: selfRole,
+              first_name: extractFirstName(user),
+              last_name: extractLastName(user),
+              email: user.email!,
+              phone: user.user_metadata?.phone ?? null,
+              is_active: isActive,
+            });
+          if (!insertError) {
+            const { data: newProfile } = await supabase
+              .from('users').select('*').eq('auth_id', userId).single();
+            setUserProfile(newProfile);
+            return;
+          }
+          console.error('Error auto-creating user profile:', insertError);
+        } else {
+          // Social sign-in, no invite, no role metadata — need role selection
+          setNeedsRoleSelection(true);
+          setUserProfile(null);
+          return;
         }
+
         setUserProfile(null);
         return;
       }
@@ -288,11 +380,13 @@ export function useAuth() {
     isLoading,
     isAuthenticated,
     userRole,
+    needsRoleSelection,
     signInWithEmail,
     signUpWithEmail,
     signInWithApple,
     signInWithGoogle,
     signOut,
     deleteAccount,
+    createSocialProfile,
   };
 }

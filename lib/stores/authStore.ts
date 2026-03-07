@@ -9,10 +9,12 @@ interface AuthStore {
   isLoading: boolean;
   isAuthenticated: boolean;
   userRole: UserRole | null;
+  needsRoleSelection: boolean;
   setSession: (session: Session | null) => void;
   setUser: (user: User | null) => void;
   setUserProfile: (profile: UserProfile | null) => void;
   setIsLoading: (loading: boolean) => void;
+  setNeedsRoleSelection: (v: boolean) => void;
   reset: () => void;
 }
 
@@ -22,6 +24,7 @@ export const useAuthStore = create<AuthStore>((set) => ({
   userProfile: null,
   isLoading: true,
   isAuthenticated: false,
+  needsRoleSelection: false,
   userRole: null,
   setSession: (session) =>
     set({
@@ -36,6 +39,7 @@ export const useAuthStore = create<AuthStore>((set) => ({
       userRole: profile?.role ?? null,
     }),
   setIsLoading: (isLoading) => set({ isLoading }),
+  setNeedsRoleSelection: (needsRoleSelection) => set({ needsRoleSelection }),
   reset: () =>
     set({
       session: null,
@@ -44,5 +48,6 @@ export const useAuthStore = create<AuthStore>((set) => ({
       isLoading: false,
       isAuthenticated: false,
       userRole: null,
+      needsRoleSelection: false,
     }),
 }));

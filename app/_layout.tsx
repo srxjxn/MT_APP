@@ -14,7 +14,7 @@ import { useUIStore } from '@/lib/stores/uiStore';
 SplashScreen.preventAutoHideAsync();
 
 function RootLayoutNav() {
-  const { isLoading, isAuthenticated, userRole, userProfile } = useAuth();
+  const { isLoading, isAuthenticated, userRole, userProfile, needsRoleSelection } = useAuth();
   const segments = useSegments();
   const router = useRouter();
   const { snackbar, hideSnackbar } = useUIStore();
@@ -28,6 +28,10 @@ function RootLayoutNav() {
 
     if (!isAuthenticated && !inAuthGroup) {
       router.replace('/(auth)/login');
+    } else if (isAuthenticated && needsRoleSelection) {
+      if ((segments as string[])[1] !== 'role-select') {
+        router.replace('/(auth)/role-select');
+      }
     } else if (isAuthenticated && userProfile && !userProfile.is_active) {
       // Inactive user (e.g. coach pending approval) — gate to pending screen
       if ((segments as string[])[1] !== 'pending-approval') {
@@ -49,7 +53,7 @@ function RootLayoutNav() {
           break;
       }
     }
-  }, [isLoading, isAuthenticated, userRole, userProfile, segments]);
+  }, [isLoading, isAuthenticated, userRole, userProfile, needsRoleSelection, segments]);
 
   const snackbarColor = snackbar.type === 'error' ? COLORS.error
     : snackbar.type === 'success' ? COLORS.success
