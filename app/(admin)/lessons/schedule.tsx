@@ -11,14 +11,6 @@ import { LoadingScreen, EmptyState, DatePickerField } from '@/components/ui';
 import { useUIStore } from '@/lib/stores/uiStore';
 import { COLORS, SPACING } from '@/constants/theme';
 import { LAYOUT } from '@/constants/layout';
-import { LessonStatus } from '@/lib/types';
-
-const STATUS_BUTTONS = [
-  { value: 'all', label: 'All' },
-  { value: 'scheduled', label: 'Scheduled' },
-  { value: 'completed', label: 'Completed' },
-  { value: 'cancelled', label: 'Cancelled' },
-];
 
 const VIEW_MODE_BUTTONS = [
   { value: 'calendar', label: 'Calendar', icon: 'calendar' },
@@ -34,7 +26,6 @@ export default function ScheduleScreen() {
   const [filterDateFrom, setFilterDateFrom] = useState('');
   const [filterDateTo, setFilterDateTo] = useState('');
   const [filterCoachId, setFilterCoachId] = useState('');
-  const [filterStatus, setFilterStatus] = useState('all');
   const [filterLessonType, setFilterLessonType] = useState('all');
   const [coachMenuVisible, setCoachMenuVisible] = useState(false);
   const [viewMode, setViewMode] = useState<'calendar' | 'list'>('calendar');
@@ -45,7 +36,6 @@ export default function ScheduleScreen() {
     dateFrom: filterDateFrom || undefined,
     dateTo: filterDateTo || undefined,
     coachId: filterCoachId || undefined,
-    status: filterStatus !== 'all' ? (filterStatus as LessonStatus) : undefined,
     lessonType: filterLessonType !== 'all' ? filterLessonType : undefined,
   };
 
@@ -59,7 +49,7 @@ export default function ScheduleScreen() {
   const [dateTo, setDateTo] = useState('');
 
   const selectedCoach = coaches?.find((c) => c.id === filterCoachId);
-  const hasFilters = filterDateFrom || filterDateTo || filterCoachId || filterStatus !== 'all' || filterLessonType !== 'all';
+  const hasFilters = filterDateFrom || filterDateTo || filterCoachId || filterLessonType !== 'all';
 
   // Check for uncompleted past lessons
   const today = todayStr();
@@ -71,7 +61,6 @@ export default function ScheduleScreen() {
     setFilterDateFrom('');
     setFilterDateTo('');
     setFilterCoachId('');
-    setFilterStatus('all');
     setFilterLessonType('all');
   };
 
@@ -130,12 +119,7 @@ export default function ScheduleScreen() {
           buttons={VIEW_MODE_BUTTONS}
           style={styles.viewModeToggle}
         />
-        <SegmentedButtons
-          value={filterStatus}
-          onValueChange={setFilterStatus}
-          buttons={STATUS_BUTTONS}
-          style={styles.statusFilter}
-        />
+
         {viewMode === 'list' && (
           <>
             <View style={styles.filterRow}>
@@ -308,9 +292,7 @@ const styles = StyleSheet.create({
   viewModeToggle: {
     marginBottom: SPACING.sm,
   },
-  statusFilter: {
-    marginBottom: SPACING.sm,
-  },
+
   filterRow: {
     flexDirection: 'row',
     gap: SPACING.sm,

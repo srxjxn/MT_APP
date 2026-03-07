@@ -61,13 +61,18 @@ export function DayCalendarView({ instances, date, onDateChange, onInstancePress
   const scrollRef = useRef<ScrollView>(null);
   const isToday = date === todayStr();
 
-  useEffect(() => {
-    // Auto-scroll to 8 AM on mount
-    const offset = (8 - START_HOUR) * HOUR_HEIGHT;
-    scrollRef.current?.scrollTo({ y: offset, animated: false });
-  }, []);
-
   const dayInstances = instances.filter((inst) => inst.date === date);
+
+  useEffect(() => {
+    // Auto-scroll to earliest lesson minus 30 min padding, fallback to 8 AM
+    let scrollMinutes = 8 * 60; // default 8 AM
+    if (dayInstances.length > 0) {
+      const earliestMin = Math.min(...dayInstances.map((inst) => timeToMinutes(inst.start_time)));
+      scrollMinutes = Math.max(earliestMin - 30, START_HOUR * 60);
+    }
+    const offset = ((scrollMinutes - START_HOUR * 60) / 60) * HOUR_HEIGHT;
+    scrollRef.current?.scrollTo({ y: offset, animated: false });
+  }, [date, instances]);
 
   const totalHeight = (END_HOUR - START_HOUR) * HOUR_HEIGHT;
 
@@ -110,6 +115,9 @@ export function DayCalendarView({ instances, date, onDateChange, onInstancePress
           const height = ((endMin - startMin) / 60) * HOUR_HEIGHT;
           const lessonType = inst.lesson_type ?? 'group';
           const colors = LESSON_TYPE_COLORS[lessonType] ?? LESSON_TYPE_COLORS.group;
+          const isCancelled = inst.status === 'cancelled';
+          const isCompleted = inst.status === 'completed';
+          const statusOpacity = isCancelled ? 0.4 : isCompleted ? 0.5 : 1;
 
           return (
             <TouchableOpacity
@@ -121,12 +129,17 @@ export function DayCalendarView({ instances, date, onDateChange, onInstancePress
                   height: Math.max(height, 30),
                   backgroundColor: colors.bg,
                   borderLeftColor: colors.border,
+                  opacity: statusOpacity,
                 },
               ]}
               onPress={() => onInstancePress(inst)}
               activeOpacity={0.7}
             >
-              <Text variant="labelMedium" style={styles.lessonName} numberOfLines={1}>
+              <Text
+                variant="labelMedium"
+                style={[styles.lessonName, isCancelled && styles.strikethrough]}
+                numberOfLines={1}
+              >
                 {inst.name}
               </Text>
               <Text variant="bodySmall" style={styles.lessonTime}>
@@ -136,6 +149,12 @@ export function DayCalendarView({ instances, date, onDateChange, onInstancePress
                 <Text variant="bodySmall" style={styles.lessonCoach} numberOfLines={1}>
                   {inst.coach.first_name} {inst.coach.last_name}
                 </Text>
+              )}
+              {isCompleted && (
+                <Text variant="bodySmall" style={styles.statusLabel}>Done</Text>
+              )}
+              {isCancelled && (
+                <Text variant="bodySmall" style={styles.statusLabel}>Cancelled</Text>
               )}
             </TouchableOpacity>
           );
@@ -221,6 +240,15 @@ const styles = StyleSheet.create({
   lessonCoach: {
     color: COLORS.textSecondary,
     fontSize: 11,
+  },
+  strikethrough: {
+    textDecorationLine: 'line-through',
+  },
+  statusLabel: {
+    color: COLORS.textSecondary,
+    fontSize: 10,
+    fontWeight: '600',
+    fontStyle: 'italic',
   },
   currentTimeLine: {
     position: 'absolute',
