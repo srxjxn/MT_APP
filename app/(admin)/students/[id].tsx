@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
-import { Button, Text, Portal, Modal, ProgressBar, Card } from 'react-native-paper';
+import { Button, Text, Portal, Modal, ProgressBar, Card, Menu } from 'react-native-paper';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { StudentForm } from '@/components/students/StudentForm';
 import { NoteCard } from '@/components/students/NoteCard';
 import { NoteForm } from '@/components/students/NoteForm';
-import { useStudent, useUpdateStudent, useDeleteStudent, useParentUsers } from '@/lib/hooks/useStudents';
+import { useStudent, useUpdateStudent, useDeleteStudent, useParentUsers, useCoachUsers } from '@/lib/hooks/useStudents';
+import { useAssignCoach } from '@/lib/hooks/useAssignCoach';
 import { useStudentNotes, useCreateStudentNote, useDeleteStudentNote } from '@/lib/hooks/useStudentNotes';
 import { useStudentAttendanceStats } from '@/lib/hooks/useEnrollments';
 import { useStudentGroupClasses, useStudentPrivateCoach } from '@/lib/hooks/useStudentDetails';
@@ -21,6 +22,8 @@ export default function EditStudentScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { data: student, isLoading } = useStudent(id!);
   const { data: parentUsers } = useParentUsers();
+  const { data: coaches } = useCoachUsers();
+  const assignCoach = useAssignCoach();
   const { data: notes } = useStudentNotes(id!);
   const { data: attendanceStats } = useStudentAttendanceStats(id!);
   const { data: groupClasses } = useStudentGroupClasses(id!);
@@ -32,6 +35,7 @@ export default function EditStudentScreen() {
   const showSnackbar = useUIStore((s) => s.showSnackbar);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showNoteForm, setShowNoteForm] = useState(false);
+  const [coachMenuVisible, setCoachMenuVisible] = useState(false);
 
   if (isLoading || !student) {
     return <LoadingScreen message="Loading student..." />;
@@ -44,6 +48,18 @@ export default function EditStudentScreen() {
       router.back();
     } catch (err: any) {
       showSnackbar(err.message ?? 'Failed to update student', 'error');
+    }
+  };
+
+  const selectedCoach = coaches?.find((c) => c.id === student.assigned_coach_id);
+
+  const handleCoachSelect = async (coachId: string | null) => {
+    setCoachMenuVisible(false);
+    try {
+      await assignCoach.mutateAsync({ studentId: student.id, coachId });
+      showSnackbar('Coach assignment updated', 'success');
+    } catch (err: any) {
+      showSnackbar(err.message ?? 'Failed to update coach', 'error');
     }
   };
 
@@ -102,6 +118,40 @@ export default function EditStudentScreen() {
         submitLabel="Update Student"
         testID="edit-student-form"
       />
+
+      <View style={styles.coachSection}>
+        <Text variant="titleMedium" style={styles.sectionTitle}>Coach Assignment</Text>
+        <Menu
+          visible={coachMenuVisible}
+          onDismiss={() => setCoachMenuVisible(false)}
+          anchor={
+            <Button
+              mode="outlined"
+              onPress={() => setCoachMenuVisible(true)}
+              loading={assignCoach.isPending}
+              testID="coach-dropdown"
+            >
+              {selectedCoach
+                ? `${selectedCoach.first_name} ${selectedCoach.last_name}`
+                : 'No coach assigned'}
+            </Button>
+          }
+        >
+          <Menu.Item
+            onPress={() => handleCoachSelect(null)}
+            title="None"
+            testID="coach-option-none"
+          />
+          {coaches?.map((coach) => (
+            <Menu.Item
+              key={coach.id}
+              onPress={() => handleCoachSelect(coach.id)}
+              title={`${coach.first_name} ${coach.last_name}`}
+              testID={`coach-option-${coach.id}`}
+            />
+          ))}
+        </Menu>
+      </View>
 
       <View style={styles.deleteSection}>
         <Button
@@ -250,6 +300,10 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     paddingHorizontal: SPACING.md,
     paddingTop: SPACING.md,
+  },
+  coachSection: {
+    padding: SPACING.md,
+    paddingTop: 0,
   },
   deleteSection: {
     padding: SPACING.md,

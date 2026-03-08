@@ -107,7 +107,6 @@ export default function AdminDashboard() {
 
       <Text variant="titleMedium" style={styles.sectionTitle}>Manage</Text>
       <View style={styles.manageGrid}>
-        <ManageCard icon="account-supervisor" label="Parents" onPress={() => router.push('/(admin)/parents')} />
         <ManageCard icon="tennis" label="Courts" onPress={() => router.push('/(admin)/courts')} />
         <ManageCard icon="credit-card" label="Billing" onPress={() => router.push('/(admin)/subscriptions')} />
         <ManageCard icon="cash-register" label="Payroll" onPress={() => router.push('/(admin)/payroll')} />

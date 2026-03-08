@@ -34,126 +34,6 @@ export type Database = {
   }
   public: {
     Tables: {
-      coach_packages: {
-        Row: {
-          id: string
-          org_id: string
-          coach_id: string
-          name: string
-          num_hours: number
-          price_cents: number
-          is_active: boolean
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          org_id: string
-          coach_id: string
-          name: string
-          num_hours: number
-          price_cents: number
-          is_active?: boolean
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          org_id?: string
-          coach_id?: string
-          name?: string
-          num_hours?: number
-          price_cents?: number
-          is_active?: boolean
-          created_at?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "coach_packages_org_id_fkey"
-            columns: ["org_id"]
-            isOneToOne: false
-            referencedRelation: "organizations"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "coach_packages_coach_id_fkey"
-            columns: ["coach_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      coach_payouts: {
-        Row: {
-          id: string
-          org_id: string
-          coach_id: string
-          period_start: string
-          period_end: string
-          group_hours: number
-          private_hours: number
-          group_rate_cents: number
-          private_rate_cents: number
-          total_cents: number
-          status: Database["public"]["Enums"]["payout_status"]
-          notes: string | null
-          paid_at: string | null
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          org_id: string
-          coach_id: string
-          period_start: string
-          period_end: string
-          group_hours?: number
-          private_hours?: number
-          group_rate_cents?: number
-          private_rate_cents?: number
-          total_cents?: number
-          status?: Database["public"]["Enums"]["payout_status"]
-          notes?: string | null
-          paid_at?: string | null
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          org_id?: string
-          coach_id?: string
-          period_start?: string
-          period_end?: string
-          group_hours?: number
-          private_hours?: number
-          group_rate_cents?: number
-          private_rate_cents?: number
-          total_cents?: number
-          status?: Database["public"]["Enums"]["payout_status"]
-          notes?: string | null
-          paid_at?: string | null
-          created_at?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "coach_payouts_org_id_fkey"
-            columns: ["org_id"]
-            isOneToOne: false
-            referencedRelation: "organizations"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "coach_payouts_coach_id_fkey"
-            columns: ["coach_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       coach_availability: {
         Row: {
           coach_id: string
@@ -201,6 +81,126 @@ export type Database = {
           },
           {
             foreignKeyName: "coach_availability_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      coach_packages: {
+        Row: {
+          coach_id: string
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          num_hours: number
+          org_id: string
+          price_cents: number
+          updated_at: string
+        }
+        Insert: {
+          coach_id: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          num_hours: number
+          org_id: string
+          price_cents: number
+          updated_at?: string
+        }
+        Update: {
+          coach_id?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          num_hours?: number
+          org_id?: string
+          price_cents?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coach_packages_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "coach_packages_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      coach_payouts: {
+        Row: {
+          coach_id: string
+          created_at: string
+          group_hours: number
+          group_rate_cents: number
+          id: string
+          notes: string | null
+          org_id: string
+          paid_at: string | null
+          period_end: string
+          period_start: string
+          private_hours: number
+          private_rate_cents: number
+          status: Database["public"]["Enums"]["payout_status"]
+          total_cents: number
+          updated_at: string
+        }
+        Insert: {
+          coach_id: string
+          created_at?: string
+          group_hours?: number
+          group_rate_cents?: number
+          id?: string
+          notes?: string | null
+          org_id: string
+          paid_at?: string | null
+          period_end: string
+          period_start: string
+          private_hours?: number
+          private_rate_cents?: number
+          status?: Database["public"]["Enums"]["payout_status"]
+          total_cents?: number
+          updated_at?: string
+        }
+        Update: {
+          coach_id?: string
+          created_at?: string
+          group_hours?: number
+          group_rate_cents?: number
+          id?: string
+          notes?: string | null
+          org_id?: string
+          paid_at?: string | null
+          period_end?: string
+          period_start?: string
+          private_hours?: number
+          private_rate_cents?: number
+          status?: Database["public"]["Enums"]["payout_status"]
+          total_cents?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coach_payouts_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "coach_payouts_org_id_fkey"
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "organizations"
@@ -315,46 +315,39 @@ export type Database = {
       }
       invites: {
         Row: {
-          id: string
-          org_id: string
-          email: string
-          role: Database["public"]["Enums"]["user_role"]
-          invited_by: string
-          status: string
           accepted_at: string | null
           created_at: string
+          email: string
+          id: string
+          invited_by: string
+          org_id: string
+          role: Database["public"]["Enums"]["user_role"]
+          status: string
           updated_at: string
         }
         Insert: {
-          id?: string
-          org_id: string
-          email: string
-          role?: Database["public"]["Enums"]["user_role"]
-          invited_by: string
-          status?: string
           accepted_at?: string | null
           created_at?: string
+          email: string
+          id?: string
+          invited_by: string
+          org_id: string
+          role?: Database["public"]["Enums"]["user_role"]
+          status?: string
           updated_at?: string
         }
         Update: {
-          id?: string
-          org_id?: string
-          email?: string
-          role?: Database["public"]["Enums"]["user_role"]
-          invited_by?: string
-          status?: string
           accepted_at?: string | null
           created_at?: string
+          email?: string
+          id?: string
+          invited_by?: string
+          org_id?: string
+          role?: Database["public"]["Enums"]["user_role"]
+          status?: string
           updated_at?: string
         }
         Relationships: [
-          {
-            foreignKeyName: "invites_org_id_fkey"
-            columns: ["org_id"]
-            isOneToOne: false
-            referencedRelation: "organizations"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "invites_invited_by_fkey"
             columns: ["invited_by"]
@@ -362,48 +355,8 @@ export type Database = {
             referencedRelation: "users"
             referencedColumns: ["id"]
           },
-        ]
-      }
-      membership_plans: {
-        Row: {
-          id: string
-          org_id: string
-          name: string
-          description: string | null
-          price_cents: number
-          lessons_per_month: number | null
-          stripe_price_id: string | null
-          is_active: boolean
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          org_id: string
-          name: string
-          description?: string | null
-          price_cents?: number
-          lessons_per_month?: number | null
-          stripe_price_id?: string | null
-          is_active?: boolean
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          org_id?: string
-          name?: string
-          description?: string | null
-          price_cents?: number
-          lessons_per_month?: number | null
-          stripe_price_id?: string | null
-          is_active?: boolean
-          created_at?: string
-          updated_at?: string
-        }
-        Relationships: [
           {
-            foreignKeyName: "membership_plans_org_id_fkey"
+            foreignKeyName: "invites_org_id_fkey"
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "organizations"
@@ -505,51 +458,65 @@ export type Database = {
       }
       lesson_requests: {
         Row: {
-          id: string
-          org_id: string
-          student_id: string
+          admin_notes: string | null
           coach_id: string
-          requested_by: string
+          created_at: string
+          id: string
+          lesson_instance_id: string | null
+          org_id: string
+          payment_id: string | null
           preferred_date: string
           preferred_time: string
+          requested_by: string
           status: Database["public"]["Enums"]["lesson_request_status"]
-          admin_notes: string | null
-          lesson_instance_id: string | null
-          payment_id: string | null
-          created_at: string
+          student_id: string
           updated_at: string
         }
         Insert: {
-          id?: string
-          org_id: string
-          student_id: string
+          admin_notes?: string | null
           coach_id: string
-          requested_by: string
+          created_at?: string
+          id?: string
+          lesson_instance_id?: string | null
+          org_id: string
+          payment_id?: string | null
           preferred_date: string
           preferred_time: string
+          requested_by: string
           status?: Database["public"]["Enums"]["lesson_request_status"]
-          admin_notes?: string | null
-          lesson_instance_id?: string | null
-          payment_id?: string | null
-          created_at?: string
+          student_id: string
           updated_at?: string
         }
         Update: {
-          id?: string
-          org_id?: string
-          student_id?: string
+          admin_notes?: string | null
           coach_id?: string
-          requested_by?: string
+          created_at?: string
+          id?: string
+          lesson_instance_id?: string | null
+          org_id?: string
+          payment_id?: string | null
           preferred_date?: string
           preferred_time?: string
+          requested_by?: string
           status?: Database["public"]["Enums"]["lesson_request_status"]
-          admin_notes?: string | null
-          lesson_instance_id?: string | null
-          payment_id?: string | null
-          created_at?: string
+          student_id?: string
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "lesson_requests_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lesson_requests_lesson_instance_id_fkey"
+            columns: ["lesson_instance_id"]
+            isOneToOne: false
+            referencedRelation: "lesson_instances"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "lesson_requests_org_id_fkey"
             columns: ["org_id"]
@@ -558,17 +525,10 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "lesson_requests_student_id_fkey"
-            columns: ["student_id"]
+            foreignKeyName: "lesson_requests_payment_id_fkey"
+            columns: ["payment_id"]
             isOneToOne: false
-            referencedRelation: "students"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "lesson_requests_coach_id_fkey"
-            columns: ["coach_id"]
-            isOneToOne: false
-            referencedRelation: "users"
+            referencedRelation: "payments"
             referencedColumns: ["id"]
           },
           {
@@ -579,10 +539,10 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "lesson_requests_lesson_instance_id_fkey"
-            columns: ["lesson_instance_id"]
+            foreignKeyName: "lesson_requests_student_id_fkey"
+            columns: ["student_id"]
             isOneToOne: false
-            referencedRelation: "lesson_instances"
+            referencedRelation: "students"
             referencedColumns: ["id"]
           },
         ]
@@ -656,6 +616,53 @@ export type Database = {
           },
           {
             foreignKeyName: "lesson_templates_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      membership_plans: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          lessons_per_month: number | null
+          name: string
+          org_id: string
+          price_cents: number
+          stripe_price_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          lessons_per_month?: number | null
+          name: string
+          org_id: string
+          price_cents?: number
+          stripe_price_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          lessons_per_month?: number | null
+          name?: string
+          org_id?: string
+          price_cents?: number
+          stripe_price_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "membership_plans_org_id_fkey"
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "organizations"
@@ -926,8 +933,79 @@ export type Database = {
           },
         ]
       }
+      student_packages: {
+        Row: {
+          billed_at: string | null
+          coach_package_id: string
+          created_at: string
+          expires_at: string | null
+          hours_purchased: number
+          hours_used: number
+          id: string
+          needs_billing: boolean
+          org_id: string
+          purchased_at: string
+          status: Database["public"]["Enums"]["package_status"]
+          student_id: string
+          updated_at: string
+        }
+        Insert: {
+          billed_at?: string | null
+          coach_package_id: string
+          created_at?: string
+          expires_at?: string | null
+          hours_purchased: number
+          hours_used?: number
+          id?: string
+          needs_billing?: boolean
+          org_id: string
+          purchased_at?: string
+          status?: Database["public"]["Enums"]["package_status"]
+          student_id: string
+          updated_at?: string
+        }
+        Update: {
+          billed_at?: string | null
+          coach_package_id?: string
+          created_at?: string
+          expires_at?: string | null
+          hours_purchased?: number
+          hours_used?: number
+          id?: string
+          needs_billing?: boolean
+          org_id?: string
+          purchased_at?: string
+          status?: Database["public"]["Enums"]["package_status"]
+          student_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_packages_coach_package_id_fkey"
+            columns: ["coach_package_id"]
+            isOneToOne: false
+            referencedRelation: "coach_packages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_packages_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_packages_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       students: {
         Row: {
+          assigned_coach_id: string | null
           avatar_url: string | null
           created_at: string
           date_of_birth: string | null
@@ -942,6 +1020,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          assigned_coach_id?: string | null
           avatar_url?: string | null
           created_at?: string
           date_of_birth?: string | null
@@ -956,6 +1035,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          assigned_coach_id?: string | null
           avatar_url?: string | null
           created_at?: string
           date_of_birth?: string | null
@@ -971,6 +1051,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "students_assigned_coach_id_fkey"
+            columns: ["assigned_coach_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "students_org_id_fkey"
             columns: ["org_id"]
             isOneToOne: false
@@ -982,76 +1069,6 @@ export type Database = {
             columns: ["parent_id"]
             isOneToOne: false
             referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      student_packages: {
-        Row: {
-          id: string
-          org_id: string
-          student_id: string
-          coach_package_id: string
-          hours_purchased: number
-          hours_used: number
-          status: Database["public"]["Enums"]["package_status"]
-          needs_billing: boolean
-          billed_at: string | null
-          purchased_at: string
-          expires_at: string | null
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          org_id: string
-          student_id: string
-          coach_package_id: string
-          hours_purchased: number
-          hours_used?: number
-          status?: Database["public"]["Enums"]["package_status"]
-          needs_billing?: boolean
-          billed_at?: string | null
-          purchased_at?: string
-          expires_at?: string | null
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          org_id?: string
-          student_id?: string
-          coach_package_id?: string
-          hours_purchased?: number
-          hours_used?: number
-          status?: Database["public"]["Enums"]["package_status"]
-          needs_billing?: boolean
-          billed_at?: string | null
-          purchased_at?: string
-          expires_at?: string | null
-          created_at?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "student_packages_org_id_fkey"
-            columns: ["org_id"]
-            isOneToOne: false
-            referencedRelation: "organizations"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "student_packages_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: false
-            referencedRelation: "students"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "student_packages_coach_package_id_fkey"
-            columns: ["coach_package_id"]
-            isOneToOne: false
-            referencedRelation: "coach_packages"
             referencedColumns: ["id"]
           },
         ]
@@ -1126,17 +1143,17 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "subscriptions_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "subscriptions_student_id_fkey"
             columns: ["student_id"]
             isOneToOne: false
             referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subscriptions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
             referencedColumns: ["id"]
           },
         ]
@@ -1201,17 +1218,17 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "users_org_id_fkey"
-            columns: ["org_id"]
-            isOneToOne: false
-            referencedRelation: "organizations"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "users_assigned_coach_id_fkey"
             columns: ["assigned_coach_id"]
             isOneToOne: false
             referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "users_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
         ]
@@ -1234,13 +1251,13 @@ export type Database = {
       lesson_request_status: "pending" | "approved" | "declined" | "cancelled"
       lesson_status: "scheduled" | "in_progress" | "completed" | "cancelled"
       lesson_type: "group" | "private" | "semi_private" | "camp"
-      package_status: "active" | "exhausted" | "expired" | "cancelled"
       notification_channel: "push" | "email" | "sms"
       notification_status: "pending" | "sent" | "failed" | "read"
-      payout_status: "draft" | "approved" | "paid"
+      package_status: "active" | "exhausted" | "expired" | "cancelled"
       payment_platform: "stripe" | "square" | "cash" | "check" | "other"
       payment_status: "pending" | "completed" | "failed" | "refunded"
       payment_type: "lesson" | "subscription" | "drop_in" | "other"
+      payout_status: "draft" | "approved" | "paid"
       skill_level: "beginner" | "intermediate" | "advanced" | "elite"
       subscription_status: "active" | "paused" | "cancelled" | "expired"
       user_role: "owner" | "admin" | "coach" | "parent"
@@ -1379,13 +1396,13 @@ export const Constants = {
       lesson_request_status: ["pending", "approved", "declined", "cancelled"],
       lesson_status: ["scheduled", "in_progress", "completed", "cancelled"],
       lesson_type: ["group", "private", "semi_private", "camp"],
-      package_status: ["active", "exhausted", "expired", "cancelled"],
       notification_channel: ["push", "email", "sms"],
       notification_status: ["pending", "sent", "failed", "read"],
-      payout_status: ["draft", "approved", "paid"],
+      package_status: ["active", "exhausted", "expired", "cancelled"],
       payment_platform: ["stripe", "square", "cash", "check", "other"],
       payment_status: ["pending", "completed", "failed", "refunded"],
       payment_type: ["lesson", "subscription", "drop_in", "other"],
+      payout_status: ["draft", "approved", "paid"],
       skill_level: ["beginner", "intermediate", "advanced", "elite"],
       subscription_status: ["active", "paused", "cancelled", "expired"],
       user_role: ["owner", "admin", "coach", "parent"],

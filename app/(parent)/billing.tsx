@@ -12,7 +12,6 @@ import { MembershipPayCard } from '@/components/billing/MembershipPayCard';
 import { PaymentCard } from '@/components/payments/PaymentCard';
 import { PaymentMethodSelector } from '@/components/payments/PaymentMethodSelector';
 import { LoadingScreen } from '@/components/ui';
-import { useAuthStore } from '@/lib/stores/authStore';
 import { useUIStore } from '@/lib/stores/uiStore';
 import { COLORS, SPACING } from '@/constants/theme';
 import { Subscription, MembershipPlan } from '@/lib/types';
@@ -24,7 +23,6 @@ export default function ParentBilling() {
   const { data: students } = useParentStudents();
   const { data: coaches } = useCoachUsers();
   const assignCoach = useAssignCoach();
-  const userProfile = useAuthStore((s) => s.userProfile);
   const recordExternal = useRecordExternalPayment();
   const stripePayment = useStripePayment();
   const stripeSubscription = useStripeSubscription();
@@ -144,9 +142,9 @@ export default function ParentBilling() {
   const confirmPlanSubscription = async (plan: MembershipPlan, studentId?: string, coachId?: string) => {
     setShowPlanStudentPicker(false);
     try {
-      // Assign coach if selected
-      if (coachId && userProfile) {
-        await assignCoach.mutateAsync({ parentId: userProfile.id, coachId });
+      // Assign coach to selected student if both are specified
+      if (coachId && studentId) {
+        await assignCoach.mutateAsync({ studentId, coachId });
       }
 
       const newSub = await createSelfSub.mutateAsync({ plan, studentId });

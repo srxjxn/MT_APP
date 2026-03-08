@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { View, FlatList, StyleSheet, RefreshControl } from 'react-native';
-import { Card, Text, FAB, Searchbar, Chip, Button } from 'react-native-paper';
+import { Card, Text, FAB, Searchbar, Chip } from 'react-native-paper';
 import { router } from 'expo-router';
 import { useStudents } from '@/lib/hooks/useStudents';
 import { LoadingScreen, EmptyState, StatusBadge } from '@/components/ui';
@@ -94,15 +94,6 @@ export default function StudentsListScreen() {
           </Chip>
         ))}
       </View>
-      <Button
-        mode="outlined"
-        icon="account-supervisor"
-        onPress={() => router.push('/(admin)/parents')}
-        style={styles.parentsButton}
-        testID="view-parents-button"
-      >
-        View Parents
-      </Button>
       <FlatList
         data={filtered}
         renderItem={renderStudent}
@@ -148,10 +139,6 @@ const styles = StyleSheet.create({
   },
   chip: {
     marginRight: SPACING.xs,
-  },
-  parentsButton: {
-    marginHorizontal: SPACING.md,
-    marginBottom: SPACING.sm,
   },
   list: {
     padding: SPACING.md,

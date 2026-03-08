@@ -103,13 +103,6 @@ export default function AdminLayout() {
           href: null,
         }}
       />
-      <Tabs.Screen
-        name="parents"
-        options={{
-          href: null,
-          headerShown: false,
-        }}
-      />
     </Tabs>
   );
 }

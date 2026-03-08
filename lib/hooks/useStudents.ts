@@ -155,30 +155,6 @@ export function useParentUsers() {
   });
 }
 
-export type ParentWithCoach = Pick<UserProfile, 'id' | 'first_name' | 'last_name' | 'email' | 'phone' | 'assigned_coach_id'> & {
-  assigned_coach: { first_name: string; last_name: string } | null;
-};
-
-export function useParentsWithCoach() {
-  const orgId = useAuthStore((s) => s.userProfile?.org_id);
-
-  return useQuery({
-    queryKey: [...userKeys.parents(orgId ?? ''), 'with_coach'],
-    queryFn: async (): Promise<ParentWithCoach[]> => {
-      const { data, error } = await supabase
-        .from('users')
-        .select('id, first_name, last_name, email, phone, assigned_coach_id, assigned_coach:users!users_assigned_coach_id_fkey(first_name, last_name)')
-        .eq('org_id', orgId!)
-        .eq('role', 'parent')
-        .order('first_name');
-
-      if (error) throw error;
-      return data as any;
-    },
-    enabled: !!orgId,
-  });
-}
-
 export function useCoachUsers() {
   const orgId = useAuthStore((s) => s.userProfile?.org_id);
 
