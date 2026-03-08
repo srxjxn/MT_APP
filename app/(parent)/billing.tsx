@@ -1,16 +1,18 @@
 import React, { useState } from 'react';
 import { View, ScrollView, StyleSheet, RefreshControl } from 'react-native';
-import { Text, Button, Portal, Dialog, TextInput, Card, RadioButton } from 'react-native-paper';
+import { Text, Button, Portal, Dialog, TextInput, Card, RadioButton, Divider } from 'react-native-paper';
 import { useUserSubscriptions, useCreateSelfSubscription } from '@/lib/hooks/useSubscriptions';
 import { useUserPayments } from '@/lib/hooks/usePayments';
 import { useRecordExternalPayment, useStripePayment } from '@/lib/hooks/useStripePayments';
 import { useStripeSubscription, useCancelStripeSubscription } from '@/lib/hooks/useStripeSubscription';
 import { useMembershipPlans } from '@/lib/hooks/useMembershipPlans';
-import { useParentStudents } from '@/lib/hooks/useStudents';
+import { useParentStudents, useCoachUsers } from '@/lib/hooks/useStudents';
+import { useAssignCoach } from '@/lib/hooks/useAssignCoach';
 import { MembershipPayCard } from '@/components/billing/MembershipPayCard';
 import { PaymentCard } from '@/components/payments/PaymentCard';
 import { PaymentMethodSelector } from '@/components/payments/PaymentMethodSelector';
 import { LoadingScreen } from '@/components/ui';
+import { useAuthStore } from '@/lib/stores/authStore';
 import { useUIStore } from '@/lib/stores/uiStore';
 import { COLORS, SPACING } from '@/constants/theme';
 import { Subscription, MembershipPlan } from '@/lib/types';
@@ -20,6 +22,9 @@ export default function ParentBilling() {
   const { data: payments, isLoading: paymentsLoading, refetch: refetchPayments, isRefetching: paymentsRefetching } = useUserPayments();
   const { data: plans, isLoading: plansLoading } = useMembershipPlans();
   const { data: students } = useParentStudents();
+  const { data: coaches } = useCoachUsers();
+  const assignCoach = useAssignCoach();
+  const userProfile = useAuthStore((s) => s.userProfile);
   const recordExternal = useRecordExternalPayment();
   const stripePayment = useStripePayment();
   const stripeSubscription = useStripeSubscription();
@@ -37,6 +42,7 @@ export default function ParentBilling() {
   const [selectedPlan, setSelectedPlan] = useState<MembershipPlan | null>(null);
   const [showPlanStudentPicker, setShowPlanStudentPicker] = useState(false);
   const [selectedPlanStudentId, setSelectedPlanStudentId] = useState<string>('');
+  const [selectedCoachId, setSelectedCoachId] = useState<string>('');
 
   const isLoading = subsLoading || paymentsLoading || plansLoading;
   const isRefetching = subsRefetching || paymentsRefetching;
@@ -124,17 +130,25 @@ export default function ParentBilling() {
 
   const handlePlanSubscribe = (plan: MembershipPlan) => {
     setSelectedPlan(plan);
-    if (students && students.length > 0) {
-      setSelectedPlanStudentId(students[0].id);
+    setSelectedCoachId('');
+    const hasStudents = students && students.length > 0;
+    const hasCoaches = coaches && coaches.length > 0;
+    if (hasStudents || hasCoaches) {
+      if (hasStudents) setSelectedPlanStudentId(students[0].id);
       setShowPlanStudentPicker(true);
     } else {
       confirmPlanSubscription(plan, undefined);
     }
   };
 
-  const confirmPlanSubscription = async (plan: MembershipPlan, studentId?: string) => {
+  const confirmPlanSubscription = async (plan: MembershipPlan, studentId?: string, coachId?: string) => {
     setShowPlanStudentPicker(false);
     try {
+      // Assign coach if selected
+      if (coachId && userProfile) {
+        await assignCoach.mutateAsync({ parentId: userProfile.id, coachId });
+      }
+
       const newSub = await createSelfSub.mutateAsync({ plan, studentId });
 
       if (plan.stripe_price_id) {
@@ -285,35 +299,71 @@ export default function ParentBilling() {
         </Dialog>
       </Portal>
 
-      {/* Student picker for plan subscription */}
+      {/* Student & coach picker for plan subscription */}
       <Portal>
         <Dialog
           visible={showPlanStudentPicker}
           onDismiss={() => setShowPlanStudentPicker(false)}
           testID="plan-student-picker"
         >
-          <Dialog.Title>Select Student</Dialog.Title>
-          <Dialog.Content>
-            <RadioButton.Group
-              value={selectedPlanStudentId}
-              onValueChange={setSelectedPlanStudentId}
-            >
-              {students?.map((student) => (
-                <RadioButton.Item
-                  key={student.id}
-                  label={`${student.first_name} ${student.last_name}`}
-                  value={student.id}
-                  testID={`student-radio-${student.id}`}
-                />
-              ))}
-            </RadioButton.Group>
-          </Dialog.Content>
+          <Dialog.Title>Subscribe</Dialog.Title>
+          <Dialog.ScrollArea style={styles.dialogScrollArea}>
+            <ScrollView>
+              {students && students.length > 0 && (
+                <>
+                  <Text variant="titleSmall" style={styles.pickerLabel}>Select Student</Text>
+                  <RadioButton.Group
+                    value={selectedPlanStudentId}
+                    onValueChange={setSelectedPlanStudentId}
+                  >
+                    {students.map((student) => (
+                      <RadioButton.Item
+                        key={student.id}
+                        label={`${student.first_name} ${student.last_name}`}
+                        value={student.id}
+                        testID={`student-radio-${student.id}`}
+                      />
+                    ))}
+                  </RadioButton.Group>
+                </>
+              )}
+
+              {coaches && coaches.length > 0 && (
+                <>
+                  <Divider style={styles.pickerDivider} />
+                  <Text variant="titleSmall" style={styles.pickerLabel}>Select Coach (optional)</Text>
+                  <RadioButton.Group
+                    value={selectedCoachId}
+                    onValueChange={setSelectedCoachId}
+                  >
+                    <RadioButton.Item
+                      label="No preference"
+                      value=""
+                      testID="coach-radio-none"
+                    />
+                    {coaches.map((coach) => (
+                      <RadioButton.Item
+                        key={coach.id}
+                        label={`${coach.first_name} ${coach.last_name}`}
+                        value={coach.id}
+                        testID={`coach-radio-${coach.id}`}
+                      />
+                    ))}
+                  </RadioButton.Group>
+                </>
+              )}
+            </ScrollView>
+          </Dialog.ScrollArea>
           <Dialog.Actions>
             <Button onPress={() => setShowPlanStudentPicker(false)}>Cancel</Button>
             <Button
               onPress={() => {
                 if (selectedPlan) {
-                  confirmPlanSubscription(selectedPlan, selectedPlanStudentId || undefined);
+                  confirmPlanSubscription(
+                    selectedPlan,
+                    selectedPlanStudentId || undefined,
+                    selectedCoachId || undefined,
+                  );
                 }
               }}
               testID="confirm-plan-subscribe"
@@ -374,5 +424,19 @@ const styles = StyleSheet.create({
   subscribeButton: {
     marginTop: SPACING.sm,
     backgroundColor: COLORS.primary,
+  },
+  dialogScrollArea: {
+    maxHeight: 400,
+    paddingHorizontal: 0,
+  },
+  pickerLabel: {
+    color: COLORS.textPrimary,
+    fontWeight: '600',
+    paddingHorizontal: 24,
+    paddingTop: SPACING.sm,
+    paddingBottom: SPACING.xs,
+  },
+  pickerDivider: {
+    marginVertical: SPACING.sm,
   },
 });
