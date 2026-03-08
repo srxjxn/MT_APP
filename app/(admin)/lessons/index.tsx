@@ -100,6 +100,14 @@ export default function LessonTemplatesScreen() {
         >
           Coach Pricing
         </Button>
+        <Button
+          mode="outlined"
+          onPress={() => router.push('/(admin)/subscriptions')}
+          style={styles.navButton}
+          icon="credit-card"
+        >
+          Subscriptions
+        </Button>
       </View>
       <SectionList
         sections={sections}
