@@ -1,10 +1,17 @@
+import { useEffect } from 'react';
 import { View } from 'react-native';
 import { Tabs, router } from 'expo-router';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { IconButton } from 'react-native-paper';
 import { COLORS } from '@/constants/theme';
+import { useAuthStore } from '@/lib/stores/authStore';
 
 export default function AdminLayout() {
+  const setViewMode = useAuthStore((s) => s.setViewMode);
+
+  useEffect(() => {
+    setViewMode(null);
+  }, []);
   return (
     <Tabs
       screenOptions={{
@@ -23,6 +30,15 @@ export default function AdminLayout() {
           ),
           headerRight: () => (
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <IconButton
+                icon="account-switch"
+                size={22}
+                iconColor="#FFFFFF"
+                onPress={() => {
+                  setViewMode('coach');
+                  router.push('/(coach)/schedule');
+                }}
+              />
               <IconButton
                 icon="bell"
                 size={22}
