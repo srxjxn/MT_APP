@@ -82,7 +82,7 @@ export function MembershipPlanForm({
       />
 
       <FormField
-        label="Price ($/month)"
+        label="Price ($/4 weeks)"
         value={priceDollars}
         onChangeText={(v) => { setPriceDollars(v); setErrors((e) => ({ ...e, price_cents: '' })); }}
         error={errors.price_cents}
@@ -91,7 +91,7 @@ export function MembershipPlanForm({
       />
 
       <FormField
-        label="Lessons per Month (optional)"
+        label="Lessons per Cycle (optional)"
         value={lessonsPerMonth}
         onChangeText={setLessonsPerMonth}
         keyboardType="numeric"

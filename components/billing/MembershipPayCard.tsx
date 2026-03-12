@@ -50,7 +50,7 @@ export function MembershipPayCard({
           <Text variant="bodySmall" style={styles.student}>Student: {studentName}</Text>
         )}
         <Text variant="headlineMedium" style={styles.price}>
-          ${priceDollars}/month
+          ${priceDollars}/4 weeks
         </Text>
         <Text variant="bodySmall" style={styles.status}>
           Status: {subscription.status.charAt(0).toUpperCase() + subscription.status.slice(1)}
@@ -95,8 +95,15 @@ export function MembershipPayCard({
             style={styles.payButton}
             testID="subscribe-button"
           >
-            Subscribe with Card
+            Complete Payment
           </Button>
+        )}
+
+        {/* Payment pending notice */}
+        {!hasStripeSub && hasStripePriceId && (
+          <Text variant="bodySmall" style={styles.pendingNotice}>
+            Payment required to activate
+          </Text>
         )}
 
         {/* No stripe_price_id — one-time pay (existing behavior) */}
@@ -155,5 +162,10 @@ const styles = StyleSheet.create({
   },
   cancelButton: {
     borderColor: COLORS.error,
+  },
+  pendingNotice: {
+    color: COLORS.warning,
+    fontWeight: '600',
+    marginTop: SPACING.sm,
   },
 });

@@ -5,21 +5,30 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
+
 const STRIPE_SECRET_KEY = Deno.env.get('STRIPE_SECRET_KEY');
 
 serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders });
+  }
+
   try {
     if (req.method !== 'POST') {
       return new Response(JSON.stringify({ error: 'Method not allowed' }), {
         status: 405,
-        headers: { 'Content-Type': 'application/json' },
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
     if (!STRIPE_SECRET_KEY) {
       return new Response(
         JSON.stringify({ error: 'Stripe is not configured.' }),
-        { status: 500, headers: { 'Content-Type': 'application/json' } }
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
@@ -28,7 +37,7 @@ serve(async (req) => {
     if (!customer_id || !price_id || !subscription_id) {
       return new Response(
         JSON.stringify({ error: 'customer_id, price_id, and subscription_id are required' }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
@@ -55,7 +64,7 @@ serve(async (req) => {
     if (!stripeRes.ok) {
       return new Response(
         JSON.stringify({ error: stripeSub.error?.message ?? 'Stripe error' }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
@@ -78,7 +87,7 @@ serve(async (req) => {
     if (!clientSecret) {
       return new Response(
         JSON.stringify({ error: 'No client secret returned from Stripe subscription' }),
-        { status: 500, headers: { 'Content-Type': 'application/json' } }
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
@@ -87,13 +96,13 @@ serve(async (req) => {
         clientSecret,
         stripeSubscriptionId: stripeSub.id,
       }),
-      { status: 200, headers: { 'Content-Type': 'application/json' } }
+      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (err) {
     console.error('create-stripe-subscription error:', err);
     return new Response(
       JSON.stringify({ error: 'Internal server error' }),
-      { status: 500, headers: { 'Content-Type': 'application/json' } }
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 });

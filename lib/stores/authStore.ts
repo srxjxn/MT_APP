@@ -10,12 +10,14 @@ interface AuthStore {
   isAuthenticated: boolean;
   userRole: UserRole | null;
   needsRoleSelection: boolean;
+  needsOnboarding: boolean;
   viewMode: 'admin' | 'coach' | null;
   setSession: (session: Session | null) => void;
   setUser: (user: User | null) => void;
   setUserProfile: (profile: UserProfile | null) => void;
   setIsLoading: (loading: boolean) => void;
   setNeedsRoleSelection: (v: boolean) => void;
+  setNeedsOnboarding: (v: boolean) => void;
   setViewMode: (mode: 'admin' | 'coach' | null) => void;
   reset: () => void;
 }
@@ -27,6 +29,7 @@ export const useAuthStore = create<AuthStore>((set) => ({
   isLoading: true,
   isAuthenticated: false,
   needsRoleSelection: false,
+  needsOnboarding: false,
   userRole: null,
   viewMode: null,
   setSession: (session) =>
@@ -43,6 +46,7 @@ export const useAuthStore = create<AuthStore>((set) => ({
     }),
   setIsLoading: (isLoading) => set({ isLoading }),
   setNeedsRoleSelection: (needsRoleSelection) => set({ needsRoleSelection }),
+  setNeedsOnboarding: (needsOnboarding) => set({ needsOnboarding }),
   setViewMode: (viewMode) => set({ viewMode }),
   reset: () =>
     set({
@@ -53,6 +57,7 @@ export const useAuthStore = create<AuthStore>((set) => ({
       isAuthenticated: false,
       userRole: null,
       needsRoleSelection: false,
+      needsOnboarding: false,
       viewMode: null,
     }),
 }));

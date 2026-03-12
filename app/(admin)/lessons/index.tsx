@@ -1,17 +1,22 @@
-import React, { useState } from 'react';
-import { View, FlatList, StyleSheet, RefreshControl, SectionList } from 'react-native';
-import { Card, Text, FAB, Chip, Button } from 'react-native-paper';
+import React, { useState, useMemo } from 'react';
+import { View, StyleSheet, RefreshControl, SectionList } from 'react-native';
+import { Card, Text, FAB, Chip, Menu, Button, SegmentedButtons } from 'react-native-paper';
 import { router } from 'expo-router';
 import { useLessonTemplates, LessonTemplateWithJoins } from '@/lib/hooks/useLessonTemplates';
-import { LessonTypeToggle } from '@/components/lessons/LessonTypeToggle';
 import { LoadingScreen, EmptyState, StatusBadge } from '@/components/ui';
 import { COLORS, SPACING } from '@/constants/theme';
 import { DAYS_OF_WEEK, LESSON_TYPE_LABELS } from '@/lib/validation/lessonTemplate';
-import { useMemo } from 'react';
+
+const FILTER_LABELS: Record<string, string> = {
+  all: 'All',
+  group: 'Group',
+  private: 'Private',
+};
 
 export default function LessonTemplatesScreen() {
   const { data: templates, isLoading, refetch, isRefetching } = useLessonTemplates();
   const [lessonTypeFilter, setLessonTypeFilter] = useState('all');
+  const [menuVisible, setMenuVisible] = useState(false);
 
   const sections = useMemo(() => {
     if (!templates) return [];
@@ -70,44 +75,37 @@ export default function LessonTemplatesScreen() {
 
   return (
     <View style={styles.container} testID="templates-list">
-      <LessonTypeToggle
-        value={lessonTypeFilter}
-        onValueChange={setLessonTypeFilter}
-        style={styles.typeToggle}
-      />
-      <View style={styles.navButtons}>
-        <Button
-          mode="outlined"
-          onPress={() => router.push('/(admin)/lessons/schedule')}
-          style={styles.navButton}
-          icon="calendar"
+      <View style={styles.filterBar}>
+        <Menu
+          visible={menuVisible}
+          onDismiss={() => setMenuVisible(false)}
+          anchor={
+            <Button
+              mode="outlined"
+              onPress={() => setMenuVisible(true)}
+              compact
+              icon="filter-variant"
+            >
+              {FILTER_LABELS[lessonTypeFilter]}
+            </Button>
+          }
         >
-          View Schedule
-        </Button>
-        <Button
-          mode="outlined"
-          onPress={() => router.push('/(admin)/lessons/requests')}
-          style={styles.navButton}
-          icon="clipboard-text"
-        >
-          Lesson Requests
-        </Button>
-        <Button
-          mode="outlined"
-          onPress={() => router.push('/(admin)/lessons/coach-pricing')}
-          style={styles.navButton}
-          icon="currency-usd"
-        >
-          Coach Pricing
-        </Button>
-        <Button
-          mode="outlined"
-          onPress={() => router.push('/(admin)/subscriptions')}
-          style={styles.navButton}
-          icon="credit-card"
-        >
-          Subscriptions
-        </Button>
+          <Menu.Item onPress={() => { setLessonTypeFilter('all'); setMenuVisible(false); }} title="All" />
+          <Menu.Item onPress={() => { setLessonTypeFilter('group'); setMenuVisible(false); }} title="Group" />
+          <Menu.Item onPress={() => { setLessonTypeFilter('private'); setMenuVisible(false); }} title="Private" />
+        </Menu>
+
+        <SegmentedButtons
+          value="list"
+          onValueChange={(v) => {
+            if (v === 'calendar') router.push('/(admin)/lessons/schedule');
+          }}
+          buttons={[
+            { value: 'list', label: 'List', icon: 'format-list-bulleted' },
+            { value: 'calendar', label: 'Calendar', icon: 'calendar' },
+          ]}
+          style={styles.viewToggle}
+        />
       </View>
       <SectionList
         sections={sections}
@@ -143,16 +141,15 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: COLORS.background,
   },
-  typeToggle: {
-    margin: SPACING.md,
-    marginBottom: 0,
+  filterBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
   },
-  navButtons: {
-    padding: SPACING.md,
-    paddingBottom: 0,
-    gap: SPACING.sm,
-  },
-  navButton: {
+  viewToggle: {
+    flexShrink: 1,
   },
   list: {
     padding: SPACING.md,

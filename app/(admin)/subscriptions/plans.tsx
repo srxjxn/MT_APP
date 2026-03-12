@@ -89,11 +89,11 @@ export default function MembershipPlansScreen() {
           <Text variant="bodySmall" style={styles.cardDescription}>{item.description}</Text>
         )}
         <Text variant="titleLarge" style={styles.cardPrice}>
-          ${(item.price_cents / 100).toFixed(2)}/month
+          ${(item.price_cents / 100).toFixed(2)}/4 weeks
         </Text>
         {item.lessons_per_month && (
           <Text variant="bodySmall" style={styles.cardLessons}>
-            {item.lessons_per_month} lessons/month
+            {item.lessons_per_month} lessons per cycle
           </Text>
         )}
         <View style={styles.cardActions}>

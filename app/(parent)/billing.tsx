@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, ScrollView, StyleSheet, RefreshControl } from 'react-native';
-import { Text, Button, Portal, Dialog, TextInput, Card, RadioButton, Divider } from 'react-native-paper';
+import { Text, Button, Portal, Dialog, TextInput, Card, RadioButton, Divider, ProgressBar } from 'react-native-paper';
 import { useUserSubscriptions, useCreateSelfSubscription } from '@/lib/hooks/useSubscriptions';
 import { useUserPayments } from '@/lib/hooks/usePayments';
 import { useRecordExternalPayment, useStripePayment } from '@/lib/hooks/useStripePayments';
@@ -8,6 +8,7 @@ import { useStripeSubscription, useCancelStripeSubscription } from '@/lib/hooks/
 import { useMembershipPlans } from '@/lib/hooks/useMembershipPlans';
 import { useParentStudents, useCoachUsers } from '@/lib/hooks/useStudents';
 import { useAssignCoach } from '@/lib/hooks/useAssignCoach';
+import { useParentAllStudentPackages } from '@/lib/hooks/useStudentPackages';
 import { MembershipPayCard } from '@/components/billing/MembershipPayCard';
 import { PaymentCard } from '@/components/payments/PaymentCard';
 import { PaymentMethodSelector } from '@/components/payments/PaymentMethodSelector';
@@ -19,6 +20,7 @@ import { Subscription, MembershipPlan } from '@/lib/types';
 export default function ParentBilling() {
   const { data: subscriptions, isLoading: subsLoading, refetch: refetchSubs, isRefetching: subsRefetching } = useUserSubscriptions();
   const { data: payments, isLoading: paymentsLoading, refetch: refetchPayments, isRefetching: paymentsRefetching } = useUserPayments();
+  const { data: packages, refetch: refetchPackages, isRefetching: packagesRefetching } = useParentAllStudentPackages();
   const { data: plans, isLoading: plansLoading } = useMembershipPlans();
   const { data: students } = useParentStudents();
   const { data: coaches } = useCoachUsers();
@@ -43,11 +45,12 @@ export default function ParentBilling() {
   const [selectedCoachId, setSelectedCoachId] = useState<string>('');
 
   const isLoading = subsLoading || paymentsLoading || plansLoading;
-  const isRefetching = subsRefetching || paymentsRefetching;
+  const isRefetching = subsRefetching || paymentsRefetching || packagesRefetching;
 
   const refetch = () => {
     refetchSubs();
     refetchPayments();
+    refetchPackages();
   };
 
   if (isLoading) {
@@ -174,6 +177,7 @@ export default function ParentBilling() {
 
   const activeSubs = subscriptions?.filter((s) => s.status === 'active') ?? [];
   const hasActiveSubs = activeSubs.length > 0;
+  const activePackages = packages?.filter((p) => p.status === 'active') ?? [];
 
   return (
     <View style={styles.container} testID="parent-billing">
@@ -214,11 +218,11 @@ export default function ParentBilling() {
                     <Text variant="bodySmall" style={styles.planDescription}>{plan.description}</Text>
                   )}
                   <Text variant="headlineMedium" style={styles.planPrice}>
-                    ${(plan.price_cents / 100).toFixed(2)}/month
+                    ${(plan.price_cents / 100).toFixed(2)}/4 weeks
                   </Text>
                   {plan.lessons_per_month && (
                     <Text variant="bodySmall" style={styles.planLessons}>
-                      {plan.lessons_per_month} lessons/month
+                      {plan.lessons_per_month} lessons per cycle
                     </Text>
                   )}
                   <Button
@@ -234,6 +238,49 @@ export default function ParentBilling() {
                 </Card.Content>
               </Card>
             ))}
+          </View>
+        )}
+
+        {activePackages.length > 0 && (
+          <View style={styles.section}>
+            <Text variant="titleMedium" style={styles.sectionTitle}>Lesson Packages</Text>
+            {activePackages.map((pkg) => {
+              const hoursRemaining = pkg.hours_purchased - pkg.hours_used;
+              const progress = pkg.hours_purchased > 0 ? pkg.hours_used / pkg.hours_purchased : 0;
+              const isLow = hoursRemaining <= 1;
+              const progressColor = isLow ? COLORS.warning : COLORS.success;
+
+              return (
+                <Card key={pkg.id} style={styles.packageCard} testID={`package-card-${pkg.id}`}>
+                  <Card.Content>
+                    <View style={styles.packageHeader}>
+                      <Text variant="titleMedium" style={styles.packageName}>
+                        {pkg.student.first_name} {pkg.student.last_name}
+                      </Text>
+                    </View>
+                    <Text variant="bodySmall" style={styles.packageCoachName}>
+                      Coach: {pkg.coach_package.coach.first_name} {pkg.coach_package.coach.last_name}
+                    </Text>
+                    <Text variant="bodySmall" style={styles.packageCoachName}>
+                      {pkg.coach_package.name}
+                    </Text>
+                    <View style={styles.packageHoursRow}>
+                      <Text variant="bodySmall" style={styles.packageHoursText}>
+                        {pkg.hours_used}h used / {pkg.hours_purchased}h purchased
+                      </Text>
+                      <Text variant="bodySmall" style={[styles.packageHoursRemaining, { color: progressColor }]}>
+                        {hoursRemaining}h remaining
+                      </Text>
+                    </View>
+                    <ProgressBar
+                      progress={progress}
+                      color={progressColor}
+                      style={styles.packageProgressBar}
+                    />
+                  </Card.Content>
+                </Card>
+              );
+            })}
           </View>
         )}
 
@@ -422,6 +469,40 @@ const styles = StyleSheet.create({
   subscribeButton: {
     marginTop: SPACING.sm,
     backgroundColor: COLORS.primary,
+  },
+  packageCard: {
+    backgroundColor: COLORS.surface,
+    marginBottom: SPACING.sm,
+  },
+  packageHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: SPACING.xs,
+  },
+  packageName: {
+    color: COLORS.textPrimary,
+    fontWeight: '600',
+  },
+  packageCoachName: {
+    color: COLORS.textSecondary,
+    marginBottom: SPACING.xs,
+  },
+  packageHoursRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: SPACING.xs,
+    marginTop: SPACING.xs,
+  },
+  packageHoursText: {
+    color: COLORS.textSecondary,
+  },
+  packageHoursRemaining: {
+    fontWeight: '600',
+  },
+  packageProgressBar: {
+    height: 6,
+    borderRadius: 3,
   },
   dialogScrollArea: {
     maxHeight: 400,

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { View, FlatList, StyleSheet, RefreshControl } from 'react-native';
-import { FAB, Button, SegmentedButtons, Text } from 'react-native-paper';
+import { View, FlatList, StyleSheet, RefreshControl, TouchableOpacity } from 'react-native';
+import { FAB, SegmentedButtons, Text } from 'react-native-paper';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { router } from 'expo-router';
 import { useSubscriptions, SubscriptionWithUser } from '@/lib/hooks/useSubscriptions';
@@ -14,6 +14,12 @@ const STATUS_FILTERS = [
   { value: 'paused', label: 'Paused' },
   { value: 'cancelled', label: 'Cancelled' },
 ];
+
+const NAV_ITEMS = [
+  { icon: 'cash-multiple', label: 'Payments', route: '/(admin)/subscriptions/payments', testID: 'view-payments-button' },
+  { icon: 'package-variant', label: 'Packages', route: '/(admin)/subscriptions/packages', testID: 'view-packages-button' },
+  { icon: 'tag-multiple', label: 'Plans', route: '/(admin)/subscriptions/plans', testID: 'manage-plans-button' },
+] as const;
 
 function isExpiringSoon(endsAt: string | null): boolean {
   if (!endsAt) return false;
@@ -44,31 +50,18 @@ export default function SubscriptionsListScreen() {
         style={styles.filters}
       />
 
-      <View style={styles.linkButtons}>
-        <Button
-          mode="text"
-          icon="cash-multiple"
-          onPress={() => router.push('/(admin)/subscriptions/payments')}
-          testID="view-payments-button"
-        >
-          View Payments
-        </Button>
-        <Button
-          mode="text"
-          icon="package-variant"
-          onPress={() => router.push('/(admin)/subscriptions/packages')}
-          testID="view-packages-button"
-        >
-          View Packages
-        </Button>
-        <Button
-          mode="text"
-          icon="tag-multiple"
-          onPress={() => router.push('/(admin)/subscriptions/plans')}
-          testID="manage-plans-button"
-        >
-          Manage Plans
-        </Button>
+      <View style={styles.navRow}>
+        {NAV_ITEMS.map((item) => (
+          <TouchableOpacity
+            key={item.route}
+            style={styles.navItem}
+            onPress={() => router.push(item.route as any)}
+            testID={item.testID}
+          >
+            <MaterialCommunityIcons name={item.icon} size={24} color={COLORS.primary} />
+            <Text variant="labelSmall" style={styles.navLabel}>{item.label}</Text>
+          </TouchableOpacity>
+        ))}
       </View>
 
       <FlatList
@@ -125,10 +118,18 @@ const styles = StyleSheet.create({
     margin: SPACING.md,
     marginBottom: 0,
   },
-  linkButtons: {
+  navRow: {
     flexDirection: 'row',
-    paddingHorizontal: SPACING.sm,
-    gap: SPACING.xs,
+    justifyContent: 'space-around',
+    paddingVertical: SPACING.sm,
+    paddingHorizontal: SPACING.md,
+  },
+  navItem: {
+    alignItems: 'center',
+    gap: 4,
+  },
+  navLabel: {
+    color: COLORS.textSecondary,
   },
   list: {
     padding: SPACING.md,

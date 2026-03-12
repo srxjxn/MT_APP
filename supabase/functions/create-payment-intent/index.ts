@@ -5,21 +5,30 @@
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
+
 const STRIPE_SECRET_KEY = Deno.env.get('STRIPE_SECRET_KEY');
 
 serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders });
+  }
+
   try {
     if (req.method !== 'POST') {
       return new Response(JSON.stringify({ error: 'Method not allowed' }), {
         status: 405,
-        headers: { 'Content-Type': 'application/json' },
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
     if (!STRIPE_SECRET_KEY) {
       return new Response(
         JSON.stringify({ error: 'Stripe is not configured. Set STRIPE_SECRET_KEY in Edge Function secrets.' }),
-        { status: 500, headers: { 'Content-Type': 'application/json' } }
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
@@ -28,7 +37,7 @@ serve(async (req) => {
     if (!amount_cents || amount_cents <= 0) {
       return new Response(
         JSON.stringify({ error: 'Invalid amount' }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
@@ -59,7 +68,7 @@ serve(async (req) => {
     if (!stripeRes.ok) {
       return new Response(
         JSON.stringify({ error: paymentIntent.error?.message ?? 'Stripe error' }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
@@ -68,12 +77,13 @@ serve(async (req) => {
         clientSecret: paymentIntent.client_secret,
         paymentIntentId: paymentIntent.id,
       }),
-      { status: 200, headers: { 'Content-Type': 'application/json' } }
+      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (err) {
+    console.error('create-payment-intent error:', err);
     return new Response(
       JSON.stringify({ error: 'Internal server error' }),
-      { status: 500, headers: { 'Content-Type': 'application/json' } }
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 });

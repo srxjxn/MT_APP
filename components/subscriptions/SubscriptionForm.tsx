@@ -109,7 +109,7 @@ export function SubscriptionForm({
       />
 
       <FormField
-        label="Price ($/month)"
+        label="Price ($/4 weeks)"
         value={priceDollars}
         onChangeText={(v) => { setPriceDollars(v); setErrors((e) => ({ ...e, price_cents: '' })); }}
         error={errors.price_cents}
@@ -118,7 +118,7 @@ export function SubscriptionForm({
       />
 
       <FormField
-        label="Lessons per Month"
+        label="Lessons per Cycle"
         value={lessonsPerMonth}
         onChangeText={setLessonsPerMonth}
         keyboardType="numeric"

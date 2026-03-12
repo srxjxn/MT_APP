@@ -18,10 +18,12 @@ export function useAuth() {
     isAuthenticated,
     userRole,
     needsRoleSelection,
+    needsOnboarding,
     setSession,
     setUserProfile,
     setIsLoading,
     setNeedsRoleSelection,
+    setNeedsOnboarding,
     reset,
   } = useAuthStore();
 
@@ -92,6 +94,17 @@ export function useAuth() {
     return '';
   };
 
+  const checkParentNeedsOnboarding = async (profileId: string) => {
+    const { data } = await supabase
+      .from('students')
+      .select('id')
+      .eq('parent_id', profileId)
+      .limit(1);
+    if (!data || data.length === 0) {
+      setNeedsOnboarding(true);
+    }
+  };
+
   const createSocialProfile = useCallback(async (role: 'parent' | 'coach') => {
     // Refresh session to ensure valid JWT for RLS
     await supabase.auth.refreshSession();
@@ -127,6 +140,10 @@ export function useAuth() {
 
     setNeedsRoleSelection(false);
     setUserProfile(newProfile);
+
+    if (role === 'parent') {
+      setNeedsOnboarding(true);
+    }
   }, []);
 
   const fetchUserProfile = async (userId: string) => {
@@ -167,6 +184,9 @@ export function useAuth() {
             const { data: newProfile } = await supabase
               .from('users').select('*').eq('auth_id', userId).single();
             setUserProfile(newProfile);
+            if (newProfile?.role === 'parent') {
+              await checkParentNeedsOnboarding(newProfile.id);
+            }
             return;
           }
           console.error('Error auto-creating user profile:', insertError);
@@ -191,6 +211,9 @@ export function useAuth() {
             const { data: newProfile } = await supabase
               .from('users').select('*').eq('auth_id', userId).single();
             setUserProfile(newProfile);
+            if (newProfile?.role === 'parent') {
+              setNeedsOnboarding(true);
+            }
             return;
           }
           console.error('Error auto-creating user profile:', insertError);
@@ -209,6 +232,9 @@ export function useAuth() {
         console.error('Error fetching user profile:', error);
       }
       setUserProfile(data ?? null);
+      if (data?.role === 'parent') {
+        await checkParentNeedsOnboarding(data.id);
+      }
     } catch (err) {
       console.error('Error fetching user profile:', err);
     } finally {
@@ -283,6 +309,10 @@ export function useAuth() {
         }
 
         if (invite) await acceptInvite(invite.id);
+
+        if (role === 'parent') {
+          setNeedsOnboarding(true);
+        }
       }
       // If no session (email confirmation on), fetchUserProfile will
       // auto-create the profile from auth metadata after confirmation.
@@ -308,6 +338,16 @@ export function useAuth() {
           token: credential.identityToken,
         });
         if (error) throw error;
+
+        // Apple only provides the name on the very first sign-in
+        if (credential.fullName?.givenName || credential.fullName?.familyName) {
+          await supabase.auth.updateUser({
+            data: {
+              first_name: credential.fullName.givenName ?? '',
+              last_name: credential.fullName.familyName ?? '',
+            },
+          });
+        }
       }
     } catch (err: unknown) {
       setIsLoading(false);
@@ -381,6 +421,8 @@ export function useAuth() {
     isAuthenticated,
     userRole,
     needsRoleSelection,
+    needsOnboarding,
+    setNeedsOnboarding,
     signInWithEmail,
     signUpWithEmail,
     signInWithApple,

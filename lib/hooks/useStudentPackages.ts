@@ -17,6 +17,10 @@ export type StudentPackageWithDetails = StudentPackage & {
   };
 };
 
+export type ParentStudentPackage = StudentPackageWithDetails & {
+  student: { first_name: string; last_name: string };
+};
+
 export function useStudentPackages(studentId: string) {
   return useQuery({
     queryKey: studentPackageKeys.byStudent(studentId),
@@ -39,7 +43,7 @@ export function useParentAllStudentPackages() {
 
   return useQuery({
     queryKey: studentPackageKeys.parentAll(userProfile?.id ?? ''),
-    queryFn: async (): Promise<StudentPackageWithDetails[]> => {
+    queryFn: async (): Promise<ParentStudentPackage[]> => {
       // First get parent's students
       const { data: students, error: studErr } = await supabase
         .from('students')
@@ -53,7 +57,7 @@ export function useParentAllStudentPackages() {
 
       const { data, error } = await supabase
         .from('student_packages')
-        .select('*, coach_package:coach_packages!student_packages_coach_package_id_fkey(*, coach:users!coach_packages_coach_id_fkey(first_name, last_name))')
+        .select('*, student:students!student_packages_student_id_fkey(first_name, last_name), coach_package:coach_packages!student_packages_coach_package_id_fkey(*, coach:users!coach_packages_coach_id_fkey(first_name, last_name))')
         .in('student_id', studentIds)
         .order('purchased_at', { ascending: false });
 

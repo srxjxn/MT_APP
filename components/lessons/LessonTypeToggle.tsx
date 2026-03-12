@@ -1,6 +1,7 @@
 import React from 'react';
-import { StyleSheet } from 'react-native';
-import { SegmentedButtons } from 'react-native-paper';
+import { View, StyleSheet } from 'react-native';
+import { Chip } from 'react-native-paper';
+import { SPACING } from '@/constants/theme';
 
 const BUTTONS = [
   { value: 'all', label: 'All' },
@@ -16,15 +17,26 @@ interface LessonTypeToggleProps {
 
 export function LessonTypeToggle({ value, onValueChange, style }: LessonTypeToggleProps) {
   return (
-    <SegmentedButtons
-      value={value}
-      onValueChange={onValueChange}
-      buttons={BUTTONS}
-      style={[styles.container, style]}
-    />
+    <View style={[styles.container, style]}>
+      {BUTTONS.map((btn) => (
+        <Chip
+          key={btn.value}
+          selected={value === btn.value}
+          onPress={() => onValueChange(btn.value)}
+          style={styles.chip}
+          compact
+        >
+          {btn.label}
+        </Chip>
+      ))}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {},
+  container: {
+    flexDirection: 'row',
+    gap: SPACING.xs,
+  },
+  chip: {},
 });

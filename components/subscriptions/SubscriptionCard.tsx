@@ -43,7 +43,7 @@ export function SubscriptionCard({ subscription, onPress, testID }: Subscription
           <Text variant="titleLarge" style={styles.price}>
             {formatCents(subscription.price_cents)}
           </Text>
-          <Text variant="bodySmall" style={styles.period}>/month</Text>
+          <Text variant="bodySmall" style={styles.period}>/4 weeks</Text>
         </View>
         <View style={styles.meta}>
           <Text variant="bodySmall" style={styles.metaText}>

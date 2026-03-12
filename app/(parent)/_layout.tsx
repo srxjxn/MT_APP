@@ -42,7 +42,10 @@ export default function ParentLayout() {
       <Tabs.Screen
         name="private-lessons"
         options={{
-          href: null,
+          title: 'Lessons',
+          tabBarIcon: ({ color, size }) => (
+            <MaterialCommunityIcons name="tennis" size={size} color={color} />
+          ),
         }}
       />
       <Tabs.Screen
