@@ -6,6 +6,7 @@ import { useLessonTemplates, LessonTemplateWithJoins } from '@/lib/hooks/useLess
 import { LoadingScreen, EmptyState, StatusBadge } from '@/components/ui';
 import { COLORS, SPACING } from '@/constants/theme';
 import { DAYS_OF_WEEK, LESSON_TYPE_LABELS } from '@/lib/validation/lessonTemplate';
+import { formatTime } from '@/lib/utils/formatTime';
 
 const FILTER_LABELS: Record<string, string> = {
   all: 'All',
@@ -62,7 +63,7 @@ export default function LessonTemplatesScreen() {
           {item.court ? ` • ${item.court.name}` : ''}
         </Text>
         <Text variant="bodySmall" style={styles.detail}>
-          {item.start_time} • {item.duration_minutes}min • {item.max_students} max • ${(item.price_cents / 100).toFixed(2)}
+          {formatTime(item.start_time)} • {item.duration_minutes}min • {item.max_students} max
         </Text>
         {!item.is_active && <Text variant="bodySmall" style={styles.inactive}>Inactive</Text>}
       </Card.Content>

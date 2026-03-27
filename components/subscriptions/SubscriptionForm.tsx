@@ -29,7 +29,7 @@ export function SubscriptionForm({
   const [name, setName] = useState(initialValues?.name ?? 'Monthly Membership');
   const [description, setDescription] = useState(initialValues?.description ?? '');
   const [priceDollars, setPriceDollars] = useState(
-    initialValues?.price_cents ? (initialValues.price_cents / 100).toFixed(2) : '225.00'
+    initialValues?.price_cents ? (initialValues.price_cents / 100).toFixed(2) : '230.00'
   );
   const [lessonsPerMonth, setLessonsPerMonth] = useState(
     initialValues?.lessons_per_month?.toString() ?? ''

@@ -2,7 +2,6 @@ import { useEffect } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { PaperProvider, Snackbar } from 'react-native-paper';
-import { StripeProvider } from '@stripe/stripe-react-native';
 import { Slot, useRouter, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StyleSheet } from 'react-native';
@@ -33,7 +32,7 @@ function RootLayoutNav() {
         router.replace('/(auth)/role-select');
       }
     } else if (isAuthenticated && needsOnboarding && userProfile?.role === 'parent') {
-      if ((segments as string[])[1] !== 'onboarding') {
+      if (segments[0] !== '(auth)' || (segments as string[])[1] !== 'onboarding') {
         router.replace('/(auth)/onboarding');
       }
     } else if (isAuthenticated && userProfile && !userProfile.is_active) {
@@ -41,7 +40,7 @@ function RootLayoutNav() {
       if ((segments as string[])[1] !== 'pending-approval') {
         router.replace('/(auth)/pending-approval');
       }
-    } else if (isAuthenticated && inAuthGroup) {
+    } else if (isAuthenticated && inAuthGroup && userProfile) {
       // Route based on role
       switch (userRole) {
         case 'owner':
@@ -82,13 +81,11 @@ function RootLayoutNav() {
 export default function RootLayout() {
   return (
     <GestureHandlerRootView style={styles.container}>
-      <StripeProvider publishableKey={process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY!}>
-        <QueryClientProvider client={queryClient}>
-          <PaperProvider theme={appTheme}>
-            <RootLayoutNav />
-          </PaperProvider>
-        </QueryClientProvider>
-      </StripeProvider>
+      <QueryClientProvider client={queryClient}>
+        <PaperProvider theme={appTheme}>
+          <RootLayoutNav />
+        </PaperProvider>
+      </QueryClientProvider>
     </GestureHandlerRootView>
   );
 }

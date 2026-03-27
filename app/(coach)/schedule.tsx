@@ -1,30 +1,40 @@
 import React, { useState } from 'react';
-import { View, FlatList, StyleSheet, RefreshControl, ScrollView } from 'react-native';
-import { Text, Portal, Modal, Button, Menu } from 'react-native-paper';
+import { View, FlatList, StyleSheet, RefreshControl, ScrollView, TouchableOpacity } from 'react-native';
+import { Text, Portal, Modal, Button, FAB } from 'react-native-paper';
 import { useAuthStore } from '@/lib/stores/authStore';
-import { useCoachLessonInstances, LessonInstanceWithJoins } from '@/lib/hooks/useLessonInstances';
+import { useCoachLessonInstancesWithVirtuals, useCreateLessonInstance, LessonInstanceWithJoins } from '@/lib/hooks/useLessonInstances';
 import { useCreateStudentNote } from '@/lib/hooks/useStudentNotes';
+import { useCourts } from '@/lib/hooks/useCourts';
+import { useStudents } from '@/lib/hooks/useStudents';
+import { useEnrollStudent } from '@/lib/hooks/useEnrollments';
 import { LessonCard } from '@/components/lessons/LessonCard';
 import { EnrollmentList } from '@/components/lessons/EnrollmentList';
 import { NoteForm } from '@/components/students/NoteForm';
 import { LessonTypeToggle } from '@/components/lessons/LessonTypeToggle';
+import { CoachPrivateLessonForm, CoachPrivateLessonFormData } from '@/components/coach/CoachPrivateLessonForm';
 import { LoadingScreen, EmptyState } from '@/components/ui';
 import { useUIStore } from '@/lib/stores/uiStore';
 import { COLORS, SPACING } from '@/constants/theme';
 import { StudentNoteFormData } from '@/lib/validation/studentNote';
+import { formatTime } from '@/lib/utils/formatTime';
 
 export default function CoachSchedule() {
   const userProfile = useAuthStore((s) => s.userProfile);
   const [lessonTypeFilter, setLessonTypeFilter] = useState('all');
   const filterValue = lessonTypeFilter === 'all' ? undefined : lessonTypeFilter;
-  const { data: instances, isLoading, refetch, isRefetching } = useCoachLessonInstances(filterValue);
+  const { data: instances, isLoading, refetch, isRefetching } = useCoachLessonInstancesWithVirtuals(filterValue);
   const createNote = useCreateStudentNote();
+  const createInstance = useCreateLessonInstance();
+  const { data: courts } = useCourts();
+  const { data: students } = useStudents();
+  const enrollStudent = useEnrollStudent();
   const showSnackbar = useUIStore((s) => s.showSnackbar);
+  const [showCreateForm, setShowCreateForm] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showNoteForm, setShowNoteForm] = useState(false);
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
-  const [studentMenuVisible, setStudentMenuVisible] = useState(false);
   const [enrolledStudents, setEnrolledStudents] = useState<{ id: string; name: string }[]>([]);
+  const [selectedVirtual, setSelectedVirtual] = useState<LessonInstanceWithJoins | null>(null);
   const selectedInstance = instances?.find((i) => i.id === selectedId);
 
   if (isLoading) {
@@ -46,6 +56,45 @@ export default function CoachSchedule() {
     }
   };
 
+  const handleCreateLesson = async (data: CoachPrivateLessonFormData) => {
+    try {
+      const [hours, minutes] = data.start_time.split(':').map(Number);
+      const endMinutes = hours * 60 + minutes + data.duration_minutes;
+      const endHours = Math.floor(endMinutes / 60);
+      const endMins = endMinutes % 60;
+      const endTime = `${String(endHours).padStart(2, '0')}:${String(endMins).padStart(2, '0')}`;
+
+      const instance = await createInstance.mutateAsync({
+        template_id: null,
+        coach_id: userProfile!.id,
+        court_id: data.court_id || null,
+        date: data.date,
+        start_time: data.start_time,
+        end_time: endTime,
+        name: data.name,
+        lesson_type: data.lesson_type as any,
+        duration_minutes: data.duration_minutes,
+        max_students: data.max_students,
+        price_cents: data.price_cents,
+        description: data.description,
+        status: 'scheduled',
+      });
+
+      if (data.student_id && instance?.id) {
+        await enrollStudent.mutateAsync({
+          lessonInstanceId: instance.id,
+          studentId: data.student_id,
+        });
+      }
+
+      showSnackbar('Lesson created', 'success');
+      setShowCreateForm(false);
+      refetch();
+    } catch (err: any) {
+      showSnackbar(err.message ?? 'Failed to create lesson', 'error');
+    }
+  };
+
   return (
     <View style={styles.container} testID="coach-schedule">
       <Text variant="headlineSmall" style={styles.welcome}>
@@ -61,7 +110,7 @@ export default function CoachSchedule() {
         renderItem={({ item }: { item: LessonInstanceWithJoins }) => (
           <LessonCard
             instance={item}
-            onPress={() => setSelectedId(item.id)}
+            onPress={() => item._isVirtual ? setSelectedVirtual(item) : setSelectedId(item.id)}
             testID={`coach-instance-${item.id}`}
           />
         )}
@@ -79,7 +128,29 @@ export default function CoachSchedule() {
         }
       />
 
+      <FAB
+        icon="plus"
+        style={styles.fab}
+        onPress={() => setShowCreateForm(true)}
+        testID="coach-create-lesson-fab"
+      />
+
       <Portal>
+        <Modal
+          visible={showCreateForm}
+          onDismiss={() => setShowCreateForm(false)}
+          contentContainerStyle={styles.modal}
+        >
+          <Text variant="titleLarge" style={styles.modalTitle}>Create Private Lesson</Text>
+          <CoachPrivateLessonForm
+            courts={courts}
+            students={students}
+            onSubmit={handleCreateLesson}
+            loading={createInstance.isPending || enrollStudent.isPending}
+            testID="coach-create-lesson-form"
+          />
+        </Modal>
+
         <Modal
           visible={!!selectedId}
           onDismiss={() => { setSelectedId(null); setShowNoteForm(false); setSelectedStudentId(null); }}
@@ -91,7 +162,7 @@ export default function CoachSchedule() {
                 {selectedInstance.name}
               </Text>
               <Text variant="bodyMedium" style={styles.modalInfo}>
-                {selectedInstance.date} • {selectedInstance.start_time} - {selectedInstance.end_time}
+                {selectedInstance.date} • {formatTime(selectedInstance.start_time)} - {formatTime(selectedInstance.end_time)}
               </Text>
               <Text variant="titleMedium" style={styles.enrollmentTitle}>
                 Students & Attendance
@@ -117,33 +188,17 @@ export default function CoachSchedule() {
                 ) : (
                   <View>
                     <Text variant="bodyMedium" style={styles.pickStudentLabel}>Select Student</Text>
-                    <Menu
-                      visible={studentMenuVisible}
-                      onDismiss={() => setStudentMenuVisible(false)}
-                      anchor={
-                        <Button
-                          mode="outlined"
-                          onPress={() => setStudentMenuVisible(true)}
-                          style={styles.dropdown}
-                          testID="coach-student-picker"
-                        >
-                          {selectedStudentId
-                            ? enrolledStudents.find((s) => s.id === selectedStudentId)?.name ?? 'Select'
-                            : 'Select student'}
-                        </Button>
-                      }
-                    >
-                      {enrolledStudents.map((student) => (
-                        <Menu.Item
-                          key={student.id}
-                          onPress={() => {
-                            setSelectedStudentId(student.id);
-                            setStudentMenuVisible(false);
-                          }}
-                          title={student.name}
-                        />
-                      ))}
-                    </Menu>
+                    <View style={styles.studentPickerList}>
+                      <ScrollView nestedScrollEnabled>
+                        {enrolledStudents.map((student) => (
+                          <TouchableOpacity key={student.id} onPress={() => setSelectedStudentId(student.id)}>
+                            <View style={[styles.studentPickerRow, selectedStudentId === student.id && styles.studentPickerRowSelected]}>
+                              <Text variant="bodyLarge" style={styles.studentPickerRowText}>{student.name}</Text>
+                            </View>
+                          </TouchableOpacity>
+                        ))}
+                      </ScrollView>
+                    </View>
                     {selectedStudentId && (
                       <NoteForm
                         studentId={selectedStudentId}
@@ -161,6 +216,33 @@ export default function CoachSchedule() {
                 Close
               </Button>
             </ScrollView>
+          )}
+        </Modal>
+        <Modal
+          visible={!!selectedVirtual}
+          onDismiss={() => setSelectedVirtual(null)}
+          contentContainerStyle={styles.modal}
+        >
+          {selectedVirtual && (
+            <View>
+              <Text variant="titleLarge" style={styles.modalTitle}>
+                {selectedVirtual.name}
+              </Text>
+              <Text variant="bodyMedium" style={styles.modalInfo}>
+                {selectedVirtual.date} • {formatTime(selectedVirtual.start_time)} - {formatTime(selectedVirtual.end_time)}
+              </Text>
+              {selectedVirtual.court && (
+                <Text variant="bodyMedium" style={styles.modalInfo}>
+                  Court: {selectedVirtual.court.name}
+                </Text>
+              )}
+              <Text variant="bodySmall" style={styles.virtualNote}>
+                This lesson has not been generated yet. It will be created automatically when students enroll.
+              </Text>
+              <Button mode="outlined" onPress={() => setSelectedVirtual(null)} style={styles.closeButton}>
+                Close
+              </Button>
+            </View>
           )}
         </Modal>
       </Portal>
@@ -221,10 +303,38 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
     marginBottom: SPACING.xs,
   },
-  dropdown: {
+  studentPickerList: {
+    maxHeight: 200,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 8,
     marginBottom: SPACING.sm,
+  },
+  studentPickerRow: {
+    paddingVertical: SPACING.sm,
+    paddingHorizontal: SPACING.md,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: COLORS.border,
+  },
+  studentPickerRowSelected: {
+    backgroundColor: COLORS.primaryLight + '22',
+  },
+  studentPickerRowText: {
+    color: COLORS.textPrimary,
   },
   closeButton: {
     marginTop: SPACING.md,
+  },
+  virtualNote: {
+    color: COLORS.textSecondary,
+    fontStyle: 'italic',
+    marginTop: SPACING.sm,
+  },
+  fab: {
+    position: 'absolute',
+    margin: SPACING.md,
+    right: 0,
+    bottom: 0,
+    backgroundColor: COLORS.primary,
   },
 });

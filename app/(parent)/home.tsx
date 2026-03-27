@@ -8,7 +8,7 @@ import { useParentMonthlyGroupAttendance } from '@/lib/hooks/useParentAttendance
 import { useStudentNotes } from '@/lib/hooks/useStudentNotes';
 import { useAssignedCoachWithPackages } from '@/lib/hooks/useAssignedCoach';
 import { useParentAllStudentPackages, useCreateStudentPackage } from '@/lib/hooks/useStudentPackages';
-import { useStripePayment, useRecordExternalPayment } from '@/lib/hooks/useStripePayments';
+import { useStripeCheckoutPayment, useRecordExternalPayment } from '@/lib/hooks/useStripePayments';
 import { useUIStore } from '@/lib/stores/uiStore';
 import { StudentForm } from '@/components/students/StudentForm';
 import { NoteCard } from '@/components/students/NoteCard';
@@ -20,6 +20,7 @@ import { COLORS, SPACING } from '@/constants/theme';
 import { Student, CoachPackage } from '@/lib/types';
 import { StudentFormData } from '@/lib/validation/student';
 import { LessonInstanceWithJoins } from '@/lib/hooks/useLessonInstances';
+import { formatTime } from '@/lib/utils/formatTime';
 
 function StudentNotesModal({ studentId, studentName, visible, onDismiss }: {
   studentId: string;
@@ -66,7 +67,7 @@ export default function ParentHome() {
   const { data: ownedPackages } = useParentAllStudentPackages();
   const createStudent = useCreateStudent();
   const createStudentPackage = useCreateStudentPackage();
-  const stripePayment = useStripePayment();
+  const checkoutPayment = useStripeCheckoutPayment();
   const recordExternal = useRecordExternalPayment();
   const showSnackbar = useUIStore((s) => s.showSnackbar);
   const [showAddForm, setShowAddForm] = useState(false);
@@ -117,20 +118,25 @@ export default function ParentHome() {
 
   const handleBuyStripePayment = async () => {
     setShowBuyPaymentSelector(false);
-    if (!buyingPackage) return;
+    if (!buyingPackage || !selectedBuyStudentId) return;
     try {
-      await stripePayment.mutateAsync({
+      const result = await checkoutPayment.mutateAsync({
         amount_cents: buyingPackage.price_cents,
         payment_type: 'lesson',
         description: `Package: ${buyingPackage.name} (${buyingPackage.num_hours}hrs) from ${buyingCoachName}`,
+        post_action: {
+          type: 'create_package',
+          student_id: selectedBuyStudentId,
+          coach_package_id: buyingPackage.id,
+          hours_purchased: buyingPackage.num_hours,
+        },
       });
-      await createPackageRecord();
-      showSnackbar('Package purchased!', 'success');
+      if (result?.redirected) {
+        showSnackbar('Complete payment in your browser', 'success');
+      }
       setBuyingPackage(null);
     } catch (err: any) {
-      if (err.message !== 'Payment cancelled') {
-        showSnackbar(err.message ?? 'Payment failed', 'error');
-      }
+      showSnackbar(err.message ?? 'Payment failed', 'error');
     }
   };
 
@@ -236,7 +242,7 @@ export default function ParentHome() {
                     {instance.name}
                   </Text>
                   <Text variant="bodySmall" style={styles.detail}>
-                    {instance.date} • {instance.start_time} - {instance.end_time}
+                    {instance.date} • {formatTime(instance.start_time)} - {formatTime(instance.end_time)}
                   </Text>
                   <Text variant="bodySmall" style={styles.detail}>
                     {instance.coach ? `${instance.coach.first_name} ${instance.coach.last_name}` : ''}

@@ -5,6 +5,7 @@
 //   payment_intent.payment_failed — mark payment failed
 //   invoice.paid — record recurring subscription payment
 //   invoice.payment_failed — record failed subscription payment
+//   checkout.session.completed — link subscription OR execute one-time post-payment actions
 //   customer.subscription.updated — sync subscription status/period
 //   customer.subscription.deleted — mark subscription cancelled
 
@@ -48,6 +49,88 @@ async function verifyStripeSignature(payload: string, signature: string): Promis
   return timingSafeEqual(expectedSig, sig);
 }
 
+/**
+ * Execute post-payment actions based on the post_action metadata from checkout session.
+ */
+async function executePostAction(
+  supabase: ReturnType<typeof createClient>,
+  postAction: { type: string; [key: string]: unknown },
+  paymentId: string,
+) {
+  switch (postAction.type) {
+    case 'enroll': {
+      const { lesson_instance_id, student_ids } = postAction as {
+        type: string;
+        lesson_instance_id: string;
+        student_ids: string[];
+      };
+
+      for (const studentId of student_ids) {
+        // Check if already enrolled (idempotency)
+        const { data: existing } = await supabase
+          .from('enrollments')
+          .select('id')
+          .eq('lesson_instance_id', lesson_instance_id)
+          .eq('student_id', studentId)
+          .maybeSingle();
+
+        if (!existing) {
+          await supabase.from('enrollments').insert({
+            lesson_instance_id,
+            student_id: studentId,
+            status: 'enrolled',
+            payment_id: paymentId,
+          });
+        }
+      }
+      break;
+    }
+
+    case 'create_package': {
+      const { student_id, coach_package_id, hours_purchased } = postAction as {
+        type: string;
+        student_id: string;
+        coach_package_id: string;
+        hours_purchased: number;
+      };
+
+      // Check if package already created (idempotency — check for same student+coach_package created recently)
+      const { data: existingPkg } = await supabase
+        .from('student_packages')
+        .select('id')
+        .eq('student_id', student_id)
+        .eq('coach_package_id', coach_package_id)
+        .gte('purchased_at', new Date(Date.now() - 60000).toISOString()) // within last minute
+        .maybeSingle();
+
+      if (!existingPkg) {
+        await supabase.from('student_packages').insert({
+          student_id,
+          coach_package_id,
+          hours_purchased,
+          hours_used: 0,
+          status: 'active',
+          purchased_at: new Date().toISOString(),
+        });
+      }
+      break;
+    }
+
+    case 'link_request': {
+      const { request_id } = postAction as { type: string; request_id: string };
+
+      await supabase
+        .from('lesson_requests')
+        .update({ payment_id: paymentId })
+        .eq('id', request_id);
+      break;
+    }
+
+    default:
+      console.warn('Unknown post_action type:', postAction.type);
+  }
+}
+
 serve(async (req) => {
   try {
     if (req.method !== 'POST') {
@@ -87,7 +170,7 @@ serve(async (req) => {
       case 'payment_intent.succeeded': {
         const paymentIntent = event.data.object;
 
-        // Try to update existing payment record first
+        // Try to update existing payment record first (idempotency)
         const { data: existing } = await supabase
           .from('payments')
           .select('id')
@@ -116,7 +199,7 @@ serve(async (req) => {
               payment_status: 'completed',
               stripe_payment_intent_id: paymentIntent.id,
               subscription_id: meta.subscription_id || null,
-              description: paymentIntent.description || null,
+              description: paymentIntent.description || meta.description || null,
               paid_at: new Date().toISOString(),
             });
           }
@@ -142,15 +225,22 @@ serve(async (req) => {
         const stripeSubId = invoice.subscription;
         if (!stripeSubId) break;
 
-        // Find local subscription
-        const { data: sub } = await supabase
+        // Find local subscriptions (may be multiple with tiered pricing)
+        const { data: subs } = await supabase
           .from('subscriptions')
-          .select('id, user_id, org_id')
-          .eq('stripe_subscription_id', stripeSubId)
-          .maybeSingle();
+          .select('id, user_id, org_id, status')
+          .eq('stripe_subscription_id', stripeSubId);
 
+        const sub = subs?.[0];
         if (sub) {
-          // Record the recurring payment
+          // Activate ALL pending subscriptions sharing this Stripe sub
+          await supabase
+            .from('subscriptions')
+            .update({ status: 'active' })
+            .eq('stripe_subscription_id', stripeSubId)
+            .eq('status', 'pending');
+
+          // Record the recurring payment (once per invoice, using first sub for reference)
           await supabase.from('payments').insert({
             org_id: sub.org_id,
             user_id: sub.user_id,
@@ -173,25 +263,119 @@ serve(async (req) => {
         const stripeSubId = invoice.subscription;
         if (!stripeSubId) break;
 
-        const { data: sub } = await supabase
+        const { data: subs2 } = await supabase
           .from('subscriptions')
           .select('id, user_id, org_id')
           .eq('stripe_subscription_id', stripeSubId)
-          .maybeSingle();
+          .limit(1);
 
-        if (sub) {
+        const sub2 = subs2?.[0];
+        if (sub2) {
           await supabase.from('payments').insert({
-            org_id: sub.org_id,
-            user_id: sub.user_id,
+            org_id: sub2.org_id,
+            user_id: sub2.user_id,
             amount_cents: invoice.amount_due,
             payment_type: 'subscription',
             payment_platform: 'stripe',
             payment_status: 'failed',
             stripe_payment_intent_id: invoice.payment_intent || null,
             stripe_invoice_id: invoice.id,
-            subscription_id: sub.id,
+            subscription_id: sub2.id,
             description: `Failed recurring payment – ${invoice.lines?.data?.[0]?.description || 'Subscription'}`,
           });
+        }
+        break;
+      }
+
+      case 'checkout.session.completed': {
+        const session = event.data.object;
+
+        if (session.mode === 'subscription') {
+          // Subscription checkout — link Stripe subscription to local subscription
+          const stripeSubId = session.subscription;
+          const localSubId = session.metadata?.subscription_id;
+
+          if (stripeSubId && localSubId) {
+            const STRIPE_SECRET_KEY = Deno.env.get('STRIPE_SECRET_KEY');
+            if (STRIPE_SECRET_KEY) {
+              const stripeRes = await fetch(
+                `https://api.stripe.com/v1/subscriptions/${stripeSubId}`,
+                {
+                  headers: { 'Authorization': `Bearer ${STRIPE_SECRET_KEY}` },
+                }
+              );
+              const stripeSub = await stripeRes.json();
+
+              if (stripeRes.ok) {
+                await supabase
+                  .from('subscriptions')
+                  .update({
+                    stripe_subscription_id: stripeSubId,
+                    current_period_start: new Date(stripeSub.current_period_start * 1000).toISOString(),
+                    current_period_end: new Date(stripeSub.current_period_end * 1000).toISOString(),
+                  })
+                  .eq('id', localSubId);
+              } else {
+                await supabase
+                  .from('subscriptions')
+                  .update({ stripe_subscription_id: stripeSubId })
+                  .eq('id', localSubId);
+              }
+            } else {
+              await supabase
+                .from('subscriptions')
+                .update({ stripe_subscription_id: stripeSubId })
+                .eq('id', localSubId);
+            }
+          }
+        } else if (session.mode === 'payment') {
+          // One-time payment checkout — create payment record and execute post-actions
+          const meta = session.metadata || {};
+          const paymentIntentId = session.payment_intent;
+
+          if (meta.user_id && meta.org_id) {
+            // Check if payment already exists (idempotency — payment_intent.succeeded may have already fired)
+            const { data: existingPayment } = await supabase
+              .from('payments')
+              .select('id')
+              .eq('stripe_payment_intent_id', paymentIntentId)
+              .maybeSingle();
+
+            let paymentId: string;
+
+            if (existingPayment) {
+              paymentId = existingPayment.id;
+            } else {
+              const { data: newPayment } = await supabase
+                .from('payments')
+                .insert({
+                  org_id: meta.org_id,
+                  user_id: meta.user_id,
+                  amount_cents: session.amount_total,
+                  payment_type: meta.payment_type || 'lesson',
+                  payment_platform: 'stripe',
+                  payment_status: 'completed',
+                  stripe_payment_intent_id: paymentIntentId,
+                  subscription_id: meta.subscription_id || null,
+                  description: meta.description || null,
+                  paid_at: new Date().toISOString(),
+                })
+                .select('id')
+                .single();
+
+              paymentId = newPayment?.id;
+            }
+
+            // Execute post-payment actions if specified
+            if (paymentId && meta.post_action) {
+              try {
+                const postAction = JSON.parse(meta.post_action);
+                await executePostAction(supabase, postAction, paymentId);
+              } catch (e) {
+                console.error('Failed to execute post_action:', e);
+              }
+            }
+          }
         }
         break;
       }
@@ -205,7 +389,7 @@ serve(async (req) => {
           past_due: 'active',
           canceled: 'cancelled',
           unpaid: 'paused',
-          incomplete: 'active',
+          incomplete: 'pending',
           incomplete_expired: 'expired',
           trialing: 'active',
           paused: 'paused',

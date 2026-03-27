@@ -170,7 +170,7 @@ export function useCreateSelfSubscription() {
   const userProfile = useAuthStore((s) => s.userProfile);
 
   return useMutation({
-    mutationFn: async ({ plan, studentId }: { plan: MembershipPlan; studentId?: string }) => {
+    mutationFn: async ({ plan, studentId, priceCents }: { plan: MembershipPlan; studentId?: string; priceCents?: number }) => {
       if (!userProfile) throw new Error('User not logged in');
 
       const { data, error } = await supabase
@@ -181,11 +181,11 @@ export function useCreateSelfSubscription() {
           student_id: studentId ?? null,
           name: plan.name,
           description: plan.description,
-          price_cents: plan.price_cents,
+          price_cents: priceCents ?? plan.price_cents,
           lessons_per_month: plan.lessons_per_month,
           stripe_price_id: plan.stripe_price_id,
           starts_at: new Date().toISOString(),
-          status: 'active',
+          status: plan.stripe_price_id ? 'pending' : 'active',
         })
         .select()
         .single();

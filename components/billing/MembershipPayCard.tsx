@@ -31,6 +31,7 @@ export function MembershipPayCard({
   const hasStripePriceId = !!(subscription as any).stripe_price_id;
   const cancelPending = !!(subscription as any).cancel_at_period_end;
   const periodEnd = (subscription as any).current_period_end;
+  const isPending = subscription.status === 'pending';
 
   const formatDate = (dateStr: string) => {
     return new Date(dateStr).toLocaleDateString('en-US', {
@@ -56,6 +57,13 @@ export function MembershipPayCard({
           Status: {subscription.status.charAt(0).toUpperCase() + subscription.status.slice(1)}
         </Text>
 
+        {/* Pending badge for subscriptions awaiting payment */}
+        {isPending && (
+          <Text variant="bodySmall" style={styles.pendingBadge}>
+            Payment Required
+          </Text>
+        )}
+
         {/* Active Stripe subscription with cancel pending */}
         {hasStripeSub && cancelPending && periodEnd && (
           <Text variant="bodySmall" style={styles.cancelNotice}>
@@ -63,8 +71,8 @@ export function MembershipPayCard({
           </Text>
         )}
 
-        {/* Active Stripe subscription — show period and cancel button */}
-        {hasStripeSub && !cancelPending && subscription.status === 'active' && (
+        {/* Active Stripe subscription — show period and cancel button (not for pending) */}
+        {hasStripeSub && !cancelPending && subscription.status === 'active' && !isPending && (
           <View style={styles.actions}>
             {periodEnd && (
               <Text variant="bodySmall" style={styles.periodText}>
@@ -86,21 +94,29 @@ export function MembershipPayCard({
           </View>
         )}
 
-        {/* No Stripe sub but has price_id — offer subscription */}
-        {!hasStripeSub && hasStripePriceId && subscription.status === 'active' && onSubscribe && (
-          <Button
-            mode="contained"
-            onPress={onSubscribe}
-            loading={loading}
-            style={styles.payButton}
-            testID="subscribe-button"
-          >
-            Complete Payment
-          </Button>
+        {/* Offer subscription: no Stripe sub yet, OR Stripe sub created but payment still pending */}
+        {((!hasStripeSub && hasStripePriceId) || (hasStripeSub && isPending)) && onSubscribe && (
+          <>
+            <Button
+              mode="contained"
+              onPress={onSubscribe}
+              loading={loading}
+              style={styles.payButton}
+              testID="subscribe-button"
+            >
+              Continue to Payment
+            </Button>
+            <Text variant="bodySmall" style={styles.redirectHint}>
+              You'll be redirected to complete payment securely
+            </Text>
+            <Text variant="bodySmall" style={styles.subscribeDisclosure}>
+              By subscribing, you agree to our Terms of Service. Auto-renews every 4 weeks until cancelled.
+            </Text>
+          </>
         )}
 
-        {/* Payment pending notice */}
-        {!hasStripeSub && hasStripePriceId && (
+        {/* Payment pending notice — only when button is NOT shown */}
+        {!hasStripeSub && hasStripePriceId && !onSubscribe && (
           <Text variant="bodySmall" style={styles.pendingNotice}>
             Payment required to activate
           </Text>
@@ -163,9 +179,24 @@ const styles = StyleSheet.create({
   cancelButton: {
     borderColor: COLORS.error,
   },
+  pendingBadge: {
+    color: COLORS.warning,
+    fontWeight: '700',
+    marginTop: SPACING.xs,
+  },
   pendingNotice: {
     color: COLORS.warning,
     fontWeight: '600',
     marginTop: SPACING.sm,
+  },
+  redirectHint: {
+    color: COLORS.textSecondary,
+    textAlign: 'center',
+    marginTop: SPACING.sm,
+  },
+  subscribeDisclosure: {
+    color: COLORS.textSecondary,
+    textAlign: 'center',
+    marginTop: SPACING.xs,
   },
 });

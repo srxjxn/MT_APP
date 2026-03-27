@@ -7,7 +7,7 @@ import { useAuth } from '@/lib/hooks/useAuth';
 import { COLORS, SPACING } from '@/constants/theme';
 import { LAYOUT } from '@/constants/layout';
 import { useUIStore } from '@/lib/stores/uiStore';
-import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 export default function VerifyEmailScreen() {
   const { session } = useAuth();

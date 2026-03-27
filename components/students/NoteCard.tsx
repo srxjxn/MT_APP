@@ -1,8 +1,9 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Card, Text, IconButton, Chip } from 'react-native-paper';
-import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { COLORS, SPACING } from '@/constants/theme';
+import { formatTime } from '@/lib/utils/formatTime';
 import { StudentNoteWithJoins } from '@/lib/hooks/useStudentNotes';
 
 function relativeTime(dateStr: string): string {
@@ -70,7 +71,7 @@ export function NoteCard({ note, canDelete, onDelete, testID }: NoteCardProps) {
             style={styles.lessonChip}
             textStyle={styles.lessonChipText}
           >
-            {note.lesson_instance.date} {note.lesson_instance.start_time}
+            {note.lesson_instance.date} {formatTime(note.lesson_instance.start_time)}
           </Chip>
         )}
       </Card.Content>

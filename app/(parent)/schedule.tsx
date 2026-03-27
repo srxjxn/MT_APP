@@ -1,13 +1,12 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState } from 'react';
 import { View, FlatList, StyleSheet, RefreshControl } from 'react-native';
-import { useParentLessonInstances, useLessonInstances, LessonInstanceWithJoins, ParentLessonInstance } from '@/lib/hooks/useLessonInstances';
+import { useParentLessonInstances, useLessonInstancesWithVirtuals, useMaterializeInstance, LessonInstanceWithJoins, ParentLessonInstance } from '@/lib/hooks/useLessonInstances';
 import { EnrollChildDialog } from '@/components/lessons/EnrollChildDialog';
-import { LessonTypeToggle } from '@/components/lessons/LessonTypeToggle';
 import { LoadingScreen, EmptyState } from '@/components/ui';
 import { COLORS, SPACING } from '@/constants/theme';
-import { Text, Chip, Card, Button } from 'react-native-paper';
+import { Text, Chip, Card, SegmentedButtons, ActivityIndicator } from 'react-native-paper';
 import { StatusBadge } from '@/components/ui';
-import { LESSON_TYPE_LABELS } from '@/lib/validation/lessonTemplate';
+import { formatTime } from '@/lib/utils/formatTime';
 
 function BrowseLessonCard({ instance, onPress, testID }: { instance: LessonInstanceWithJoins; onPress?: () => void; testID?: string }) {
   const maxStudents = instance.max_students;
@@ -16,27 +15,26 @@ function BrowseLessonCard({ instance, onPress, testID }: { instance: LessonInsta
   const enrollmentColor = isFull ? COLORS.error : COLORS.success;
 
   return (
-    <Card style={styles.card} onPress={onPress} testID={testID}>
+    <Card style={[styles.card, instance._isVirtual && styles.virtualCard]} onPress={onPress} testID={testID}>
       <Card.Content>
         <View style={styles.cardHeader}>
           <Text variant="titleMedium" style={styles.cardName}>
             {instance.name}
           </Text>
-          <StatusBadge status={instance.status} />
+          {instance._isVirtual ? (
+            <Chip compact style={styles.templateChip} textStyle={styles.templateChipText}>Template</Chip>
+          ) : (
+            <StatusBadge status={instance.status} />
+          )}
         </View>
         <Text variant="bodyMedium" style={styles.cardDetail}>
-          {instance.date} • {instance.start_time} - {instance.end_time}
+          {instance.date} • {formatTime(instance.start_time)} - {formatTime(instance.end_time)}
         </Text>
         <Text variant="bodyMedium" style={styles.cardDetail}>
           {instance.coach ? `${instance.coach.first_name} ${instance.coach.last_name}` : ''}
           {instance.court ? ` • ${instance.court.name}` : ''}
         </Text>
         <View style={styles.cardFooter}>
-          {instance.lesson_type && (
-            <Text variant="bodySmall" style={styles.cardType}>
-              {LESSON_TYPE_LABELS[instance.lesson_type] ?? instance.lesson_type}
-            </Text>
-          )}
           <Text variant="bodySmall" style={[styles.cardEnrollment, { color: enrollmentColor }]}>
             {enrollmentCount}{maxStudents ? `/${maxStudents}` : ''} enrolled
           </Text>
@@ -57,7 +55,7 @@ function MyLessonCard({ instance, testID }: { instance: ParentLessonInstance; te
           <StatusBadge status={instance.status} />
         </View>
         <Text variant="bodyMedium" style={styles.cardDetail}>
-          {instance.date} • {instance.start_time} - {instance.end_time}
+          {instance.date} • {formatTime(instance.start_time)} - {formatTime(instance.end_time)}
         </Text>
         <Text variant="bodyMedium" style={styles.cardDetail}>
           {instance.coach ? `${instance.coach.first_name} ${instance.coach.last_name}` : ''}
@@ -79,19 +77,11 @@ function MyLessonCard({ instance, testID }: { instance: ParentLessonInstance; te
 
 export default function ParentSchedule() {
   const { data: myInstances, isLoading: loadingMy, refetch: refetchMy, isRefetching: refetchingMy } = useParentLessonInstances();
-  const { data: allInstances, isLoading: loadingAll, refetch: refetchAll, isRefetching: refetchingAll } = useLessonInstances();
+  const { data: allInstances, isLoading: loadingAll, refetch: refetchAll, isRefetching: refetchingAll } = useLessonInstancesWithVirtuals({ lessonType: 'group' });
+  const materialize = useMaterializeInstance();
   const [tab, setTab] = useState('enrolled');
-  const [lessonTypeFilter, setLessonTypeFilter] = useState('all');
   const [selectedInstance, setSelectedInstance] = useState<LessonInstanceWithJoins | null>(null);
-
-  const filteredMyInstances = useMemo(() => {
-    if (!myInstances || lessonTypeFilter === 'all') return myInstances;
-    return (myInstances as ParentLessonInstance[]).filter((inst) => {
-      const type = inst.lesson_type;
-      if (lessonTypeFilter === 'group') return type === 'group';
-      return type === 'private' || type === 'semi_private';
-    });
-  }, [myInstances, lessonTypeFilter]);
+  const [materializing, setMaterializing] = useState(false);
 
   const isLoading = tab === 'enrolled' ? loadingMy : loadingAll;
 
@@ -101,28 +91,18 @@ export default function ParentSchedule() {
 
   return (
     <View style={styles.container} testID="parent-schedule">
-      <View style={styles.headerRow}>
-        <Text variant="titleMedium" style={styles.headerTitle}>
-          {tab === 'enrolled' ? 'My Lessons' : 'Browse All'}
-        </Text>
-        <Button
-          mode="text"
-          compact
-          onPress={() => setTab(tab === 'enrolled' ? 'browse' : 'enrolled')}
-        >
-          {tab === 'enrolled' ? 'Browse All' : 'My Lessons'}
-        </Button>
-      </View>
-      {tab === 'enrolled' && (
-        <LessonTypeToggle
-          value={lessonTypeFilter}
-          onValueChange={setLessonTypeFilter}
-          style={styles.lessonTypeToggle}
-        />
-      )}
+      <SegmentedButtons
+        value={tab}
+        onValueChange={setTab}
+        buttons={[
+          { value: 'enrolled', label: 'My Lessons' },
+          { value: 'browse', label: 'Browse All' },
+        ]}
+        style={styles.tabToggle}
+      />
       {tab === 'enrolled' ? (
         <FlatList
-          data={filteredMyInstances as ParentLessonInstance[]}
+          data={myInstances as ParentLessonInstance[]}
           renderItem={({ item }) => (
             <MyLessonCard
               instance={item}
@@ -130,7 +110,7 @@ export default function ParentSchedule() {
             />
           )}
           keyExtractor={(item) => item.id}
-          contentContainerStyle={filteredMyInstances?.length === 0 ? styles.emptyContainer : styles.list}
+          contentContainerStyle={myInstances?.length === 0 ? styles.emptyContainer : styles.list}
           refreshControl={
             <RefreshControl refreshing={refetchingMy} onRefresh={refetchMy} tintColor={COLORS.primary} />
           }
@@ -148,7 +128,21 @@ export default function ParentSchedule() {
           renderItem={({ item }: { item: LessonInstanceWithJoins }) => (
             <BrowseLessonCard
               instance={item}
-              onPress={() => setSelectedInstance(item)}
+              onPress={async () => {
+                if (item._isVirtual) {
+                  setMaterializing(true);
+                  try {
+                    const real = await materialize.mutateAsync(item);
+                    setSelectedInstance({ ...item, id: real.id, _isVirtual: false });
+                  } catch {
+                    // Failed to materialize, ignore
+                  } finally {
+                    setMaterializing(false);
+                  }
+                  return;
+                }
+                setSelectedInstance(item);
+              }}
               testID={`parent-instance-${item.id}`}
             />
           )}
@@ -187,20 +181,9 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: COLORS.background,
   },
-  headerRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: SPACING.md,
-    paddingTop: SPACING.md,
-    paddingBottom: SPACING.xs,
-  },
-  headerTitle: {
-    color: COLORS.textPrimary,
-    fontWeight: '600',
-  },
-  lessonTypeToggle: {
+  tabToggle: {
     marginHorizontal: SPACING.md,
+    marginTop: SPACING.md,
     marginBottom: SPACING.xs,
   },
   list: {
@@ -235,10 +218,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: SPACING.xs,
   },
-  cardType: {
-    color: COLORS.primary,
-    fontWeight: '600',
-  },
   cardEnrollment: {
     fontWeight: '600',
   },
@@ -253,6 +232,20 @@ const styles = StyleSheet.create({
     height: 28,
   },
   childChipText: {
+    fontSize: 11,
+    color: COLORS.info,
+  },
+  virtualCard: {
+    opacity: 0.7,
+    borderStyle: 'dashed' as const,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  templateChip: {
+    backgroundColor: '#E3F2FD',
+    height: 26,
+  },
+  templateChipText: {
     fontSize: 11,
     color: COLORS.info,
   },

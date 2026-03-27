@@ -16,12 +16,15 @@ import {
   IconButton,
 } from 'react-native-paper';
 import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/lib/hooks/useAuth';
 import { useAuthStore } from '@/lib/stores/authStore';
 import { FormField, DatePickerField } from '@/components/ui';
 import { COLORS, SPACING } from '@/constants/theme';
 import { LAYOUT } from '@/constants/layout';
 import { useUIStore } from '@/lib/stores/uiStore';
 import { MembershipPlan, UserProfile } from '@/lib/types';
+import { queryClient } from '@/lib/queryClient';
+import { studentKeys } from '@/lib/hooks/useStudents';
 
 const TOTAL_STEPS = 4;
 
@@ -34,6 +37,7 @@ interface ChildEntry {
 const emptyChild = (): ChildEntry => ({ firstName: '', lastName: '', dob: '' });
 
 export default function OnboardingScreen() {
+  const { signOut } = useAuth();
   const userProfile = useAuthStore((s) => s.userProfile);
   const setUserProfile = useAuthStore((s) => s.setUserProfile);
   const setNeedsOnboarding = useAuthStore((s) => s.setNeedsOnboarding);
@@ -46,6 +50,15 @@ export default function OnboardingScreen() {
   const [firstName, setFirstName] = useState(userProfile?.first_name ?? '');
   const [lastName, setLastName] = useState(userProfile?.last_name ?? '');
   const [phone, setPhone] = useState(userProfile?.phone ?? '');
+
+  // Sync form fields when userProfile arrives after initial mount
+  useEffect(() => {
+    if (userProfile) {
+      setFirstName((prev) => prev || userProfile.first_name || '');
+      setLastName((prev) => prev || userProfile.last_name || '');
+      setPhone((prev) => prev || userProfile.phone || '');
+    }
+  }, [userProfile]);
 
   // Step 2 — Children
   const [children, setChildren] = useState<ChildEntry[]>([emptyChild()]);
@@ -116,7 +129,10 @@ export default function OnboardingScreen() {
   const handleBack = () => setStep((s) => Math.max(s - 1, 1));
 
   const handleComplete = async () => {
-    if (!userProfile) return;
+    if (!userProfile) {
+      showSnackbar('Profile not loaded yet. Please wait a moment and try again.', 'error');
+      return;
+    }
 
     setLoading(true);
     try {
@@ -138,6 +154,7 @@ export default function OnboardingScreen() {
       );
 
       if (validChildren.length > 0) {
+        // 1. Insert students (critical — must succeed)
         const { error: childError } = await supabase.from('students').insert(
           validChildren.map((c) => ({
             org_id: userProfile.org_id,
@@ -150,6 +167,22 @@ export default function OnboardingScreen() {
           }))
         );
         if (childError) throw childError;
+
+        // 2. Seed cache (best-effort — don't block navigation on failure)
+        try {
+          const { data: insertedStudents } = await supabase
+            .from('students')
+            .select('*')
+            .eq('parent_id', userProfile.id);
+          if (insertedStudents && insertedStudents.length > 0) {
+            queryClient.setQueryData(
+              studentKeys.parentStudents(userProfile.id),
+              insertedStudents,
+            );
+          }
+        } catch {
+          // Cache seeding failed — home screen will fetch on mount instead
+        }
       }
 
       // 3. If plan selected, create local subscription row
@@ -165,7 +198,7 @@ export default function OnboardingScreen() {
             price_cents: plan.price_cents,
             lessons_per_month: plan.lessons_per_month,
             starts_at: now.toISOString(),
-            status: 'active' as const,
+            status: plan.stripe_price_id ? ('pending' as const) : ('active' as const),
             stripe_price_id: plan.stripe_price_id,
             current_period_start: now.toISOString(),
             current_period_end: periodEnd.toISOString(),
@@ -413,7 +446,14 @@ export default function OnboardingScreen() {
             Back
           </Button>
         ) : (
-          <View style={styles.navBtn} />
+          <Button
+            mode="text"
+            onPress={signOut}
+            style={styles.navBtn}
+            testID="onboarding-sign-out"
+          >
+            Sign Out
+          </Button>
         )}
 
         {step < TOTAL_STEPS ? (

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, FlatList, StyleSheet, RefreshControl } from 'react-native';
 import { FAB, Text, Portal, Modal, Button, SegmentedButtons, Menu, Banner } from 'react-native-paper';
 import { router } from 'expo-router';
-import { useLessonInstances, useGenerateInstances, useBulkCompletePastLessons, LessonInstanceWithJoins } from '@/lib/hooks/useLessonInstances';
+import { useLessonInstancesWithVirtuals, useGenerateInstances, useBulkCompletePastLessons, useMaterializeInstance, LessonInstanceWithJoins } from '@/lib/hooks/useLessonInstances';
 import { useCoachUsers } from '@/lib/hooks/useStudents';
 import { LessonCard } from '@/components/lessons/LessonCard';
 import { DayCalendarView } from '@/components/lessons/DayCalendarView';
@@ -39,10 +39,11 @@ export default function ScheduleScreen() {
     lessonType: filterLessonType !== 'all' ? filterLessonType : undefined,
   };
 
-  const { data: instances, isLoading, refetch, isRefetching } = useLessonInstances(filters);
+  const { data: instances, isLoading, refetch, isRefetching } = useLessonInstancesWithVirtuals(filters);
   const { data: coaches } = useCoachUsers();
   const generateInstances = useGenerateInstances();
   const bulkComplete = useBulkCompletePastLessons();
+  const materialize = useMaterializeInstance();
   const showSnackbar = useUIStore((s) => s.showSnackbar);
   const [showGenerate, setShowGenerate] = useState(false);
   const [dateFrom, setDateFrom] = useState('');
@@ -87,6 +88,19 @@ export default function ScheduleScreen() {
     } catch (err: any) {
       showSnackbar(err.message ?? 'Failed to complete lessons', 'error');
     }
+  };
+
+  const handleInstancePress = async (inst: LessonInstanceWithJoins) => {
+    if (inst._isVirtual) {
+      try {
+        const real = await materialize.mutateAsync(inst);
+        router.push(`/(admin)/lessons/instance/${real.id}`);
+      } catch (err: any) {
+        showSnackbar(err.message ?? 'Failed to create lesson instance', 'error');
+      }
+      return;
+    }
+    router.push(`/(admin)/lessons/instance/${inst.id}`);
   };
 
   if (isLoading) {
@@ -183,7 +197,7 @@ export default function ScheduleScreen() {
           instances={instances ?? []}
           date={calendarDate}
           onDateChange={setCalendarDate}
-          onInstancePress={(inst) => router.push(`/(admin)/lessons/instance/${inst.id}`)}
+          onInstancePress={handleInstancePress}
         />
       ) : (
         <FlatList
@@ -191,7 +205,7 @@ export default function ScheduleScreen() {
           renderItem={({ item }: { item: LessonInstanceWithJoins }) => (
             <LessonCard
               instance={item}
-              onPress={() => router.push(`/(admin)/lessons/instance/${item.id}`)}
+              onPress={() => handleInstancePress(item)}
               testID={`instance-card-${item.id}`}
             />
           )}

@@ -2,7 +2,7 @@ import React from 'react';
 import { View, ScrollView, StyleSheet, TouchableOpacity } from 'react-native';
 import { Card, Text, Button } from 'react-native-paper';
 import { router } from 'expo-router';
-import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useAuthStore } from '@/lib/stores/authStore';
 import { useDashboardStats } from '@/lib/hooks/useDashboard';
 import { LoadingScreen } from '@/components/ui';

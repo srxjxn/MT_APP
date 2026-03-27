@@ -6,7 +6,7 @@ import { useParentStudents } from '@/lib/hooks/useStudents';
 import { useCoachDirectory } from '@/lib/hooks/useCoachPricing';
 import { useParentLessonRequests, useUpdateLessonRequest, useLinkPaymentToRequest, LessonRequestWithJoins } from '@/lib/hooks/useLessonRequests';
 import { useStudentPackages, useDeductPackageHours, useCreateStudentPackage, findActivePackage, StudentPackageWithDetails } from '@/lib/hooks/useStudentPackages';
-import { useStripePayment, useRecordExternalPayment } from '@/lib/hooks/useStripePayments';
+import { useStripeCheckoutPayment, useRecordExternalPayment } from '@/lib/hooks/useStripePayments';
 import { useStudentPrimaryCoach, useStudentPrivateLessonStats } from '@/lib/hooks/usePrivateLessonStats';
 import { StudentPackageCard } from '@/components/private-lessons/StudentPackageCard';
 import { CoachPricingCard } from '@/components/private-lessons/CoachPricingCard';
@@ -69,7 +69,7 @@ export function PrivateLessonsContent() {
   const linkPayment = useLinkPaymentToRequest();
   const deductHours = useDeductPackageHours();
   const createStudentPackage = useCreateStudentPackage();
-  const stripePayment = useStripePayment();
+  const checkoutPayment = useStripeCheckoutPayment();
   const recordExternal = useRecordExternalPayment();
   const showSnackbar = useUIStore((s) => s.showSnackbar);
 
@@ -171,20 +171,25 @@ export function PrivateLessonsContent() {
   const handleStripePayment = async () => {
     if (paymentContext === 'package') {
       setShowBuyPaymentSelector(false);
-      if (!buyingPackage) return;
+      if (!buyingPackage || !selectedBuyStudentId) return;
       try {
-        const payment = await stripePayment.mutateAsync({
+        const result = await checkoutPayment.mutateAsync({
           amount_cents: buyingPackage.price_cents,
           payment_type: 'lesson',
           description: `Package: ${buyingPackage.name} (${buyingPackage.num_hours}hrs) from ${buyingCoachName}`,
+          post_action: {
+            type: 'create_package',
+            student_id: selectedBuyStudentId,
+            coach_package_id: buyingPackage.id,
+            hours_purchased: buyingPackage.num_hours,
+          },
         });
-        await createPackageAfterPayment(payment.id);
-        showSnackbar('Package purchased!', 'success');
+        if (result?.redirected) {
+          showSnackbar('Complete payment in your browser', 'success');
+        }
         setBuyingPackage(null);
       } catch (err: any) {
-        if (err.message !== 'Payment cancelled') {
-          showSnackbar(err.message ?? 'Payment failed', 'error');
-        }
+        showSnackbar(err.message ?? 'Payment failed', 'error');
       }
       return;
     }
@@ -199,18 +204,21 @@ export function PrivateLessonsContent() {
     }
 
     try {
-      const payment = await stripePayment.mutateAsync({
+      const result = await checkoutPayment.mutateAsync({
         amount_cents: rateCents,
         payment_type: 'drop_in',
         description: `Private lesson with ${payingRequest.coach.first_name} ${payingRequest.coach.last_name}`,
+        post_action: {
+          type: 'link_request',
+          request_id: payingRequest.id,
+        },
       });
-      await linkPayment.mutateAsync({ requestId: payingRequest.id, paymentId: payment.id });
-      showSnackbar('Payment successful!', 'success');
+      if (result?.redirected) {
+        showSnackbar('Complete payment in your browser', 'success');
+      }
       setPayingRequest(null);
     } catch (err: any) {
-      if (err.message !== 'Payment cancelled') {
-        showSnackbar(err.message ?? 'Payment failed', 'error');
-      }
+      showSnackbar(err.message ?? 'Payment failed', 'error');
     }
   };
 

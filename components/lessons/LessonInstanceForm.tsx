@@ -49,7 +49,6 @@ export function LessonInstanceForm({
   const [startTime, setStartTime] = useState('');
   const [durationMinutes, setDurationMinutes] = useState(60);
   const [maxStudents, setMaxStudents] = useState('6');
-  const [priceDollars, setPriceDollars] = useState('0');
   const [description, setDescription] = useState('');
   const [notes, setNotes] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -73,9 +72,6 @@ export function LessonInstanceForm({
     const maxStudentsNum = parseInt(maxStudents, 10) || 0;
     if (maxStudentsNum < 1) newErrors.max_students = 'Must allow at least 1 student';
 
-    const priceCents = Math.round(parseFloat(priceDollars || '0') * 100);
-    if (priceCents < 0) newErrors.price_cents = 'Price cannot be negative';
-
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
       return;
@@ -91,7 +87,7 @@ export function LessonInstanceForm({
       start_time: startTime,
       duration_minutes: durationMinutes,
       max_students: maxStudentsNum,
-      price_cents: priceCents,
+      price_cents: 0,
       description: description || undefined,
       notes: notes || undefined,
     });
@@ -189,15 +185,6 @@ export function LessonInstanceForm({
         keyboardType="numeric"
         error={errors.max_students}
         testID="instance-max-students-input"
-      />
-
-      <FormField
-        label="Price ($)"
-        value={priceDollars}
-        onChangeText={setPriceDollars}
-        keyboardType="numeric"
-        error={errors.price_cents}
-        testID="instance-price-input"
       />
 
       <FormField

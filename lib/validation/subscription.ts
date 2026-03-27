@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-export const SUBSCRIPTION_STATUSES = ['active', 'paused', 'cancelled', 'expired'] as const;
+export const SUBSCRIPTION_STATUSES = ['pending', 'active', 'paused', 'cancelled', 'expired'] as const;
 
 export const subscriptionSchema = z.object({
   name: z.string().min(1, 'Plan name is required'),

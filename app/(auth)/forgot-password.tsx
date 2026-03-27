@@ -7,7 +7,7 @@ import { FormField } from '@/components/ui';
 import { COLORS, SPACING } from '@/constants/theme';
 import { LAYOUT } from '@/constants/layout';
 import { useUIStore } from '@/lib/stores/uiStore';
-import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 export default function ForgotPasswordScreen() {
   const [email, setEmail] = useState('');

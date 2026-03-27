@@ -44,9 +44,6 @@ export function LessonTemplateForm({
   const [startTime, setStartTime] = useState(initialValues?.start_time ?? '');
   const [durationMinutes, setDurationMinutes] = useState(initialValues?.duration_minutes ?? 60);
   const [maxStudents, setMaxStudents] = useState(String(initialValues?.max_students ?? '6'));
-  const [priceDollars, setPriceDollars] = useState(
-    initialValues?.price_cents ? (initialValues.price_cents / 100).toFixed(2) : '0'
-  );
   const [description, setDescription] = useState(initialValues?.description ?? '');
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -70,8 +67,6 @@ export function LessonTemplateForm({
       return;
     }
 
-    const priceCents = Math.round(parseFloat(priceDollars || '0') * 100);
-
     const baseData = {
       name,
       lesson_type: lessonType,
@@ -80,7 +75,7 @@ export function LessonTemplateForm({
       start_time: startTime,
       duration_minutes: durationMinutes,
       max_students: parseInt(maxStudents, 10) || 0,
-      price_cents: priceCents,
+      price_cents: 0,
       description: description || undefined,
     };
 
@@ -209,15 +204,6 @@ export function LessonTemplateForm({
         keyboardType="numeric"
         error={errors.max_students}
         testID="template-max-students-input"
-      />
-
-      <FormField
-        label="Price ($)"
-        value={priceDollars}
-        onChangeText={setPriceDollars}
-        keyboardType="numeric"
-        error={errors.price_cents}
-        testID="template-price-input"
       />
 
       <FormField

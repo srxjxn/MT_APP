@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Card, Text, Checkbox, Button, IconButton } from 'react-native-paper';
-import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useEnrollments, useMarkAttendance, useDropStudent, usePromoteFromWaitlist, EnrollmentWithStudent } from '@/lib/hooks/useEnrollments';
 import { StatusBadge } from '@/components/ui';
 import { useUIStore } from '@/lib/stores/uiStore';

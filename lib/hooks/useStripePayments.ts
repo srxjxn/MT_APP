@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useStripe } from '@stripe/stripe-react-native';
+import * as WebBrowser from 'expo-web-browser';
 import { supabase } from '../supabase';
 import { useAuthStore } from '../stores/authStore';
 import { paymentKeys } from './usePayments';
@@ -55,14 +55,13 @@ export function useRecordExternalPayment() {
 }
 
 /**
- * Processes a Stripe payment using the PaymentSheet flow.
+ * Processes a one-time payment via Stripe Checkout (browser redirect).
  * 1. Ensures Stripe Customer exists (lazy creation)
- * 2. Creates a PaymentIntent via edge function (with metadata for server-side recording)
- * 3. Presents the native Stripe PaymentSheet
- * 4. Payment record is created server-side by the stripe-webhook
+ * 2. Creates a Checkout Session via edge function with mode: 'payment'
+ * 3. Opens the checkout URL in Safari
+ * 4. Returns { redirected: true } — side effects happen server-side via webhook
  */
-export function useStripePayment() {
-  const { initPaymentSheet, presentPaymentSheet } = useStripe();
+export function useStripeCheckoutPayment() {
   const queryClient = useQueryClient();
   const orgId = useAuthStore((s) => s.userProfile?.org_id);
   const userProfile = useAuthStore((s) => s.userProfile);
@@ -73,18 +72,19 @@ export function useStripePayment() {
       payment_type,
       subscription_id,
       description,
+      post_action,
     }: {
       amount_cents: number;
       payment_type: PaymentType;
       subscription_id?: string;
       description?: string;
+      post_action?: Record<string, unknown>;
     }) => {
       if (!userProfile) throw new Error('User not logged in');
 
       // 1. Ensure Stripe customer exists
       const customerId = await ensureStripeCustomer(userProfile);
 
-      // Update local store if customer was just created
       if (!userProfile.stripe_customer_id) {
         useAuthStore.getState().setUserProfile({
           ...userProfile,
@@ -92,49 +92,34 @@ export function useStripePayment() {
         });
       }
 
-      // 2. Create PaymentIntent via edge function (with metadata)
-      const { data: intentData, error: intentError } = await supabase.functions.invoke(
-        'create-payment-intent',
-        {
-          body: {
-            amount_cents,
-            description: description ?? undefined,
-            customer_id: customerId,
-            user_id: userProfile.id,
-            org_id: orgId,
-            payment_type,
-            subscription_id: subscription_id ?? undefined,
-          },
-        }
-      );
-
-      if (intentError) throw new Error('Failed to create payment: ' + intentError.message);
-      if (!intentData?.clientSecret) throw new Error('No client secret returned');
-
-      const { clientSecret } = intentData;
-
-      // 3. Initialize PaymentSheet
-      const { error: initError } = await initPaymentSheet({
-        paymentIntentClientSecret: clientSecret,
-        merchantDisplayName: 'Modern Tennis',
-        customerId,
-        style: 'alwaysLight',
+      // 2. Create Checkout Session via edge function
+      const { data, error } = await supabase.functions.invoke('create-checkout-session', {
+        body: {
+          customer_id: customerId,
+          user_id: userProfile.id,
+          org_id: orgId,
+          mode: 'payment',
+          amount_cents,
+          payment_type,
+          subscription_id: subscription_id ?? undefined,
+          description: description ?? undefined,
+          post_action: post_action ?? undefined,
+        },
       });
 
-      if (initError) throw new Error(initError.message);
+      if (error) throw new Error('Failed to create checkout session: ' + error.message);
+      if (!data?.checkoutUrl) throw new Error('No checkout URL returned');
 
-      // 4. Present PaymentSheet — native UI
-      const { error: presentError } = await presentPaymentSheet();
-
-      if (presentError) {
-        if (presentError.code === 'Canceled') {
-          throw new Error('Payment cancelled');
-        }
-        throw new Error(presentError.message);
+      // 3. Open in in-app browser session
+      const result = await WebBrowser.openAuthSessionAsync(
+        data.checkoutUrl,
+        'modern-tennis://billing'
+      );
+      if (result.type === 'cancel' || result.type === 'dismiss') {
+        throw new Error('Payment cancelled');
       }
 
-      // Payment record is created server-side by the stripe-webhook
-      // on payment_intent.succeeded event
+      return { redirected: true };
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: paymentKeys.all });

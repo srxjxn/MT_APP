@@ -9,7 +9,7 @@ import { useUIStore } from '@/lib/stores/uiStore';
 export default function RoleSelectScreen() {
   const [role, setRole] = useState<'parent' | 'coach'>('parent');
   const [loading, setLoading] = useState(false);
-  const { createSocialProfile } = useAuth();
+  const { createSocialProfile, signOut } = useAuth();
   const showSnackbar = useUIStore((s) => s.showSnackbar);
 
   const handleContinue = async () => {
@@ -61,6 +61,16 @@ export default function RoleSelectScreen() {
         >
           Continue
         </Button>
+
+        <Button
+          mode="outlined"
+          onPress={signOut}
+          style={styles.signOutButton}
+          contentStyle={styles.buttonContent}
+          testID="role-select-sign-out"
+        >
+          Sign Out
+        </Button>
       </View>
     </View>
   );
@@ -103,5 +113,9 @@ const styles = StyleSheet.create({
   },
   buttonContent: {
     height: LAYOUT.buttonHeight,
+  },
+  signOutButton: {
+    marginTop: SPACING.sm,
+    alignSelf: 'stretch',
   },
 });

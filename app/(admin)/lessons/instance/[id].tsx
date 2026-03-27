@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ScrollView, View, StyleSheet } from 'react-native';
+import { ScrollView, View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Card, Text, Button, Chip, Menu, Portal, Dialog, ProgressBar } from 'react-native-paper';
 import { useLocalSearchParams, router } from 'expo-router';
 import { useLessonInstance, useUpdateLessonInstance } from '@/lib/hooks/useLessonInstances';
@@ -12,6 +12,7 @@ import { useUIStore } from '@/lib/stores/uiStore';
 import { COLORS, SPACING } from '@/constants/theme';
 import { LAYOUT } from '@/constants/layout';
 import { LESSON_TYPE_LABELS } from '@/lib/validation/lessonTemplate';
+import { formatTime } from '@/lib/utils/formatTime';
 
 const STATUSES = ['scheduled', 'in_progress', 'completed', 'cancelled'] as const;
 
@@ -25,7 +26,7 @@ export default function InstanceDetailScreen() {
   const showSnackbar = useUIStore((s) => s.showSnackbar);
   const [statusMenuVisible, setStatusMenuVisible] = useState(false);
   const [showAddStudent, setShowAddStudent] = useState(false);
-  const [studentMenuVisible, setStudentMenuVisible] = useState(false);
+
   const [showCancelDialog, setShowCancelDialog] = useState(false);
 
   if (isLoading || !instance) {
@@ -75,7 +76,6 @@ export default function InstanceDetailScreen() {
     try {
       await enrollStudent.mutateAsync({ lessonInstanceId: instance.id, studentId });
       showSnackbar('Student enrolled', 'success');
-      setStudentMenuVisible(false);
       setShowAddStudent(false);
     } catch (err: any) {
       showSnackbar(err.message ?? 'Failed to enroll student', 'error');
@@ -100,7 +100,7 @@ export default function InstanceDetailScreen() {
           )}
 
           <Text variant="bodyLarge" style={styles.info}>
-            {instance.date} • {instance.start_time} - {instance.end_time}
+            {instance.date} • {formatTime(instance.start_time)} - {formatTime(instance.end_time)}
           </Text>
           <Text variant="bodyMedium" style={styles.info}>
             Coach: {instance.coach?.first_name} {instance.coach?.last_name}
@@ -113,11 +113,7 @@ export default function InstanceDetailScreen() {
               {LESSON_TYPE_LABELS[instance.lesson_type]}
             </Chip>
           )}
-          {instance.price_cents != null && (
-            <Text variant="bodyMedium" style={styles.info}>
-              Price: ${(instance.price_cents / 100).toFixed(2)}
-            </Text>
-          )}
+
 
           <View style={styles.capacitySection}>
             <Text variant="bodyMedium" style={[styles.capacityText, { color: capacityColor }]}>
@@ -226,25 +222,19 @@ export default function InstanceDetailScreen() {
       <Portal>
         <Dialog visible={showAddStudent} onDismiss={() => setShowAddStudent(false)}>
           <Dialog.Title>Add Student</Dialog.Title>
-          <Dialog.Content>
-            <Menu
-              visible={studentMenuVisible}
-              onDismiss={() => setStudentMenuVisible(false)}
-              anchor={
-                <Button mode="outlined" onPress={() => setStudentMenuVisible(true)}>
-                  Select Student
-                </Button>
-              }
-            >
+          <Dialog.ScrollArea style={{ maxHeight: 350 }}>
+            <ScrollView>
               {allStudents?.map((student) => (
-                <Menu.Item
-                  key={student.id}
-                  onPress={() => handleAddStudent(student.id)}
-                  title={`${student.first_name} ${student.last_name}`}
-                />
+                <TouchableOpacity key={student.id} onPress={() => handleAddStudent(student.id)}>
+                  <View style={styles.studentRow}>
+                    <Text variant="bodyLarge" style={styles.studentRowText}>
+                      {student.first_name} {student.last_name}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
               ))}
-            </Menu>
-          </Dialog.Content>
+            </ScrollView>
+          </Dialog.ScrollArea>
           <Dialog.Actions>
             <Button onPress={() => setShowAddStudent(false)}>Cancel</Button>
           </Dialog.Actions>
@@ -337,5 +327,14 @@ const styles = StyleSheet.create({
   enrollmentSection: {
     paddingHorizontal: SPACING.md,
     paddingBottom: SPACING.lg,
+  },
+  studentRow: {
+    paddingVertical: SPACING.sm,
+    paddingHorizontal: SPACING.md,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: COLORS.border,
+  },
+  studentRowText: {
+    color: COLORS.textPrimary,
   },
 });

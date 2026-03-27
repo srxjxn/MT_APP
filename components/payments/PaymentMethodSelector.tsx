@@ -25,8 +25,11 @@ export function PaymentMethodSelector({ visible, onDismiss, onSelectStripe, onSe
             style={styles.stripeButton}
             contentStyle={styles.buttonContent}
           >
-            Pay with Card (Stripe)
+            Continue to Payment
           </Button>
+          <Text variant="bodySmall" style={styles.disclosureText}>
+            You'll be redirected to complete payment securely
+          </Text>
           <Text variant="bodySmall" style={styles.orText}>or</Text>
           <Button
             mode="outlined"
@@ -49,7 +52,13 @@ export function PaymentMethodSelector({ visible, onDismiss, onSelectStripe, onSe
 const styles = StyleSheet.create({
   stripeButton: {
     backgroundColor: COLORS.primary,
+    marginBottom: SPACING.xs,
+  },
+  disclosureText: {
+    color: COLORS.textSecondary,
+    textAlign: 'center',
     marginBottom: SPACING.sm,
+    fontStyle: 'italic',
   },
   buttonContent: {
     height: LAYOUT.buttonHeight,

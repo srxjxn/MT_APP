@@ -3,6 +3,7 @@ import { View, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
 import { Text, IconButton, Button } from 'react-native-paper';
 import { LessonInstanceWithJoins } from '@/lib/hooks/useLessonInstances';
 import { COLORS, SPACING } from '@/constants/theme';
+import { formatTime } from '@/lib/utils/formatTime';
 
 interface DayCalendarViewProps {
   instances: LessonInstanceWithJoins[];
@@ -117,7 +118,8 @@ export function DayCalendarView({ instances, date, onDateChange, onInstancePress
           const colors = LESSON_TYPE_COLORS[lessonType] ?? LESSON_TYPE_COLORS.group;
           const isCancelled = inst.status === 'cancelled';
           const isCompleted = inst.status === 'completed';
-          const statusOpacity = isCancelled ? 0.4 : isCompleted ? 0.5 : 1;
+          const isVirtual = inst._isVirtual;
+          const statusOpacity = isCancelled ? 0.4 : isCompleted ? 0.5 : isVirtual ? 0.7 : 1;
 
           return (
             <TouchableOpacity
@@ -130,6 +132,7 @@ export function DayCalendarView({ instances, date, onDateChange, onInstancePress
                   backgroundColor: colors.bg,
                   borderLeftColor: colors.border,
                   opacity: statusOpacity,
+                  ...(isVirtual ? { borderStyle: 'dashed' as const } : {}),
                 },
               ]}
               onPress={() => onInstancePress(inst)}
@@ -143,7 +146,7 @@ export function DayCalendarView({ instances, date, onDateChange, onInstancePress
                 {inst.name}
               </Text>
               <Text variant="bodySmall" style={styles.lessonTime}>
-                {inst.start_time} - {inst.end_time}
+                {formatTime(inst.start_time)} - {formatTime(inst.end_time)}
               </Text>
               {inst.coach && (
                 <Text variant="bodySmall" style={styles.lessonCoach} numberOfLines={1}>

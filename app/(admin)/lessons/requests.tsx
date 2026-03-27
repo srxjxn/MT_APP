@@ -12,6 +12,7 @@ import {
 import { useCourts } from '@/lib/hooks/useCourts';
 import { LoadingScreen, EmptyState, StatusBadge, DatePickerField, TimePickerDropdown, DurationPicker } from '@/components/ui';
 import { LessonRequestStatus } from '@/lib/types';
+import { formatTime } from '@/lib/utils/formatTime';
 
 type FilterValue = 'all' | 'pending' | 'approved' | 'declined';
 
@@ -27,13 +28,6 @@ function formatDate(dateStr: string): string {
   const [y, m, d] = dateStr.split('-').map(Number);
   const date = new Date(y, m - 1, d);
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-}
-
-function formatTime(time24: string): string {
-  const [h, m] = time24.split(':').map(Number);
-  const period = h >= 12 ? 'PM' : 'AM';
-  const hour12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
-  return `${hour12}:${String(m).padStart(2, '0')} ${period}`;
 }
 
 export default function LessonRequestsScreen() {

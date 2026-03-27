@@ -1,18 +1,17 @@
-import React, { useState } from 'react';
-import { View, ScrollView, StyleSheet, RefreshControl } from 'react-native';
-import { Text, Button, Portal, Dialog, TextInput, Card, RadioButton, Divider, ProgressBar } from 'react-native-paper';
-import { useUserSubscriptions, useCreateSelfSubscription } from '@/lib/hooks/useSubscriptions';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, ScrollView, StyleSheet, RefreshControl, Linking, AppState } from 'react-native';
+import { Text, Button, Portal, Dialog, TextInput, Card, ProgressBar } from 'react-native-paper';
+import { useUserSubscriptions, useCreateSelfSubscription, useUpdateSubscriptionStatus } from '@/lib/hooks/useSubscriptions';
 import { useUserPayments } from '@/lib/hooks/usePayments';
-import { useRecordExternalPayment, useStripePayment } from '@/lib/hooks/useStripePayments';
+import { useRecordExternalPayment, useStripeCheckoutPayment } from '@/lib/hooks/useStripePayments';
 import { useStripeSubscription, useCancelStripeSubscription } from '@/lib/hooks/useStripeSubscription';
 import { useMembershipPlans } from '@/lib/hooks/useMembershipPlans';
-import { useParentStudents, useCoachUsers } from '@/lib/hooks/useStudents';
-import { useAssignCoach } from '@/lib/hooks/useAssignCoach';
+import { useParentStudents } from '@/lib/hooks/useStudents';
 import { useParentAllStudentPackages } from '@/lib/hooks/useStudentPackages';
 import { MembershipPayCard } from '@/components/billing/MembershipPayCard';
 import { PaymentCard } from '@/components/payments/PaymentCard';
 import { PaymentMethodSelector } from '@/components/payments/PaymentMethodSelector';
-import { LoadingScreen } from '@/components/ui';
+import { LoadingScreen, SelectableRow } from '@/components/ui';
 import { useUIStore } from '@/lib/stores/uiStore';
 import { COLORS, SPACING } from '@/constants/theme';
 import { Subscription, MembershipPlan } from '@/lib/types';
@@ -23,13 +22,12 @@ export default function ParentBilling() {
   const { data: packages, refetch: refetchPackages, isRefetching: packagesRefetching } = useParentAllStudentPackages();
   const { data: plans, isLoading: plansLoading } = useMembershipPlans();
   const { data: students } = useParentStudents();
-  const { data: coaches } = useCoachUsers();
-  const assignCoach = useAssignCoach();
   const recordExternal = useRecordExternalPayment();
-  const stripePayment = useStripePayment();
+  const checkoutPayment = useStripeCheckoutPayment();
   const stripeSubscription = useStripeSubscription();
   const cancelSubscription = useCancelStripeSubscription();
   const createSelfSub = useCreateSelfSubscription();
+  const updateSubStatus = useUpdateSubscriptionStatus();
   const showSnackbar = useUIStore((s) => s.showSnackbar);
 
   const [showPaymentSelector, setShowPaymentSelector] = useState(false);
@@ -42,7 +40,44 @@ export default function ParentBilling() {
   const [selectedPlan, setSelectedPlan] = useState<MembershipPlan | null>(null);
   const [showPlanStudentPicker, setShowPlanStudentPicker] = useState(false);
   const [selectedPlanStudentId, setSelectedPlanStudentId] = useState<string>('');
-  const [selectedCoachId, setSelectedCoachId] = useState<string>('');
+
+  const appState = useRef(AppState.currentState);
+
+  // Refetch subscriptions when app returns to foreground (e.g. after browser checkout)
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (nextAppState) => {
+      if (appState.current.match(/inactive|background/) && nextAppState === 'active') {
+        refetchSubs();
+      }
+      appState.current = nextAppState;
+    });
+    return () => subscription.remove();
+  }, [refetchSubs]);
+
+  // Deep link listener for checkout success/cancel
+  useEffect(() => {
+    const handleUrl = ({ url }: { url: string }) => {
+      if (url.includes('checkout_success=true')) {
+        showSnackbar('Payment completed! Activating subscription...', 'success');
+        // Give webhook a moment to process, then refetch
+        setTimeout(() => {
+          refetchSubs();
+          refetchPayments();
+        }, 3000);
+      } else if (url.includes('checkout_cancelled=true')) {
+        showSnackbar('Payment cancelled', 'error');
+      }
+    };
+
+    const linkSubscription = Linking.addEventListener('url', handleUrl);
+
+    // Check if app was opened via deep link
+    Linking.getInitialURL().then((url) => {
+      if (url) handleUrl({ url });
+    });
+
+    return () => linkSubscription.remove();
+  }, [showSnackbar, refetchSubs, refetchPayments]);
 
   const isLoading = subsLoading || paymentsLoading || plansLoading;
   const isRefetching = subsRefetching || paymentsRefetching || packagesRefetching;
@@ -66,13 +101,15 @@ export default function ParentBilling() {
     if (!selectedSub) return;
     setShowPaymentSelector(false);
     try {
-      await stripePayment.mutateAsync({
+      const result = await checkoutPayment.mutateAsync({
         amount_cents: selectedSub.price_cents,
         payment_type: 'subscription',
         subscription_id: selectedSub.id,
         description: `Payment for ${selectedSub.name}`,
       });
-      showSnackbar('Payment successful!', 'success');
+      if (result?.redirected) {
+        showSnackbar('Complete payment in your browser', 'success');
+      }
     } catch (err: any) {
       showSnackbar(err.message ?? 'Payment failed', 'error');
     }
@@ -104,12 +141,22 @@ export default function ParentBilling() {
   const handleSubscribe = async (sub: Subscription) => {
     const stripePriceId = (sub as any).stripe_price_id;
     if (!stripePriceId) return;
+
     try {
-      await stripeSubscription.mutateAsync({
+      const result = await stripeSubscription.mutateAsync({
         subscription_id: sub.id,
         stripe_price_id: stripePriceId,
       });
-      showSnackbar('Subscription activated!', 'success');
+
+      if (result?.redirected) {
+        showSnackbar('Complete payment in your browser', 'success');
+      } else if (result?.siblingAdded) {
+        showSnackbar('Student added!', 'success');
+        setTimeout(() => refetchSubs(), 2000);
+      } else if (result?.alreadyActive) {
+        await updateSubStatus.mutateAsync({ id: sub.id, status: 'active' });
+        showSnackbar('Subscription activated!', 'success');
+      }
     } catch (err: any) {
       if (err.message !== 'Payment cancelled') {
         showSnackbar(err.message ?? 'Subscription failed', 'error');
@@ -122,6 +169,7 @@ export default function ParentBilling() {
     try {
       await cancelSubscription.mutateAsync({
         stripe_subscription_id: sub.stripe_subscription_id,
+        subscription_id: sub.id,
       });
       showSnackbar('Subscription will cancel at end of billing period', 'success');
     } catch (err: any) {
@@ -129,41 +177,60 @@ export default function ParentBilling() {
     }
   };
 
+  const activeSubs = subscriptions?.filter((s) => s.status === 'active' || s.status === 'pending') ?? [];
+  const hasActiveSubs = activeSubs.length > 0;
+  const activePackages = packages?.filter((p) => p.status === 'active') ?? [];
+
+  // Determine which students already have an active/pending subscription
+  const subscribedStudentIds = new Set(
+    activeSubs.filter((s) => s.student_id).map((s) => s.student_id!)
+  );
+  const unsubscribedStudents = students?.filter((s) => !subscribedStudentIds.has(s.id)) ?? [];
+  const hasUnsubscribedStudents = unsubscribedStudents.length > 0;
+
   const handlePlanSubscribe = (plan: MembershipPlan) => {
     setSelectedPlan(plan);
-    setSelectedCoachId('');
-    const hasStudents = students && students.length > 0;
-    const hasCoaches = coaches && coaches.length > 0;
-    if (hasStudents || hasCoaches) {
-      if (hasStudents) setSelectedPlanStudentId(students[0].id);
+    if (unsubscribedStudents.length > 0) {
+      setSelectedPlanStudentId(unsubscribedStudents[0].id);
       setShowPlanStudentPicker(true);
     } else {
       confirmPlanSubscription(plan, undefined);
     }
   };
 
-  const confirmPlanSubscription = async (plan: MembershipPlan, studentId?: string, coachId?: string) => {
+  const confirmPlanSubscription = async (plan: MembershipPlan, studentId?: string) => {
     setShowPlanStudentPicker(false);
     try {
-      // Assign coach to selected student if both are specified
-      if (coachId && studentId) {
-        await assignCoach.mutateAsync({ studentId, coachId });
-      }
+      // Determine tiered pricing
+      const existingCount = activeSubs.filter((s) => s.name === plan.name).length;
+      const isAdditional = existingCount > 0;
+      const effectivePrice = isAdditional && plan.price_cents_additional
+        ? plan.price_cents_additional : plan.price_cents;
 
-      const newSub = await createSelfSub.mutateAsync({ plan, studentId });
+      const newSub = await createSelfSub.mutateAsync({ plan, studentId, priceCents: effectivePrice });
 
       if (plan.stripe_price_id) {
-        // Use Stripe recurring billing
+        // Use Stripe recurring billing — sub is 'pending' until payment succeeds
         try {
-          await stripeSubscription.mutateAsync({
+          const result = await stripeSubscription.mutateAsync({
             subscription_id: newSub.id,
             stripe_price_id: plan.stripe_price_id,
           });
-          showSnackbar('Subscription activated!', 'success');
+
+          if (result?.redirected) {
+            showSnackbar('Complete payment in your browser', 'success');
+          } else if (result?.siblingAdded) {
+            showSnackbar('Student added!', 'success');
+            setTimeout(() => refetchSubs(), 2000);
+          } else if (result?.alreadyActive) {
+            await updateSubStatus.mutateAsync({ id: newSub.id, status: 'active' });
+            showSnackbar('Subscription activated!', 'success');
+          }
         } catch (err: any) {
           if (err.message !== 'Payment cancelled') {
             showSnackbar(err.message ?? 'Subscription failed', 'error');
           }
+          // Subscription stays 'pending' — user can retry from billing screen
         }
       } else {
         // Show payment method selector for one-time payment
@@ -175,10 +242,6 @@ export default function ParentBilling() {
     }
   };
 
-  const activeSubs = subscriptions?.filter((s) => s.status === 'active') ?? [];
-  const hasActiveSubs = activeSubs.length > 0;
-  const activePackages = packages?.filter((p) => p.status === 'active') ?? [];
-
   return (
     <View style={styles.container} testID="parent-billing">
       <ScrollView
@@ -189,25 +252,32 @@ export default function ParentBilling() {
         <View style={styles.section}>
           <Text variant="titleMedium" style={styles.sectionTitle}>Membership</Text>
           {hasActiveSubs ? (
-            activeSubs.map((sub) => (
-              <MembershipPayCard
-                key={sub.id}
-                subscription={sub}
-                onPayNow={() => handlePayNow(sub)}
-                onSubscribe={() => handleSubscribe(sub)}
-                onCancelSubscription={() => handleCancelSubscription(sub)}
-                loading={stripeSubscription.isPending}
-                cancelLoading={cancelSubscription.isPending}
-                testID={`membership-card-${sub.id}`}
-              />
-            ))
+            activeSubs.map((sub) => {
+              const student = students?.find((s) => s.id === sub.student_id);
+              const studentName = student
+                ? `${student.first_name} ${student.last_name}`
+                : undefined;
+              return (
+                <MembershipPayCard
+                  key={sub.id}
+                  subscription={sub}
+                  studentName={studentName}
+                  onPayNow={() => handlePayNow(sub)}
+                  onSubscribe={() => handleSubscribe(sub)}
+                  onCancelSubscription={() => handleCancelSubscription(sub)}
+                  loading={stripeSubscription.isPending}
+                  cancelLoading={cancelSubscription.isPending}
+                  testID={`membership-card-${sub.id}`}
+                />
+              );
+            })
           ) : (
             <Text variant="bodyMedium" style={styles.emptyText}>No active memberships</Text>
           )}
         </View>
 
-        {/* Available Plans — show when no active subscriptions */}
-        {!hasActiveSubs && plans && plans.length > 0 && (
+        {/* Available Plans — show when there are unsubscribed students (or no active subs) */}
+        {hasUnsubscribedStudents && plans && plans.length > 0 && (
           <View style={styles.section}>
             <Text variant="titleMedium" style={styles.sectionTitle}>Available Plans</Text>
             {plans.map((plan) => (
@@ -220,6 +290,12 @@ export default function ParentBilling() {
                   <Text variant="headlineMedium" style={styles.planPrice}>
                     ${(plan.price_cents / 100).toFixed(2)}/4 weeks
                   </Text>
+                  {plan.price_cents_additional != null && (
+                    <Text variant="bodySmall" style={styles.planTieredPrice}>
+                      ${(plan.price_cents / 100).toFixed(2)}/4 weeks · first student{'\n'}
+                      ${(plan.price_cents_additional / 100).toFixed(2)}/4 weeks · additional students
+                    </Text>
+                  )}
                   {plan.lessons_per_month && (
                     <Text variant="bodySmall" style={styles.planLessons}>
                       {plan.lessons_per_month} lessons per cycle
@@ -235,6 +311,9 @@ export default function ParentBilling() {
                   >
                     Subscribe
                   </Button>
+                  <Text variant="bodySmall" style={styles.renewalDisclosure}>
+                    Subscription auto-renews every 4 weeks. Cancel anytime from Membership above.
+                  </Text>
                 </Card.Content>
               </Card>
             ))}
@@ -344,7 +423,7 @@ export default function ParentBilling() {
         </Dialog>
       </Portal>
 
-      {/* Student & coach picker for plan subscription */}
+      {/* Student picker for plan subscription (no coach selection) */}
       <Portal>
         <Dialog
           visible={showPlanStudentPicker}
@@ -354,47 +433,18 @@ export default function ParentBilling() {
           <Dialog.Title>Subscribe</Dialog.Title>
           <Dialog.ScrollArea style={styles.dialogScrollArea}>
             <ScrollView>
-              {students && students.length > 0 && (
+              {unsubscribedStudents.length > 0 && (
                 <>
                   <Text variant="titleSmall" style={styles.pickerLabel}>Select Student</Text>
-                  <RadioButton.Group
-                    value={selectedPlanStudentId}
-                    onValueChange={setSelectedPlanStudentId}
-                  >
-                    {students.map((student) => (
-                      <RadioButton.Item
-                        key={student.id}
-                        label={`${student.first_name} ${student.last_name}`}
-                        value={student.id}
-                        testID={`student-radio-${student.id}`}
-                      />
-                    ))}
-                  </RadioButton.Group>
-                </>
-              )}
-
-              {coaches && coaches.length > 0 && (
-                <>
-                  <Divider style={styles.pickerDivider} />
-                  <Text variant="titleSmall" style={styles.pickerLabel}>Select Coach (optional)</Text>
-                  <RadioButton.Group
-                    value={selectedCoachId}
-                    onValueChange={setSelectedCoachId}
-                  >
-                    <RadioButton.Item
-                      label="No preference"
-                      value=""
-                      testID="coach-radio-none"
+                  {unsubscribedStudents.map((student) => (
+                    <SelectableRow
+                      key={student.id}
+                      label={`${student.first_name} ${student.last_name}`}
+                      selected={selectedPlanStudentId === student.id}
+                      onPress={() => setSelectedPlanStudentId(student.id)}
+                      testID={`student-radio-${student.id}`}
                     />
-                    {coaches.map((coach) => (
-                      <RadioButton.Item
-                        key={coach.id}
-                        label={`${coach.first_name} ${coach.last_name}`}
-                        value={coach.id}
-                        testID={`coach-radio-${coach.id}`}
-                      />
-                    ))}
-                  </RadioButton.Group>
+                  ))}
                 </>
               )}
             </ScrollView>
@@ -407,7 +457,6 @@ export default function ParentBilling() {
                   confirmPlanSubscription(
                     selectedPlan,
                     selectedPlanStudentId || undefined,
-                    selectedCoachId || undefined,
                   );
                 }
               }}
@@ -462,6 +511,11 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     marginVertical: SPACING.sm,
   },
+  planTieredPrice: {
+    color: COLORS.textSecondary,
+    marginBottom: SPACING.sm,
+    lineHeight: 20,
+  },
   planLessons: {
     color: COLORS.textSecondary,
     marginBottom: SPACING.sm,
@@ -469,6 +523,11 @@ const styles = StyleSheet.create({
   subscribeButton: {
     marginTop: SPACING.sm,
     backgroundColor: COLORS.primary,
+  },
+  renewalDisclosure: {
+    color: COLORS.textSecondary,
+    textAlign: 'center',
+    marginTop: SPACING.sm,
   },
   packageCard: {
     backgroundColor: COLORS.surface,
@@ -514,8 +573,5 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingTop: SPACING.sm,
     paddingBottom: SPACING.xs,
-  },
-  pickerDivider: {
-    marginVertical: SPACING.sm,
   },
 });

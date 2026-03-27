@@ -9,6 +9,7 @@ import { useAuth } from '@/lib/hooks/useAuth';
 import { supabase } from '@/lib/supabase';
 import { COLORS, SPACING } from '@/constants/theme';
 import { LAYOUT } from '@/constants/layout';
+import { LegalLinks } from '@/components/settings/LegalLinks';
 
 export default function SettingsScreen() {
   const router = useRouter();
@@ -27,7 +28,7 @@ export default function SettingsScreen() {
   const handleDeleteAccount = () => {
     Alert.alert(
       'Delete Account',
-      'Are you sure you want to delete your account? This action cannot be undone.',
+      'Your account will be deactivated and all personal data will be permanently deleted within 30 days. This action cannot be undone.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -161,6 +162,8 @@ export default function SettingsScreen() {
       </Card>
 
       <Divider style={styles.divider} />
+
+      <LegalLinks />
 
       <Button
         mode="outlined"

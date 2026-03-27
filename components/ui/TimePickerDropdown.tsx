@@ -3,6 +3,7 @@ import { ScrollView, View, StyleSheet } from 'react-native';
 import { Button, Menu, Text } from 'react-native-paper';
 import { COLORS, SPACING } from '@/constants/theme';
 import { LAYOUT } from '@/constants/layout';
+import { formatTime } from '@/lib/utils/formatTime';
 
 interface TimePickerDropdownProps {
   value: string;
@@ -25,18 +26,10 @@ function generateTimeSlots(): string[] {
 
 const TIME_SLOTS = generateTimeSlots();
 
-function to12h(time24: string): string {
-  if (!time24) return 'Select time';
-  const [h, m] = time24.split(':').map(Number);
-  const period = h >= 12 ? 'PM' : 'AM';
-  const hour12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
-  return `${hour12}:${String(m).padStart(2, '0')} ${period}`;
-}
-
 export function TimePickerDropdown({ value, onSelect, label, error, testID }: TimePickerDropdownProps) {
   const [visible, setVisible] = useState(false);
 
-  const displayValue = useMemo(() => to12h(value), [value]);
+  const displayValue = useMemo(() => formatTime(value) || 'Select time', [value]);
 
   return (
     <View testID={testID}>
@@ -60,7 +53,7 @@ export function TimePickerDropdown({ value, onSelect, label, error, testID }: Ti
             <Menu.Item
               key={slot}
               onPress={() => { onSelect(slot); setVisible(false); }}
-              title={to12h(slot)}
+              title={formatTime(slot)}
             />
           ))}
         </ScrollView>

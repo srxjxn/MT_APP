@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useStripe } from '@stripe/stripe-react-native';
+import * as WebBrowser from 'expo-web-browser';
 import { supabase } from '../supabase';
 import { useAuthStore } from '../stores/authStore';
 import { subscriptionKeys } from './useSubscriptions';
@@ -8,10 +8,11 @@ import { ensureStripeCustomer } from '../stripe/ensureCustomer';
 
 /**
  * Creates a Stripe Subscription for a local subscription that has a stripe_price_id.
- * Flow: ensureCustomer → create-stripe-subscription → initPaymentSheet → presentPaymentSheet
+ * First student: redirects to Stripe Checkout in the browser (Apple 3.1.1 compliant).
+ * Sibling: auto-charges saved payment method via create-stripe-subscription edge function.
+ * Retry/alreadyActive: returns alreadyActive for local activation.
  */
 export function useStripeSubscription() {
-  const { initPaymentSheet, presentPaymentSheet } = useStripe();
   const queryClient = useQueryClient();
   const userProfile = useAuthStore((s) => s.userProfile);
 
@@ -22,7 +23,7 @@ export function useStripeSubscription() {
     }: {
       subscription_id: string;
       stripe_price_id: string;
-    }) => {
+    }): Promise<{ redirected?: boolean; siblingAdded?: boolean; alreadyActive?: boolean }> => {
       if (!userProfile) throw new Error('User not logged in');
 
       // 1. Ensure Stripe customer exists
@@ -35,39 +36,65 @@ export function useStripeSubscription() {
         });
       }
 
-      // 2. Create Stripe Subscription via edge function
+      // 2. Try create-stripe-subscription first (handles retry, sibling, and already-active paths)
       const { data, error } = await supabase.functions.invoke('create-stripe-subscription', {
         body: {
           customer_id: customerId,
           price_id: stripe_price_id,
           subscription_id,
+          user_id: userProfile.id,
         },
       });
 
-      if (error) throw new Error('Failed to create subscription: ' + error.message);
-      if (!data?.clientSecret) throw new Error('No client secret returned');
-
-      // 3. Initialize PaymentSheet for first payment
-      const { error: initError } = await initPaymentSheet({
-        paymentIntentClientSecret: data.clientSecret,
-        merchantDisplayName: 'Modern Tennis',
-        customerId,
-        style: 'alwaysLight',
-      });
-
-      if (initError) throw new Error(initError.message);
-
-      // 4. Present PaymentSheet
-      const { error: presentError } = await presentPaymentSheet();
-
-      if (presentError) {
-        if (presentError.code === 'Canceled') {
-          throw new Error('Payment cancelled');
-        }
-        throw new Error(presentError.message);
+      if (error) {
+        const detail = data?.error || error.message;
+        throw new Error('Failed to create subscription: ' + detail);
       }
 
-      // Subscription is now active — webhook will sync status
+      // Already active — caller will activate locally
+      if (data?.alreadyActive) {
+        return { alreadyActive: true };
+      }
+
+      // Sibling added — auto-charged, no redirect needed
+      if (data?.siblingAdded) {
+        return { siblingAdded: true };
+      }
+
+      // First student path: redirect to Stripe Checkout in the browser
+      const { data: checkoutData, error: checkoutError } = await supabase.functions.invoke(
+        'create-checkout-session',
+        {
+          body: {
+            customer_id: customerId,
+            mode: 'subscription',
+            price_id: stripe_price_id,
+            subscription_id,
+            user_id: userProfile.id,
+            org_id: userProfile.org_id,
+          },
+        }
+      );
+
+      if (checkoutError) {
+        const detail = checkoutData?.error || checkoutError.message;
+        throw new Error('Failed to create checkout session: ' + detail);
+      }
+
+      if (!checkoutData?.checkoutUrl) {
+        throw new Error('No checkout URL returned');
+      }
+
+      // Open Stripe Checkout in an in-app browser session
+      const result = await WebBrowser.openAuthSessionAsync(
+        checkoutData.checkoutUrl,
+        'modern-tennis://billing'
+      );
+      if (result.type === 'cancel' || result.type === 'dismiss') {
+        throw new Error('Payment cancelled');
+      }
+
+      return { redirected: true };
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: subscriptionKeys.all });
@@ -85,19 +112,25 @@ export function useCancelStripeSubscription() {
   return useMutation({
     mutationFn: async ({
       stripe_subscription_id,
+      subscription_id,
       cancel_immediately = false,
     }: {
       stripe_subscription_id: string;
+      subscription_id: string;
       cancel_immediately?: boolean;
     }) => {
       const { data, error } = await supabase.functions.invoke('cancel-stripe-subscription', {
         body: {
           stripe_subscription_id,
+          subscription_id,
           cancel_immediately,
         },
       });
 
-      if (error) throw new Error('Failed to cancel subscription: ' + error.message);
+      if (error) {
+        const detail = data?.error || error.message;
+        throw new Error('Failed to cancel subscription: ' + detail);
+      }
       return data;
     },
     onSuccess: () => {

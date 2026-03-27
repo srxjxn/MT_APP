@@ -5,18 +5,12 @@ import { router } from 'expo-router';
 import { useCourtsWithPrivateLessons, CourtWithNextPrivate } from '@/lib/hooks/useCourts';
 import { LoadingScreen, EmptyState, StatusBadge } from '@/components/ui';
 import { COLORS, SPACING } from '@/constants/theme';
+import { formatTime } from '@/lib/utils/formatTime';
 
 function formatDate(dateStr: string): string {
   const d = new Date(dateStr + 'T00:00:00');
   const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   return days[d.getDay()];
-}
-
-function formatTime(time: string): string {
-  const [h, m] = time.split(':').map(Number);
-  const ampm = h >= 12 ? 'PM' : 'AM';
-  const h12 = h % 12 || 12;
-  return `${h12}:${String(m).padStart(2, '0')} ${ampm}`;
 }
 
 export default function CourtsListScreen() {

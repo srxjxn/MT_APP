@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { View } from 'react-native';
 import { Tabs, router } from 'expo-router';
-import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { IconButton } from 'react-native-paper';
 import { COLORS } from '@/constants/theme';
 import { useAuthStore } from '@/lib/stores/authStore';

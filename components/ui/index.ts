@@ -7,3 +7,4 @@ export { StatusBadge } from './StatusBadge';
 export { TimePickerDropdown } from './TimePickerDropdown';
 export { DurationPicker } from './DurationPicker';
 export { DatePickerField } from './DatePickerField';
+export { SelectableRow } from './SelectableRow';

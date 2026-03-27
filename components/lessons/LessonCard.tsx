@@ -1,10 +1,11 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
-import { Card, Text } from 'react-native-paper';
+import { Card, Text, Chip } from 'react-native-paper';
 import { StatusBadge } from '@/components/ui';
 import { COLORS, SPACING } from '@/constants/theme';
 import { LessonInstanceWithJoins } from '@/lib/hooks/useLessonInstances';
 import { LESSON_TYPE_LABELS } from '@/lib/validation/lessonTemplate';
+import { formatTime } from '@/lib/utils/formatTime';
 
 interface LessonCardProps {
   instance: LessonInstanceWithJoins;
@@ -17,16 +18,20 @@ export function LessonCard({ instance, onPress, testID }: LessonCardProps) {
   const lessonType = instance.lesson_type;
 
   return (
-    <Card style={styles.card} onPress={onPress} testID={testID}>
+    <Card style={[styles.card, instance._isVirtual && styles.virtualCard]} onPress={onPress} testID={testID}>
       <Card.Content>
         <View style={styles.header}>
           <Text variant="titleMedium" style={styles.name}>
             {instance.name}
           </Text>
-          <StatusBadge status={instance.status} />
+          {instance._isVirtual ? (
+            <Chip compact style={styles.templateChip} textStyle={styles.templateChipText}>Template</Chip>
+          ) : (
+            <StatusBadge status={instance.status} />
+          )}
         </View>
         <Text variant="bodyMedium" style={styles.detail}>
-          {instance.date} • {instance.start_time} - {instance.end_time}
+          {instance.date} • {formatTime(instance.start_time)} - {formatTime(instance.end_time)}
         </Text>
         <Text variant="bodyMedium" style={styles.detail}>
           {instance.coach ? `${instance.coach.first_name} ${instance.coach.last_name}` : ''}
@@ -56,6 +61,20 @@ const styles = StyleSheet.create({
   card: {
     marginBottom: SPACING.sm,
     backgroundColor: COLORS.surface,
+  },
+  virtualCard: {
+    opacity: 0.7,
+    borderStyle: 'dashed' as const,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  templateChip: {
+    backgroundColor: '#E3F2FD',
+    height: 26,
+  },
+  templateChipText: {
+    fontSize: 11,
+    color: COLORS.info,
   },
   header: {
     flexDirection: 'row',

@@ -9,6 +9,7 @@ import { COLORS, SPACING } from '@/constants/theme';
 import { CoachAvailability as AvailabilityType } from '@/lib/types';
 import { AvailabilityFormData } from '@/lib/validation/availability';
 import { DAYS_OF_WEEK } from '@/lib/validation/lessonTemplate';
+import { formatTime } from '@/lib/utils/formatTime';
 
 export default function CoachAvailabilityScreen() {
   const { data: slots, isLoading, refetch, isRefetching } = useCoachAvailability();
@@ -55,7 +56,7 @@ export default function CoachAvailabilityScreen() {
           <View style={styles.slotInfo}>
             <Text variant="titleMedium" style={styles.dayLabel}>{dayLabel}</Text>
             <Text variant="bodyMedium" style={styles.timeLabel}>
-              {item.start_time} - {item.end_time}
+              {formatTime(item.start_time)} - {formatTime(item.end_time)}
             </Text>
             <Text variant="bodySmall" style={styles.typeLabel}>
               {item.is_recurring ? 'Recurring' : `Date: ${item.specific_date}`}

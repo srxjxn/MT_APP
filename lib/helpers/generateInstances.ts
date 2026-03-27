@@ -31,8 +31,8 @@ export async function generateInstancesForTemplates(
   const from = new Date(dateFrom);
   const to = new Date(dateTo);
 
-  for (let d = new Date(from); d <= to; d.setDate(d.getDate() + 1)) {
-    const dayOfWeek = d.getDay();
+  for (let d = new Date(from); d <= to; d.setUTCDate(d.getUTCDate() + 1)) {
+    const dayOfWeek = d.getUTCDay();
     const dateStr = d.toISOString().split('T')[0];
 
     for (const template of templates) {

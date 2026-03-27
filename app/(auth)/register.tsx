@@ -55,13 +55,16 @@ export default function RegisterScreen() {
 
     setLoading(true);
     try {
-      await signUpWithEmail(form.email, form.password, {
+      const result = await signUpWithEmail(form.email, form.password, {
         firstName: form.firstName,
         lastName: form.lastName,
         phone: form.phone || undefined,
         role,
       });
-      router.replace('/(auth)/verify-email');
+      if (!result?.hasSession) {
+        router.replace('/(auth)/verify-email');
+      }
+      // If hasSession, layout handles routing to onboarding/home
     } catch (err: any) {
       showSnackbar(err.message ?? 'Registration failed', 'error');
     } finally {

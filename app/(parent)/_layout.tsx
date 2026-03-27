@@ -1,5 +1,5 @@
 import { Tabs, router } from 'expo-router';
-import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { IconButton } from 'react-native-paper';
 import { COLORS } from '@/constants/theme';
 
@@ -42,10 +42,7 @@ export default function ParentLayout() {
       <Tabs.Screen
         name="private-lessons"
         options={{
-          title: 'Lessons',
-          tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="tennis" size={size} color={color} />
-          ),
+          href: null,
         }}
       />
       <Tabs.Screen

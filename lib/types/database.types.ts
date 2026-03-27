@@ -1,3 +1,4 @@
+Connecting to db 5432
 export type Json =
   | string
   | number
@@ -633,6 +634,7 @@ export type Database = {
           name: string
           org_id: string
           price_cents: number
+          price_cents_additional: number | null
           stripe_price_id: string | null
           updated_at: string
         }
@@ -645,6 +647,7 @@ export type Database = {
           name: string
           org_id: string
           price_cents?: number
+          price_cents_additional?: number | null
           stripe_price_id?: string | null
           updated_at?: string
         }
@@ -657,6 +660,7 @@ export type Database = {
           name?: string
           org_id?: string
           price_cents?: number
+          price_cents_additional?: number | null
           stripe_price_id?: string | null
           updated_at?: string
         }
@@ -1259,7 +1263,12 @@ export type Database = {
       payment_type: "lesson" | "subscription" | "drop_in" | "other"
       payout_status: "draft" | "approved" | "paid"
       skill_level: "beginner" | "intermediate" | "advanced" | "elite"
-      subscription_status: "active" | "paused" | "cancelled" | "expired"
+      subscription_status:
+        | "pending"
+        | "active"
+        | "paused"
+        | "cancelled"
+        | "expired"
       user_role: "owner" | "admin" | "coach" | "parent"
     }
     CompositeTypes: {
@@ -1404,9 +1413,17 @@ export const Constants = {
       payment_type: ["lesson", "subscription", "drop_in", "other"],
       payout_status: ["draft", "approved", "paid"],
       skill_level: ["beginner", "intermediate", "advanced", "elite"],
-      subscription_status: ["active", "paused", "cancelled", "expired"],
+      subscription_status: [
+        "pending",
+        "active",
+        "paused",
+        "cancelled",
+        "expired",
+      ],
       user_role: ["owner", "admin", "coach", "parent"],
     },
   },
 } as const
 
+A new version of Supabase CLI is available: v2.84.2 (currently installed v2.76.8)
+We recommend updating regularly for new features and bug fixes: https://supabase.com/docs/guides/cli/getting-started#updating-the-supabase-cli

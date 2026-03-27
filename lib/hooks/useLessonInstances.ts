@@ -1,8 +1,11 @@
+import { useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../supabase';
 import { useAuthStore } from '../stores/authStore';
 import { LessonInstance, LessonInstanceInsert, LessonInstanceUpdate, LessonTemplate, UserProfile, Court, LessonStatus } from '../types';
 import { generateInstancesForTemplates, GenerateResult } from '../helpers/generateInstances';
+import { expandTemplatesToVirtuals, mergeVirtualAndReal } from '../helpers/expandTemplates';
+import { useLessonTemplates } from './useLessonTemplates';
 
 export const instanceKeys = {
   all: ['lesson_instances'] as const,
@@ -19,6 +22,8 @@ export type LessonInstanceWithJoins = LessonInstance & {
   coach?: Pick<UserProfile, 'first_name' | 'last_name'>;
   court?: Pick<Court, 'name'> | null;
   enrollment_count?: number;
+  _isVirtual?: boolean;
+  _templateId?: string;
 };
 
 interface InstanceFilters {
@@ -424,6 +429,148 @@ export function useBulkCompletePastLessons() {
       return data;
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: instanceKeys.all });
+    },
+  });
+}
+
+function todayString(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function addDaysToDate(dateStr: string, days: number): string {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const date = new Date(y, m - 1, d);
+  date.setDate(date.getDate() + days);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
+
+export function useLessonInstancesWithVirtuals(filters?: InstanceFilters) {
+  const orgId = useAuthStore((s) => s.userProfile?.org_id);
+  const today = todayString();
+  const effectiveFilters = {
+    ...filters,
+    dateFrom: filters?.dateFrom || today,
+    dateTo: filters?.dateTo || addDaysToDate(today, 28),
+  };
+  const realQuery = useLessonInstances(effectiveFilters);
+  const templatesQuery = useLessonTemplates();
+
+  const data = useMemo(() => {
+    if (!realQuery.data || !templatesQuery.data || !orgId) return realQuery.data;
+
+    const today = todayString();
+    const dateFrom = filters?.dateFrom ?? today;
+    const dateTo = filters?.dateTo ?? addDaysToDate(today, 28);
+
+    // Filter templates by filters
+    let templates = templatesQuery.data.filter((t) => t.is_active);
+    if (filters?.coachId) {
+      templates = templates.filter((t) => t.coach_id === filters.coachId);
+    }
+    if (filters?.lessonType) {
+      if (filters.lessonType === 'group') {
+        templates = templates.filter((t) => t.lesson_type === 'group');
+      } else if (filters.lessonType === 'private') {
+        templates = templates.filter((t) => t.lesson_type === 'private' || t.lesson_type === 'semi_private');
+      }
+    }
+
+    const virtuals = expandTemplatesToVirtuals(templates, dateFrom, dateTo, orgId);
+    return mergeVirtualAndReal(realQuery.data, virtuals);
+  }, [realQuery.data, templatesQuery.data, orgId, filters?.dateFrom, filters?.dateTo, filters?.coachId, filters?.lessonType]);
+
+  return {
+    ...realQuery,
+    data,
+    isLoading: realQuery.isLoading || templatesQuery.isLoading,
+  };
+}
+
+export function useCoachLessonInstancesWithVirtuals(lessonType?: string) {
+  const userProfile = useAuthStore((s) => s.userProfile);
+  const orgId = userProfile?.org_id;
+  const realQuery = useCoachLessonInstances(lessonType);
+  const templatesQuery = useLessonTemplates();
+
+  const data = useMemo(() => {
+    if (!realQuery.data || !templatesQuery.data || !orgId || !userProfile?.id) return realQuery.data;
+
+    const today = todayString();
+    const dateTo = addDaysToDate(today, 28);
+
+    let templates = templatesQuery.data.filter(
+      (t) => t.is_active && t.coach_id === userProfile.id
+    );
+    if (lessonType === 'group') {
+      templates = templates.filter((t) => t.lesson_type === 'group');
+    } else if (lessonType === 'private') {
+      templates = templates.filter((t) => t.lesson_type === 'private' || t.lesson_type === 'semi_private');
+    }
+
+    const virtuals = expandTemplatesToVirtuals(templates, today, dateTo, orgId);
+    // Filter out past instances from real data (no date filter on underlying query)
+    const filteredReal = realQuery.data.filter(inst => inst.date >= today);
+    return mergeVirtualAndReal(filteredReal, virtuals);
+  }, [realQuery.data, templatesQuery.data, orgId, userProfile?.id, lessonType]);
+
+  return {
+    ...realQuery,
+    data,
+    isLoading: realQuery.isLoading || templatesQuery.isLoading,
+  };
+}
+
+export function useMaterializeInstance() {
+  const queryClient = useQueryClient();
+  const orgId = useAuthStore((s) => s.userProfile?.org_id);
+
+  return useMutation({
+    mutationFn: async (virtual: LessonInstanceWithJoins) => {
+      if (!orgId) throw new Error('No org_id');
+      if (!virtual._isVirtual || !virtual._templateId) {
+        throw new Error('Not a virtual instance');
+      }
+
+      // Race condition guard: check if already materialized
+      const { data: existing } = await supabase
+        .from('lesson_instances')
+        .select('id')
+        .eq('template_id', virtual._templateId)
+        .eq('date', virtual.date)
+        .limit(1);
+
+      if (existing && existing.length > 0) {
+        return existing[0];
+      }
+
+      const { data, error } = await supabase
+        .from('lesson_instances')
+        .insert({
+          org_id: orgId,
+          template_id: virtual._templateId,
+          coach_id: virtual.coach_id,
+          court_id: virtual.court_id,
+          date: virtual.date,
+          start_time: virtual.start_time,
+          end_time: virtual.end_time,
+          status: 'scheduled',
+          name: virtual.name,
+          lesson_type: virtual.lesson_type,
+          duration_minutes: virtual.duration_minutes,
+          max_students: virtual.max_students,
+          price_cents: virtual.price_cents,
+          description: virtual.description,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: instanceKeys.lists() });
       queryClient.invalidateQueries({ queryKey: instanceKeys.all });
     },
   });

@@ -106,48 +106,66 @@ export function useAuth() {
   };
 
   const createSocialProfile = useCallback(async (role: 'parent' | 'coach') => {
-    // Refresh session to ensure valid JWT for RLS
-    await supabase.auth.refreshSession();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('No authenticated user');
+    useAuthStore.getState().setIsCreatingProfile(true);
+    try {
+      // Refresh session to ensure valid JWT for RLS
+      const { error: refreshError } = await supabase.auth.refreshSession();
+      if (refreshError) {
+        console.warn('Session refresh failed, continuing with current session:', refreshError.message);
+      }
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('No authenticated user');
 
-    const isActive = role === 'coach' ? false : true;
+      const isActive = role === 'coach' ? false : true;
 
-    // Insert without .select() to avoid SELECT policy issues
-    const { error: insertError } = await supabase
-      .from('users')
-      .insert({
-        auth_id: user.id,
-        org_id: DEFAULT_ORG_ID,
-        role,
-        first_name: extractFirstName(user),
-        last_name: extractLastName(user),
-        email: user.email!,
-        phone: null,
-        is_active: isActive,
-      });
+      // Use insert instead of upsert — upsert causes RLS failures due to
+      // PostgREST translating it to INSERT...ON CONFLICT...DO UPDATE
+      const { error: insertError } = await supabase
+        .from('users')
+        .insert({
+          auth_id: user.id,
+          org_id: DEFAULT_ORG_ID,
+          role,
+          first_name: extractFirstName(user),
+          last_name: extractLastName(user),
+          email: user.email!,
+          phone: null,
+          is_active: isActive,
+        });
 
-    if (insertError) throw insertError;
+      // If row already exists (race condition), that's OK — just fetch it below
+      if (insertError && insertError.code !== '23505') throw insertError;
 
-    // Fetch the profile separately
-    const { data: newProfile, error: fetchError } = await supabase
-      .from('users')
-      .select('*')
-      .eq('auth_id', user.id)
-      .single();
+      // Fetch the profile separately
+      const { data: newProfile, error: fetchError } = await supabase
+        .from('users')
+        .select('*')
+        .eq('auth_id', user.id)
+        .single();
 
-    if (fetchError) throw fetchError;
+      if (fetchError) throw fetchError;
 
-    setNeedsRoleSelection(false);
-    setUserProfile(newProfile);
+      setNeedsRoleSelection(false);
+      setUserProfile(newProfile);
 
-    if (role === 'parent') {
-      setNeedsOnboarding(true);
+      if (role === 'parent') {
+        setNeedsOnboarding(true);
+      }
+    } finally {
+      useAuthStore.getState().setIsCreatingProfile(false);
     }
   }, []);
 
   const fetchUserProfile = async (userId: string) => {
     try {
+      // Skip if createSocialProfile is in progress (prevents race condition
+      // where this overwrites state with null before the insert completes)
+      if (useAuthStore.getState().isCreatingProfile) return;
+
+      // Skip if profile already loaded (prevents race with createSocialProfile)
+      const currentProfile = useAuthStore.getState().userProfile;
+      if (currentProfile?.auth_id === userId) return;
+
       const { data, error } = await supabase
         .from('users')
         .select('*')
@@ -183,10 +201,17 @@ export function useAuth() {
             await acceptInvite(invite.id);
             const { data: newProfile } = await supabase
               .from('users').select('*').eq('auth_id', userId).single();
-            setUserProfile(newProfile);
             if (newProfile?.role === 'parent') {
-              await checkParentNeedsOnboarding(newProfile.id);
+              const { data: students } = await supabase
+                .from('students')
+                .select('id')
+                .eq('parent_id', newProfile.id)
+                .limit(1);
+              if (!students || students.length === 0) {
+                setNeedsOnboarding(true);
+              }
             }
+            setUserProfile(newProfile);
             return;
           }
           console.error('Error auto-creating user profile:', insertError);
@@ -231,10 +256,17 @@ export function useAuth() {
       if (error) {
         console.error('Error fetching user profile:', error);
       }
-      setUserProfile(data ?? null);
       if (data?.role === 'parent') {
-        await checkParentNeedsOnboarding(data.id);
+        const { data: students } = await supabase
+          .from('students')
+          .select('id')
+          .eq('parent_id', data.id)
+          .limit(1);
+        if (!students || students.length === 0) {
+          setNeedsOnboarding(true);
+        }
       }
+      setUserProfile(data ?? null);
     } catch (err) {
       console.error('Error fetching user profile:', err);
     } finally {
@@ -264,58 +296,73 @@ export function useAuth() {
       metadata: { firstName: string; lastName: string; phone?: string; role?: 'parent' | 'coach' }
     ) => {
       setIsLoading(true);
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            first_name: metadata.firstName,
-            last_name: metadata.lastName,
-            phone: metadata.phone,
-            role: metadata.role ?? 'parent',
-          },
-        },
-      });
-
-      if (authError) {
-        setIsLoading(false);
-        throw authError;
-      }
-
-      if (authData.user && authData.session) {
-        // Session exists (email confirmation off) — create profile immediately
-        // Check for pending invite
-        const invite = await checkPendingInvite(email);
-        const selfRole = metadata.role ?? 'parent';
-        const role = invite ? invite.role : selfRole;
-        const orgId = invite ? invite.org_id : DEFAULT_ORG_ID;
-        const isActive = role === 'coach' && !invite ? false : true;
-
-        const { error: profileError } = await supabase.from('users').insert({
-          auth_id: authData.user.id,
-          org_id: orgId,
-          role,
-          first_name: metadata.firstName,
-          last_name: metadata.lastName,
+      useAuthStore.getState().setIsCreatingProfile(true);
+      try {
+        const { data: authData, error: authError } = await supabase.auth.signUp({
           email,
-          phone: metadata.phone ?? null,
-          is_active: isActive,
+          password,
+          options: {
+            data: {
+              first_name: metadata.firstName,
+              last_name: metadata.lastName,
+              phone: metadata.phone,
+              role: metadata.role ?? 'parent',
+            },
+          },
         });
 
-        if (profileError) {
-          console.error('Error creating user profile:', profileError);
+        if (authError) {
+          throw authError;
+        }
+
+        if (authData.user && authData.session) {
+          // Session exists (email confirmation off) — create profile immediately
+          // isCreatingProfile already set above (before signUp) to prevent race
+
+          // Check for pending invite
+          const invite = await checkPendingInvite(email);
+          const selfRole = metadata.role ?? 'parent';
+          const role = invite ? invite.role : selfRole;
+          const orgId = invite ? invite.org_id : DEFAULT_ORG_ID;
+          const isActive = role === 'coach' && !invite ? false : true;
+
+          const { error: profileError } = await supabase.from('users').insert({
+            auth_id: authData.user.id,
+            org_id: orgId,
+            role,
+            first_name: metadata.firstName,
+            last_name: metadata.lastName,
+            email,
+            phone: metadata.phone ?? null,
+            is_active: isActive,
+          });
+
+          // If row already exists (race with onAuthStateChange listener), that's OK
+          if (profileError && profileError.code !== '23505') {
+            console.error('Error creating user profile:', profileError);
+            throw profileError;
+          }
+
+          if (invite) await acceptInvite(invite.id);
+
+          // Fetch and set profile so layout routes correctly
+          const { data: newProfile } = await supabase
+            .from('users').select('*').eq('auth_id', authData.user.id).single();
+          if (newProfile) setUserProfile(newProfile);
+
+          if (role === 'parent') {
+            setNeedsOnboarding(true);
+          }
+
           setIsLoading(false);
-          throw profileError;
+          return { hasSession: true };
         }
-
-        if (invite) await acceptInvite(invite.id);
-
-        if (role === 'parent') {
-          setNeedsOnboarding(true);
-        }
+        // If no session (email confirmation on), fetchUserProfile will
+        // auto-create the profile from auth metadata after confirmation.
+        return { hasSession: false };
+      } finally {
+        useAuthStore.getState().setIsCreatingProfile(false);
       }
-      // If no session (email confirmation on), fetchUserProfile will
-      // auto-create the profile from auth metadata after confirmation.
     },
     []
   );

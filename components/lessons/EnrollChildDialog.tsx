@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet } from 'react-native';
-import { Dialog, Portal, Button, Text, Checkbox } from 'react-native-paper';
+import { StyleSheet } from 'react-native';
+import { Dialog, Portal, Button, Text } from 'react-native-paper';
 import { useParentStudents } from '@/lib/hooks/useStudents';
 import { useEnrollOrWaitlist, useEnrollWithPayment, checkStudentSubscription } from '@/lib/hooks/useEnrollments';
-import { useStripePayment, useRecordExternalPayment } from '@/lib/hooks/useStripePayments';
+import { useStripeCheckoutPayment, useRecordExternalPayment } from '@/lib/hooks/useStripePayments';
 import { useAuthStore } from '@/lib/stores/authStore';
 import { useUIStore } from '@/lib/stores/uiStore';
 import { PaymentMethodSelector } from '@/components/payments/PaymentMethodSelector';
+import { SelectableRow } from '@/components/ui';
 import { COLORS, SPACING } from '@/constants/theme';
 
 interface EnrollChildDialogProps {
@@ -23,7 +24,7 @@ export function EnrollChildDialog({ visible, lessonInstanceId, maxStudents, enro
   const { data: children } = useParentStudents();
   const enrollOrWaitlist = useEnrollOrWaitlist();
   const enrollWithPayment = useEnrollWithPayment();
-  const stripePayment = useStripePayment();
+  const checkoutPayment = useStripeCheckoutPayment();
   const recordExternal = useRecordExternalPayment();
   const showSnackbar = useUIStore((s) => s.showSnackbar);
   const userId = useAuthStore((s) => s.userProfile?.id);
@@ -109,27 +110,24 @@ export function EnrollChildDialog({ visible, lessonInstanceId, maxStudents, enro
     setShowPaymentSelector(false);
     try {
       const totalCents = priceCents! * selectedIds.size;
-      const payment = await stripePayment.mutateAsync({
+      const result = await checkoutPayment.mutateAsync({
         amount_cents: totalCents,
         payment_type: 'lesson',
         description: `Group lesson enrollment (${selectedIds.size} child${selectedIds.size > 1 ? 'ren' : ''})`,
+        post_action: {
+          type: 'enroll',
+          lesson_instance_id: lessonInstanceId,
+          student_ids: [...selectedIds],
+        },
       });
 
-      // Enroll all selected children after payment
-      for (const studentId of selectedIds) {
-        await enrollWithPayment.mutateAsync({
-          lessonInstanceId,
-          studentId,
-          paymentId: payment.id,
-        });
+      if (result?.redirected) {
+        showSnackbar('Complete payment in your browser. Children will be enrolled automatically.', 'success');
       }
-      showSnackbar('Payment successful! Children enrolled.', 'success');
       setSelectedIds(new Set());
       onDismiss();
     } catch (err: any) {
-      if (err.message !== 'Payment cancelled') {
-        showSnackbar(err.message ?? 'Payment failed', 'error');
-      }
+      showSnackbar(err.message ?? 'Payment failed', 'error');
     }
   };
 
@@ -160,7 +158,7 @@ export function EnrollChildDialog({ visible, lessonInstanceId, maxStudents, enro
     }
   };
 
-  const isProcessing = enrollOrWaitlist.isPending || enrollWithPayment.isPending || stripePayment.isPending || recordExternal.isPending || checkingSubscription;
+  const isProcessing = enrollOrWaitlist.isPending || enrollWithPayment.isPending || checkoutPayment.isPending || recordExternal.isPending || checkingSubscription;
 
   return (
     <>
@@ -179,16 +177,13 @@ export function EnrollChildDialog({ visible, lessonInstanceId, maxStudents, enro
                   <Text variant="bodyMedium">No children to enroll</Text>
                 ) : (
                   children.map((child) => (
-                    <View key={child.id} style={styles.row}>
-                      <Checkbox
-                        status={selectedIds.has(child.id) ? 'checked' : 'unchecked'}
-                        onPress={() => toggleChild(child.id)}
-                        color={COLORS.primary}
-                      />
-                      <Text variant="bodyLarge" style={styles.childName}>
-                        {child.first_name} {child.last_name}
-                      </Text>
-                    </View>
+                    <SelectableRow
+                      key={child.id}
+                      label={`${child.first_name} ${child.last_name}`}
+                      selected={selectedIds.has(child.id)}
+                      onPress={() => toggleChild(child.id)}
+                      testID={`child-select-${child.id}`}
+                    />
                   ))
                 )}
               </Dialog.Content>
@@ -244,15 +239,6 @@ export function EnrollChildDialog({ visible, lessonInstanceId, maxStudents, enro
 }
 
 const styles = StyleSheet.create({
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: SPACING.xs,
-  },
-  childName: {
-    color: COLORS.textPrimary,
-    marginLeft: SPACING.sm,
-  },
   waitlistWarning: {
     color: COLORS.warning,
     marginBottom: SPACING.sm,

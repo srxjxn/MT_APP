@@ -1,4 +1,263 @@
-# Modern Tennis App — Owner Walkthrough Test Script
+# Modern Tennis App — Apple App Store Review Guide & Test Script
+
+---
+
+# Part 1: Apple App Store Review Guide
+
+> **Use this section to respond to Guideline 2.1 — Information Needed.**
+> Each subsection maps to one of Apple's six requirements and contains ready-to-paste text.
+
+---
+
+## App Purpose & Description
+
+> *Copy-paste for App Store Connect → "App Review Information → Notes"*
+
+Modern Tennis is a tennis academy management platform that connects coaches, parents, and administrators in a single app. It replaces manual scheduling spreadsheets, paper attendance sheets, and fragmented billing workflows used by small-to-medium tennis academies.
+
+**Core problems solved:**
+- Manual lesson scheduling and calendar management
+- Paper-based attendance tracking
+- Disconnected billing and subscription management
+- Lack of communication between coaches and parents
+
+**Three user roles:**
+| Role | Description |
+|------|-------------|
+| **Admin / Owner** | Manages the academy: creates lessons, manages coaches/students/courts, handles billing and payroll |
+| **Coach** | Views assigned schedule, marks attendance, adds student notes, manages availability |
+| **Parent** | Views children's lessons, browses/enrolls in classes, manages subscriptions and payments, receives notifications |
+
+---
+
+## Screen Recording Script
+
+> **Instructions:** Record on a physical iOS device in one continuous take. Follow these steps in order. The recording should be 3–5 minutes.
+
+### Step 1: Launch & Login (Parent)
+1. Cold-launch the app — login screen appears
+2. Show the **"Sign in with Apple"** and **"Sign in with Google"** buttons (do not tap)
+3. Show the **"Forgot password?"** link
+4. Enter email: `carlitos@gmail.com`
+5. Enter password: `UTadmit2019!`
+6. Tap **"Sign In"** → lands on Parent Home
+
+### Step 2: Account Registration (show only)
+1. Tap **"Back"** or **"Sign Out"** to return to login
+2. Tap **"Sign Up"**
+3. Show the role toggle: **Parent / Coach**
+4. Show the form fields: First Name, Last Name, Email, Phone, Password, Confirm Password
+5. **Do not submit** — tap **"Back to Sign In"** to return to login
+
+### Step 3: Forgot Password (show only)
+1. From login screen, tap **"Forgot password?"**
+2. Show the email input and **"Send Reset Link"** button
+3. Tap **"Back to Sign In"** to return
+
+### Step 4: Login as Parent
+1. Enter `carlitos@gmail.com` / `UTadmit2019!` again
+2. Tap **"Sign In"** → Parent Home
+
+### Step 5: Parent Home
+1. Show **"Welcome, David!"** message
+2. Scroll to show **Upcoming Lessons** section
+3. Scroll to show **"My Children"** — Emma and Liam cards
+4. Tap **"View Notes"** on Emma's card to show coach notes modal, then close
+
+### Step 6: Schedule (Parent)
+1. Navigate to **Schedule** tab
+2. Show **"My Lessons"** view with enrolled lessons
+3. Toggle to **"Browse All"** to show available lessons
+4. Tap a lesson to show the **"Enroll Child"** dialog, then dismiss
+
+### Step 7: Billing (Parent)
+1. Navigate to **Billing** tab
+2. Show **Membership** tab — Emma's active subscription card
+3. Show the **"Continue to Payment"** button on the subscription card
+4. Show the disclosure text below the button: *"You'll be redirected to complete payment securely"*
+5. **Do NOT tap the button** — explain to the reviewer: *"Tapping this button opens Stripe Checkout in Safari, where the parent completes payment on Stripe's hosted page. The app never collects or stores payment card information."*
+6. Show **Packages** tab — hour package with progress bar
+7. Show **Payments** tab — payment history
+
+### Step 8: Settings & Account Deletion (Parent)
+1. Navigate to **Settings** tab
+2. Show profile info (name, email, phone)
+3. Tap **"Edit Profile"** to show editable fields, then cancel
+4. Scroll to show **"Delete Account"** button
+5. Tap **"Delete Account"** → show the confirmation dialog → tap **"Cancel"** (do not delete)
+
+### Step 9: Sign Out & Login as Coach
+1. Tap **"Sign Out"** → returns to login screen
+2. Enter `coachk@gmail.com` / `UTadmit2019!`
+3. Tap **"Sign In"** → lands on **Coach Schedule**
+
+### Step 10: Coach Schedule
+1. Show assigned lessons for the week
+2. Tap a lesson to show detail with enrolled students and attendance
+
+### Step 11: Coach Students & Notes
+1. Navigate to **Students** tab — show student list with hour packages
+2. Tap a student to view notes and attendance history
+
+### Step 12: Coach Availability
+1. Navigate to **Availability** tab
+2. Show availability slots list
+
+### Step 13: Coach Settings & Sign Out
+1. Navigate to **Settings**
+2. Show profile info
+3. Tap **"Sign Out"** → returns to login screen
+4. **End recording**
+
+---
+
+## Test Credentials
+
+> *Copy-paste for App Store Connect → "App Review Information → Sign-In Information" and "Notes"*
+
+**Production / TestFlight Accounts:**
+
+**Primary recommended account for review:**
+- **Email:** `carlitos@gmail.com`
+- **Password:** `UTadmit2019!`
+
+| Role | Email | Password | What they can access |
+|------|-------|----------|---------------------|
+| Parent | `carlitos@gmail.com` | `UTadmit2019!` | Children, lessons, billing, notifications, settings |
+| Coach | `coachk@gmail.com` | `UTadmit2019!` | Coach schedule, student notes, availability, settings |
+
+> **Note:** There is no admin account available for review on production. The two accounts above cover all user-facing functionality.
+
+---
+
+## External Services
+
+> *Copy-paste for App Store Connect → "Notes"*
+
+| Service | Purpose | Data Shared |
+|---------|---------|-------------|
+| **Supabase** | Backend database, user authentication (email/password, Sign in with Apple, Sign in with Google), real-time subscriptions, edge functions | User profile, email, authentication tokens |
+| **Stripe** | Payment processing for real-world tennis lesson subscriptions (Guideline 3.1.5 — physical services consumed outside the app). Payment happens on Stripe's hosted checkout page (`checkout.stripe.com`) in Safari, external to the app. | No raw card data is shared with the app — all payment information is entered on Stripe's PCI DSS Level 1 certified hosted checkout page |
+| **Resend** | Transactional email delivery (coach invitation emails only) | Recipient email address |
+| **Expo / EAS** | App framework, over-the-air JavaScript bundle updates | Device platform info for update delivery |
+
+---
+
+## Regional Availability
+
+> *Copy-paste for App Store Connect → "Notes"*
+
+- The app functions identically across all regions and territories
+- There is no region-specific content, language, or feature gating
+- All monetary values are displayed in USD (single-currency implementation)
+- The app does not rely on region-specific APIs or services
+
+---
+
+## Regulated Industry
+
+> *Copy-paste for App Store Connect → "Notes"*
+
+- Modern Tennis is **not** in a regulated industry
+- The app does not provide health, medical, financial advisory, legal, or gambling services
+- Payment processing is handled entirely through **Stripe**, which is PCI DSS compliant — the app never stores, processes, or transmits raw credit card data
+- No COPPA concerns: parent accounts manage children's profiles; children do not have their own accounts or direct app access
+
+---
+
+## Payment Processing & Guideline 3.1.5 Compliance
+
+> *Copy-paste for App Store Connect → "App Review Information → Notes"*
+
+### Why This App Uses External Payment (Not In-App Purchase)
+
+Modern Tennis subscriptions pay for **real-world, in-person tennis coaching sessions** at a physical tennis academy. Lessons take place on physical tennis courts with a human coach. The service is consumed entirely outside the app — the app is a scheduling and management tool, not the service itself.
+
+**Apple's Guideline 3.1.5** states:
+
+> *"If your app enables people to purchase physical goods or services that will be consumed outside of the app, you must use purchase methods other than in-app purchase to collect those payments, such as Apple Pay or traditional credit card entry."*
+
+**IAP would violate this guideline.** Apple requires external payment for physical services consumed outside the app.
+
+### What the Subscription Pays For
+
+- Real-world, in-person tennis lessons at a physical tennis academy
+- Sessions with a human coach on a physical tennis court
+- **Not** digital content, **not** in-app feature unlocks, **not** streaming or media
+
+### What the App Does NOT Do
+
+- ❌ The subscription does not unlock any app features (all features work regardless of payment status)
+- ❌ The subscription does not provide digital content (no streaming, no downloads)
+- ❌ The subscription does not gate functionality behind a paywall
+- ✅ The subscription pays for a **real-world service** (tennis lessons)
+
+### How Payment Works
+
+1. Parent views subscription card in Billing tab → sees **"Continue to Payment"** button
+2. Below the button: disclosure text reads *"You'll be redirected to complete payment securely"*
+3. Tapping the button opens **Stripe Checkout** — a hosted payment page on `checkout.stripe.com` — in Safari
+4. The parent enters payment details on Stripe's page (the app never sees card data)
+5. After payment, Stripe redirects back to the app via deep link
+6. Stripe sends a webhook to our server, which activates the subscription
+7. The app displays the active subscription status
+
+**The app never collects, transmits, or stores payment card information.** All payment processing happens on Stripe's PCI DSS Level 1 certified hosted checkout page, external to the app.
+
+### Precedent
+
+This is the same model used by approved apps in the fitness/coaching category:
+
+| App | Service | Payment Method |
+|-----|---------|---------------|
+| ClassPass / Mindbody | In-person fitness classes | Stripe (external) |
+| CoachUp / PlayYourCourt | In-person sports coaching | Stripe (external) |
+| Vagaro / Booksy | In-person salon/spa services | Stripe (external) |
+| Uber / Lyft | Real-world transportation | Stripe (external) |
+| DoorDash / Grubhub | Real-world food delivery | Stripe (external) |
+
+None of these apps use IAP. Apple's own guidelines prohibit it for physical services.
+
+---
+
+## App Review Notes (Copy-Paste Ready)
+
+> **Copy-paste the block below into App Store Connect → "App Review Information → Notes"**
+
+```
+PAYMENT PROCESSING — GUIDELINE 3.1.5 COMPLIANCE
+
+Modern Tennis is a tennis academy management app. Subscriptions in this app
+pay for real-world, in-person tennis coaching sessions at a physical tennis
+academy — not digital content or in-app features.
+
+Per App Store Review Guideline 3.1.5: "If your app enables people to purchase
+physical goods or services that will be consumed outside of the app, you must
+use purchase methods other than in-app purchase." Our subscriptions fall
+squarely under this guideline, as the service (tennis lessons) is consumed
+entirely outside the app on a physical tennis court with a human coach.
+
+Payment flow: When a parent subscribes, they are redirected to Stripe's hosted
+checkout page (checkout.stripe.com) in Safari. The app never collects, stores,
+or processes payment card information. After payment, the user is returned to
+the app via deep link.
+
+This is the same model used by approved apps in the fitness/coaching category
+(ClassPass, Mindbody, CoachUp, Vagaro) that sell real-world lesson and service
+subscriptions via external payment processors.
+
+The subscription does NOT unlock any app features, digital content, or in-app
+functionality. All app features (scheduling, messaging, viewing lessons) are
+available to all users regardless of payment status. The subscription is solely
+for the real-world tennis coaching service.
+```
+
+---
+---
+
+# Part 2: Internal QA Walkthrough
+
+> **Below is the full internal QA test script.** Use this for comprehensive testing before each release.
 
 All test users use password: **`password123`**
 
