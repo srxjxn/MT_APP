@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, FlatList, StyleSheet, RefreshControl, ScrollView, TouchableOpacity } from 'react-native';
 import { Text, Portal, Modal, Button, FAB } from 'react-native-paper';
 import { useAuthStore } from '@/lib/stores/authStore';
-import { useCoachLessonInstancesWithVirtuals, useCreateLessonInstance, LessonInstanceWithJoins } from '@/lib/hooks/useLessonInstances';
+import { useCoachLessonInstancesWithVirtuals, useCreateLessonInstance, useCompleteLessonWithNotification, LessonInstanceWithJoins } from '@/lib/hooks/useLessonInstances';
 import { useCreateStudentNote } from '@/lib/hooks/useStudentNotes';
 import { useCourts } from '@/lib/hooks/useCourts';
 import { useStudents } from '@/lib/hooks/useStudents';
@@ -12,7 +12,7 @@ import { EnrollmentList } from '@/components/lessons/EnrollmentList';
 import { NoteForm } from '@/components/students/NoteForm';
 import { LessonTypeToggle } from '@/components/lessons/LessonTypeToggle';
 import { CoachPrivateLessonForm, CoachPrivateLessonFormData } from '@/components/coach/CoachPrivateLessonForm';
-import { LoadingScreen, EmptyState } from '@/components/ui';
+import { LoadingScreen, EmptyState, ConfirmDialog } from '@/components/ui';
 import { useUIStore } from '@/lib/stores/uiStore';
 import { COLORS, SPACING } from '@/constants/theme';
 import { StudentNoteFormData } from '@/lib/validation/studentNote';
@@ -35,6 +35,8 @@ export default function CoachSchedule() {
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
   const [enrolledStudents, setEnrolledStudents] = useState<{ id: string; name: string }[]>([]);
   const [selectedVirtual, setSelectedVirtual] = useState<LessonInstanceWithJoins | null>(null);
+  const completeLesson = useCompleteLessonWithNotification();
+  const [showCompleteDialog, setShowCompleteDialog] = useState(false);
   const selectedInstance = instances?.find((i) => i.id === selectedId);
 
   if (isLoading) {
@@ -55,6 +57,29 @@ export default function CoachSchedule() {
       showSnackbar(err.message ?? 'Failed to add note', 'error');
     }
   };
+
+  const handleMarkComplete = async () => {
+    if (!selectedInstance) return;
+    try {
+      const result = await completeLesson.mutateAsync(selectedInstance.id);
+      showSnackbar(
+        `Lesson completed. ${result.notifiedCount} parent${result.notifiedCount !== 1 ? 's' : ''} notified.`,
+        'success'
+      );
+      setShowCompleteDialog(false);
+      setSelectedId(null);
+      refetch();
+    } catch (err: any) {
+      showSnackbar(err.message ?? 'Failed to complete lesson', 'error');
+      setShowCompleteDialog(false);
+    }
+  };
+
+  const today = new Date().toISOString().split('T')[0];
+  const canMarkComplete = selectedInstance &&
+    selectedInstance.status === 'scheduled' &&
+    selectedInstance.date <= today &&
+    (selectedInstance.lesson_type === 'private' || selectedInstance.lesson_type === 'semi_private');
 
   const handleCreateLesson = async (data: CoachPrivateLessonFormData) => {
     try {
@@ -174,6 +199,20 @@ export default function CoachSchedule() {
                 testID="coach-enrollment-list"
               />
 
+              {canMarkComplete && (
+                <Button
+                  mode="contained"
+                  icon="check-circle"
+                  onPress={() => setShowCompleteDialog(true)}
+                  style={styles.markCompleteButton}
+                  buttonColor={COLORS.success}
+                  textColor="#FFFFFF"
+                  testID="coach-mark-complete-button"
+                >
+                  Mark Complete
+                </Button>
+              )}
+
               <View style={styles.noteSection}>
                 <Text variant="titleMedium" style={styles.enrollmentTitle}>Add Note</Text>
                 {!showNoteForm ? (
@@ -245,6 +284,16 @@ export default function CoachSchedule() {
             </View>
           )}
         </Modal>
+
+        <ConfirmDialog
+          visible={showCompleteDialog}
+          title="Mark Lesson Complete"
+          message="Mark this lesson as completed? Parents will be notified."
+          confirmLabel="Mark Complete"
+          onConfirm={handleMarkComplete}
+          onCancel={() => setShowCompleteDialog(false)}
+          testID="schedule-complete-lesson-dialog"
+        />
       </Portal>
     </View>
   );
@@ -321,6 +370,9 @@ const styles = StyleSheet.create({
   },
   studentPickerRowText: {
     color: COLORS.textPrimary,
+  },
+  markCompleteButton: {
+    marginTop: SPACING.md,
   },
   closeButton: {
     marginTop: SPACING.md,

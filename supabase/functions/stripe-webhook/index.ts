@@ -94,24 +94,47 @@ async function executePostAction(
         hours_purchased: number;
       };
 
-      // Check if package already created (idempotency — check for same student+coach_package created recently)
-      const { data: existingPkg } = await supabase
+      // Idempotency: check if this exact webhook already created/updated a package very recently
+      const { data: recentPkg } = await supabase
         .from('student_packages')
         .select('id')
         .eq('student_id', student_id)
         .eq('coach_package_id', coach_package_id)
-        .gte('purchased_at', new Date(Date.now() - 60000).toISOString()) // within last minute
+        .gte('updated_at', new Date(Date.now() - 60000).toISOString())
         .maybeSingle();
 
-      if (!existingPkg) {
-        await supabase.from('student_packages').insert({
-          student_id,
-          coach_package_id,
-          hours_purchased,
-          hours_used: 0,
-          status: 'active',
-          purchased_at: new Date().toISOString(),
-        });
+      if (!recentPkg) {
+        // Check for existing active package to aggregate into
+        const { data: existingActive } = await supabase
+          .from('student_packages')
+          .select('id, hours_purchased')
+          .eq('student_id', student_id)
+          .eq('coach_package_id', coach_package_id)
+          .eq('status', 'active')
+          .order('purchased_at', { ascending: true })
+          .limit(1)
+          .maybeSingle();
+
+        if (existingActive) {
+          // Aggregate: add hours to existing package
+          await supabase
+            .from('student_packages')
+            .update({
+              hours_purchased: existingActive.hours_purchased + hours_purchased,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', existingActive.id);
+        } else {
+          // No active package — create new
+          await supabase.from('student_packages').insert({
+            student_id,
+            coach_package_id,
+            hours_purchased,
+            hours_used: 0,
+            status: 'active',
+            purchased_at: new Date().toISOString(),
+          });
+        }
       }
       break;
     }

@@ -28,8 +28,8 @@ export async function generateInstancesForTemplates(
     endTime: string;
   }[] = [];
 
-  const from = new Date(dateFrom);
-  const to = new Date(dateTo);
+  const from = new Date(dateFrom + 'T00:00:00Z');
+  const to = new Date(dateTo + 'T00:00:00Z');
 
   for (let d = new Date(from); d <= to; d.setUTCDate(d.getUTCDate() + 1)) {
     const dayOfWeek = d.getUTCDay();

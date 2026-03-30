@@ -7,11 +7,10 @@ import { CoachPackage } from '@/lib/types';
 
 interface CoachPricingCardProps {
   coach: CoachWithPricing;
-  onRequestLesson: () => void;
   onBuyPackage?: (pkg: CoachPackage) => void;
 }
 
-export function CoachPricingCard({ coach, onRequestLesson, onBuyPackage }: CoachPricingCardProps) {
+export function CoachPricingCard({ coach, onBuyPackage }: CoachPricingCardProps) {
   const dropInDisplay = coach.drop_in_rate_cents
     ? `$${(coach.drop_in_rate_cents / 100).toFixed(0)}/hr`
     : 'Not set';
@@ -52,14 +51,6 @@ export function CoachPricingCard({ coach, onRequestLesson, onBuyPackage }: Coach
           <Text variant="bodySmall" style={styles.noPackages}>No packages available</Text>
         )}
 
-        <Button
-          mode="contained"
-          onPress={onRequestLesson}
-          style={styles.requestButton}
-          compact
-        >
-          Request Lesson
-        </Button>
       </Card.Content>
     </Card>
   );
@@ -99,10 +90,5 @@ const styles = StyleSheet.create({
   noPackages: {
     color: COLORS.textSecondary,
     fontStyle: 'italic',
-  },
-  requestButton: {
-    marginTop: SPACING.sm,
-    alignSelf: 'flex-start',
-    backgroundColor: COLORS.primary,
   },
 });

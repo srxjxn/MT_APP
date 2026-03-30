@@ -269,7 +269,6 @@ export function PrivateLessonsContent() {
   const renderCoachItem = useCallback(({ item }: { item: CoachWithPricing }) => (
     <CoachPricingCard
       coach={item}
-      onRequestLesson={() => openRequestModal(undefined, item.id)}
       onBuyPackage={(pkg) => handleBuyPackage(pkg, `${item.first_name} ${item.last_name}`)}
     />
   ), [openRequestModal, handleBuyPackage]);

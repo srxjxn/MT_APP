@@ -1,4 +1,3 @@
-Connecting to db 5432
 export type Json =
   | string
   | number
@@ -1242,6 +1241,42 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      create_user_profile: {
+        Args: {
+          p_auth_id: string
+          p_email: string
+          p_first_name: string
+          p_is_active?: boolean
+          p_last_name: string
+          p_org_id: string
+          p_role: Database["public"]["Enums"]["user_role"]
+        }
+        Returns: {
+          assigned_coach_id: string | null
+          auth_id: string
+          avatar_url: string | null
+          created_at: string
+          drop_in_rate_cents: number | null
+          email: string
+          first_name: string
+          group_rate_cents: number | null
+          id: string
+          is_active: boolean
+          last_name: string
+          org_id: string
+          phone: string | null
+          role: Database["public"]["Enums"]["user_role"]
+          settings: Json
+          stripe_customer_id: string | null
+          updated_at: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "users"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       get_user_id: { Args: never; Returns: string }
       get_user_org_id: { Args: never; Returns: string }
       get_user_role: {
@@ -1425,5 +1460,3 @@ export const Constants = {
   },
 } as const
 
-A new version of Supabase CLI is available: v2.84.2 (currently installed v2.76.8)
-We recommend updating regularly for new features and bug fixes: https://supabase.com/docs/guides/cli/getting-started#updating-the-supabase-cli

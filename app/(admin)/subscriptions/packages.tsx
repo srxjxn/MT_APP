@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, FlatList, StyleSheet, RefreshControl, ScrollView } from 'react-native';
-import { Card, Text, Button, ProgressBar, Chip, FAB, Portal, Modal, Menu } from 'react-native-paper';
+import { Card, Text, Button, ProgressBar, Chip, FAB, Portal, Modal, Menu, Dialog, IconButton } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import {
   useAllStudentPackages,
@@ -8,6 +8,7 @@ import {
   useBillParentForPackage,
   useCreateStudentPackage,
   useUpdateStudentPackage,
+  useDeleteStudentPackage,
 } from '@/lib/hooks/useStudentPackages';
 import { useStudents } from '@/lib/hooks/useStudents';
 import { useCoachDirectory, CoachWithPricing } from '@/lib/hooks/useCoachPricing';
@@ -20,10 +21,14 @@ function PackageCard({
   pkg,
   onBillParent,
   onAddHours,
+  onEditHours,
+  onDelete,
 }: {
   pkg: AdminStudentPackage;
   onBillParent: () => void;
   onAddHours: () => void;
+  onEditHours: () => void;
+  onDelete: () => void;
 }) {
   const hoursRemaining = pkg.hours_purchased - pkg.hours_used;
   const progress = pkg.hours_purchased > 0 ? pkg.hours_used / pkg.hours_purchased : 0;
@@ -65,6 +70,20 @@ function PackageCard({
           >
             Add Hours
           </Button>
+          <IconButton
+            icon="pencil"
+            size={20}
+            onPress={onEditHours}
+            iconColor={COLORS.primary}
+            style={styles.iconBtn}
+          />
+          <IconButton
+            icon="delete"
+            size={20}
+            onPress={onDelete}
+            iconColor={COLORS.error}
+            style={styles.iconBtn}
+          />
           {isLow && !pkg.needs_billing && (
             <Button
               mode="contained"
@@ -146,6 +165,111 @@ function AddHoursModal({
           </Button>
         </View>
       </Modal>
+    </Portal>
+  );
+}
+
+function EditHoursModal({
+  visible,
+  pkg,
+  onDismiss,
+  onSubmit,
+}: {
+  visible: boolean;
+  pkg: AdminStudentPackage | null;
+  onDismiss: () => void;
+  onSubmit: (newHours: number) => void;
+}) {
+  const [hours, setHours] = useState('');
+  const parsedHours = parseFloat(hours);
+  const minHours = pkg?.hours_used ?? 0;
+  const belowUsed = !isNaN(parsedHours) && parsedHours < minHours;
+
+  // Pre-fill when pkg changes
+  React.useEffect(() => {
+    if (visible && pkg) setHours(String(pkg.hours_purchased));
+  }, [visible, pkg]);
+
+  const handleDismiss = () => {
+    setHours('');
+    onDismiss();
+  };
+
+  const handleSubmit = () => {
+    if (!isNaN(parsedHours) && parsedHours >= minHours) {
+      onSubmit(parsedHours);
+      setHours('');
+    }
+  };
+
+  if (!pkg) return null;
+
+  return (
+    <Portal>
+      <Modal
+        visible={visible}
+        onDismiss={handleDismiss}
+        contentContainerStyle={styles.modal}
+      >
+        <Text variant="titleLarge" style={styles.modalTitle}>Edit Hours</Text>
+        <Text variant="bodyMedium" style={styles.modalContext}>
+          {pkg.student.first_name} {pkg.student.last_name} — Coach {pkg.coach_package.coach.first_name} {pkg.coach_package.coach.last_name}
+        </Text>
+        <Text variant="bodySmall" style={styles.modalHours}>
+          {pkg.hours_used}h used / {pkg.hours_purchased}h purchased
+        </Text>
+        <FormField
+          label="Total Hours Purchased"
+          value={hours}
+          onChangeText={setHours}
+          keyboardType="numeric"
+          error={belowUsed ? `Cannot be less than ${minHours}h already used` : undefined}
+        />
+        <View style={styles.modalActions}>
+          <Button onPress={handleDismiss}>Cancel</Button>
+          <Button
+            mode="contained"
+            onPress={handleSubmit}
+            disabled={!hours || isNaN(parsedHours) || parsedHours < minHours}
+          >
+            Save
+          </Button>
+        </View>
+      </Modal>
+    </Portal>
+  );
+}
+
+function DeletePackageDialog({
+  visible,
+  pkg,
+  onDismiss,
+  onConfirm,
+}: {
+  visible: boolean;
+  pkg: AdminStudentPackage | null;
+  onDismiss: () => void;
+  onConfirm: () => void;
+}) {
+  if (!pkg) return null;
+
+  return (
+    <Portal>
+      <Dialog visible={visible} onDismiss={onDismiss}>
+        <Dialog.Title>Delete this package?</Dialog.Title>
+        <Dialog.Content>
+          <Text variant="bodyMedium">
+            {pkg.student.first_name} {pkg.student.last_name} — Coach {pkg.coach_package.coach.first_name} {pkg.coach_package.coach.last_name}
+          </Text>
+          <Text variant="bodySmall" style={{ color: COLORS.textSecondary, marginTop: SPACING.xs }}>
+            {pkg.hours_used}h used / {pkg.hours_purchased}h purchased
+          </Text>
+        </Dialog.Content>
+        <Dialog.Actions>
+          <Button onPress={onDismiss}>Cancel</Button>
+          <Button textColor={COLORS.error} onPress={onConfirm}>Delete</Button>
+        </Dialog.Actions>
+      </Dialog>
     </Portal>
   );
 }
@@ -328,9 +452,12 @@ export default function PackageBillingScreen() {
   const billParent = useBillParentForPackage();
   const updatePackage = useUpdateStudentPackage();
   const createPackage = useCreateStudentPackage();
+  const deletePackage = useDeleteStudentPackage();
   const showSnackbar = useUIStore((s) => s.showSnackbar);
 
   const [addHoursPkg, setAddHoursPkg] = useState<AdminStudentPackage | null>(null);
+  const [editHoursPkg, setEditHoursPkg] = useState<AdminStudentPackage | null>(null);
+  const [deletePkg, setDeletePkg] = useState<AdminStudentPackage | null>(null);
   const [createModalVisible, setCreateModalVisible] = useState(false);
 
   const handleBillParent = async (pkg: AdminStudentPackage) => {
@@ -358,6 +485,32 @@ export default function PackageBillingScreen() {
       setAddHoursPkg(null);
     } catch (err: any) {
       showSnackbar(err.message ?? 'Failed to add hours', 'error');
+    }
+  };
+
+  const handleEditHours = async (newHours: number) => {
+    if (!editHoursPkg) return;
+    try {
+      await updatePackage.mutateAsync({
+        id: editHoursPkg.id,
+        hours_purchased: newHours,
+        status: newHours > editHoursPkg.hours_used ? 'active' : editHoursPkg.status,
+      });
+      showSnackbar(`Updated package to ${newHours}h`, 'success');
+      setEditHoursPkg(null);
+    } catch (err: any) {
+      showSnackbar(err.message ?? 'Failed to update hours', 'error');
+    }
+  };
+
+  const handleDeletePackage = async () => {
+    if (!deletePkg) return;
+    try {
+      await deletePackage.mutateAsync(deletePkg.id);
+      showSnackbar('Package deleted', 'success');
+      setDeletePkg(null);
+    } catch (err: any) {
+      showSnackbar(err.message ?? 'Failed to delete package', 'error');
     }
   };
 
@@ -394,6 +547,8 @@ export default function PackageBillingScreen() {
             pkg={item}
             onBillParent={() => handleBillParent(item)}
             onAddHours={() => setAddHoursPkg(item)}
+            onEditHours={() => setEditHoursPkg(item)}
+            onDelete={() => setDeletePkg(item)}
           />
         )}
         keyExtractor={(item) => item.id}
@@ -415,6 +570,18 @@ export default function PackageBillingScreen() {
         pkg={addHoursPkg}
         onDismiss={() => setAddHoursPkg(null)}
         onSubmit={handleAddHours}
+      />
+      <EditHoursModal
+        visible={!!editHoursPkg}
+        pkg={editHoursPkg}
+        onDismiss={() => setEditHoursPkg(null)}
+        onSubmit={handleEditHours}
+      />
+      <DeletePackageDialog
+        visible={!!deletePkg}
+        pkg={deletePkg}
+        onDismiss={() => setDeletePkg(null)}
+        onConfirm={handleDeletePackage}
       />
       <CreatePackageModal
         visible={createModalVisible}
@@ -489,6 +656,9 @@ const styles = StyleSheet.create({
   },
   addHoursButton: {
     borderColor: COLORS.primary,
+  },
+  iconBtn: {
+    margin: 0,
   },
   billButton: {
     backgroundColor: COLORS.warning,

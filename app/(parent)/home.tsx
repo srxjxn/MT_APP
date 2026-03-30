@@ -7,14 +7,13 @@ import { useParentUpcomingLessons } from '@/lib/hooks/useLessonInstances';
 import { useParentMonthlyGroupAttendance } from '@/lib/hooks/useParentAttendance';
 import { useStudentNotes } from '@/lib/hooks/useStudentNotes';
 import { useAssignedCoachWithPackages } from '@/lib/hooks/useAssignedCoach';
-import { useParentAllStudentPackages, useCreateStudentPackage } from '@/lib/hooks/useStudentPackages';
-import { useStripeCheckoutPayment, useRecordExternalPayment } from '@/lib/hooks/useStripePayments';
+import { useParentAllStudentPackages } from '@/lib/hooks/useStudentPackages';
+import { useStripeCheckoutPayment } from '@/lib/hooks/useStripePayments';
 import { useUIStore } from '@/lib/stores/uiStore';
 import { StudentForm } from '@/components/students/StudentForm';
 import { NoteCard } from '@/components/students/NoteCard';
 import { MonthlyAttendanceCard } from '@/components/billing/MonthlyAttendanceCard';
 import { CoachPricingCard } from '@/components/private-lessons/CoachPricingCard';
-import { PaymentMethodSelector } from '@/components/payments/PaymentMethodSelector';
 import { LoadingScreen, EmptyState, StatusBadge } from '@/components/ui';
 import { COLORS, SPACING } from '@/constants/theme';
 import { Student, CoachPackage } from '@/lib/types';
@@ -66,9 +65,7 @@ export default function ParentHome() {
   const { data: assignedCoach } = useAssignedCoachWithPackages();
   const { data: ownedPackages } = useParentAllStudentPackages();
   const createStudent = useCreateStudent();
-  const createStudentPackage = useCreateStudentPackage();
   const checkoutPayment = useStripeCheckoutPayment();
-  const recordExternal = useRecordExternalPayment();
   const showSnackbar = useUIStore((s) => s.showSnackbar);
   const [showAddForm, setShowAddForm] = useState(false);
   const [notesStudent, setNotesStudent] = useState<{ id: string; name: string } | null>(null);
@@ -78,7 +75,6 @@ export default function ParentHome() {
   const [buyingCoachName, setBuyingCoachName] = useState('');
   const [showStudentPicker, setShowStudentPicker] = useState(false);
   const [selectedBuyStudentId, setSelectedBuyStudentId] = useState<string>('');
-  const [showBuyPaymentSelector, setShowBuyPaymentSelector] = useState(false);
 
   const handleAddChild = async (data: StudentFormData) => {
     try {
@@ -101,23 +97,10 @@ export default function ParentHome() {
   const handleConfirmStudentForPackage = useCallback(() => {
     if (!selectedBuyStudentId) return;
     setShowStudentPicker(false);
-    setShowBuyPaymentSelector(true);
+    handleBuyStripePayment();
   }, [selectedBuyStudentId]);
 
-  const createPackageRecord = async () => {
-    if (!buyingPackage || !selectedBuyStudentId) return;
-    await createStudentPackage.mutateAsync({
-      student_id: selectedBuyStudentId,
-      coach_package_id: buyingPackage.id,
-      hours_purchased: buyingPackage.num_hours,
-      hours_used: 0,
-      status: 'active',
-      purchased_at: new Date().toISOString(),
-    });
-  };
-
   const handleBuyStripePayment = async () => {
-    setShowBuyPaymentSelector(false);
     if (!buyingPackage || !selectedBuyStudentId) return;
     try {
       const result = await checkoutPayment.mutateAsync({
@@ -140,23 +123,6 @@ export default function ParentHome() {
     }
   };
 
-  const handleBuyExternalPayment = async () => {
-    setShowBuyPaymentSelector(false);
-    if (!buyingPackage) return;
-    try {
-      await recordExternal.mutateAsync({
-        amount_cents: buyingPackage.price_cents,
-        payment_type: 'lesson',
-        payment_platform: 'cash',
-        description: `Package: ${buyingPackage.name} (${buyingPackage.num_hours}hrs) from ${buyingCoachName}`,
-      });
-      await createPackageRecord();
-      showSnackbar('Package purchased!', 'success');
-      setBuyingPackage(null);
-    } catch (err: any) {
-      showSnackbar(err.message ?? 'Failed to record payment', 'error');
-    }
-  };
 
   // Owned packages from assigned coach
   const coachPackages = assignedCoach
@@ -383,16 +349,6 @@ export default function ParentHome() {
         </Dialog>
       </Portal>
 
-      {/* Package purchase payment selector */}
-      <PaymentMethodSelector
-        visible={showBuyPaymentSelector}
-        onDismiss={() => {
-          setShowBuyPaymentSelector(false);
-          setBuyingPackage(null);
-        }}
-        onSelectStripe={handleBuyStripePayment}
-        onSelectExternal={handleBuyExternalPayment}
-      />
     </View>
   );
 }

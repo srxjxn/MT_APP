@@ -5,6 +5,7 @@ import * as WebBrowser from 'expo-web-browser';
 import { makeRedirectUri } from 'expo-auth-session';
 import { supabase } from '../supabase';
 import { useAuthStore } from '../stores/authStore';
+import { queryClient } from '../queryClient';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -43,10 +44,15 @@ export function useAuth() {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
+      const previousUserId = useAuthStore.getState().session?.user?.id;
       setSession(session);
       if (session) {
+        if (previousUserId && previousUserId !== session.user.id) {
+          queryClient.clear();
+        }
         fetchUserProfile(session.user.id);
       } else {
+        queryClient.clear();
         setUserProfile(null);
         setIsLoading(false);
       }
@@ -118,32 +124,22 @@ export function useAuth() {
 
       const isActive = role === 'coach' ? false : true;
 
-      // Use insert instead of upsert — upsert causes RLS failures due to
-      // PostgREST translating it to INSERT...ON CONFLICT...DO UPDATE
-      const { error: insertError } = await supabase
-        .from('users')
-        .insert({
-          auth_id: user.id,
-          org_id: DEFAULT_ORG_ID,
-          role,
-          first_name: extractFirstName(user),
-          last_name: extractLastName(user),
-          email: user.email!,
-          phone: null,
-          is_active: isActive,
-        });
+      // Use SECURITY DEFINER RPC to bypass RLS — PostgREST translates .insert()
+      // into an UPSERT which requires UPDATE RLS policies that new users can't pass
+      const { data: newProfile, error } = await supabase
+        .rpc('create_user_profile', {
+          p_auth_id: user.id,
+          p_org_id: DEFAULT_ORG_ID,
+          p_role: role,
+          p_first_name: extractFirstName(user),
+          p_last_name: extractLastName(user),
+          p_email: user.email!,
+          p_is_active: isActive,
+        })
+        .maybeSingle();
 
-      // If row already exists (race condition), that's OK — just fetch it below
-      if (insertError && insertError.code !== '23505') throw insertError;
-
-      // Fetch the profile separately
-      const { data: newProfile, error: fetchError } = await supabase
-        .from('users')
-        .select('*')
-        .eq('auth_id', user.id)
-        .single();
-
-      if (fetchError) throw fetchError;
+      if (error) throw error;
+      if (!newProfile) throw new Error('Failed to create profile');
 
       setNeedsRoleSelection(false);
       setUserProfile(newProfile);
@@ -156,7 +152,11 @@ export function useAuth() {
     }
   }, []);
 
+  let fetchInFlight = false;
+
   const fetchUserProfile = async (userId: string) => {
+    if (fetchInFlight) return;
+    fetchInFlight = true;
     try {
       // Skip if createSocialProfile is in progress (prevents race condition
       // where this overwrites state with null before the insert completes)
@@ -170,9 +170,9 @@ export function useAuth() {
         .from('users')
         .select('*')
         .eq('auth_id', userId)
-        .single();
+        .maybeSingle();
 
-      if (error && error.code === 'PGRST116') {
+      if (!data && !error) {
         // No profile row — auto-create from auth user metadata
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) {
@@ -200,7 +200,7 @@ export function useAuth() {
           if (!insertError) {
             await acceptInvite(invite.id);
             const { data: newProfile } = await supabase
-              .from('users').select('*').eq('auth_id', userId).single();
+              .from('users').select('*').eq('auth_id', userId).maybeSingle();
             if (newProfile?.role === 'parent') {
               const { data: students } = await supabase
                 .from('students')
@@ -234,7 +234,7 @@ export function useAuth() {
             });
           if (!insertError) {
             const { data: newProfile } = await supabase
-              .from('users').select('*').eq('auth_id', userId).single();
+              .from('users').select('*').eq('auth_id', userId).maybeSingle();
             setUserProfile(newProfile);
             if (newProfile?.role === 'parent') {
               setNeedsOnboarding(true);
@@ -270,6 +270,7 @@ export function useAuth() {
     } catch (err) {
       console.error('Error fetching user profile:', err);
     } finally {
+      fetchInFlight = false;
       setIsLoading(false);
     }
   };
@@ -347,7 +348,7 @@ export function useAuth() {
 
           // Fetch and set profile so layout routes correctly
           const { data: newProfile } = await supabase
-            .from('users').select('*').eq('auth_id', authData.user.id).single();
+            .from('users').select('*').eq('auth_id', authData.user.id).maybeSingle();
           if (newProfile) setUserProfile(newProfile);
 
           if (role === 'parent') {
@@ -397,11 +398,12 @@ export function useAuth() {
         }
       }
     } catch (err: unknown) {
-      setIsLoading(false);
       const error = err as { code?: string };
       if (error.code !== 'ERR_REQUEST_CANCELED') {
         throw err;
       }
+    } finally {
+      setIsLoading(false);
     }
   }, []);
 
@@ -444,6 +446,7 @@ export function useAuth() {
 
   const signOut = useCallback(async () => {
     await supabase.auth.signOut();
+    queryClient.clear();
     reset();
   }, []);
 
@@ -458,6 +461,7 @@ export function useAuth() {
     if (error) throw error;
 
     await supabase.auth.signOut();
+    queryClient.clear();
     reset();
   }, [userProfile?.id]);
 

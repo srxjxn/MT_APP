@@ -245,17 +245,19 @@ export function CoachPrivateLessonForm({
               </Button>
             }
           >
-            <Menu.Item
-              onPress={() => { setStudentId(''); setStudentMenuVisible(false); }}
-              title="None"
-            />
-            {students.map((student) => (
+            <ScrollView style={{ maxHeight: 300 }}>
               <Menu.Item
-                key={student.id}
-                onPress={() => { setStudentId(student.id); setStudentMenuVisible(false); }}
-                title={`${student.first_name} ${student.last_name}`}
+                onPress={() => { setStudentId(''); setStudentMenuVisible(false); }}
+                title="None"
               />
-            ))}
+              {students.map((student) => (
+                <Menu.Item
+                  key={student.id}
+                  onPress={() => { setStudentId(student.id); setStudentMenuVisible(false); }}
+                  title={`${student.first_name} ${student.last_name}`}
+                />
+              ))}
+            </ScrollView>
           </Menu>
         </>
       )}

@@ -110,7 +110,7 @@ export function useUpdateStudent() {
       return data;
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: studentKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: studentKeys.all });
       queryClient.setQueryData(studentKeys.detail(data.id), data);
     },
   });

@@ -61,9 +61,9 @@ export default function CoachLayout() {
       <Tabs.Screen
         name="availability"
         options={{
-          title: 'My Lessons',
+          title: 'History',
           tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="book-edit-outline" size={size} color={color} />
+            <MaterialCommunityIcons name="history" size={size} color={color} />
           ),
         }}
       />

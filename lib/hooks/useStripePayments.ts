@@ -3,6 +3,8 @@ import * as WebBrowser from 'expo-web-browser';
 import { supabase } from '../supabase';
 import { useAuthStore } from '../stores/authStore';
 import { paymentKeys } from './usePayments';
+import { subscriptionKeys } from './useSubscriptions';
+import { studentPackageKeys } from './useStudentPackages';
 import { PaymentType, PaymentPlatform } from '../types';
 import { ensureStripeCustomer } from '../stripe/ensureCustomer';
 
@@ -123,6 +125,8 @@ export function useStripeCheckoutPayment() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: paymentKeys.all });
+      queryClient.invalidateQueries({ queryKey: subscriptionKeys.all });
+      queryClient.invalidateQueries({ queryKey: studentPackageKeys.all });
     },
   });
 }

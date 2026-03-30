@@ -1,10 +1,10 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { QueryClientProvider } from '@tanstack/react-query';
+import { QueryClientProvider, focusManager } from '@tanstack/react-query';
 import { PaperProvider, Snackbar } from 'react-native-paper';
 import { Slot, useRouter, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import { StyleSheet } from 'react-native';
+import { AppState, type AppStateStatus, StyleSheet } from 'react-native';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { queryClient } from '@/lib/queryClient';
 import { appTheme, COLORS } from '@/constants/theme';
@@ -17,6 +17,19 @@ function RootLayoutNav() {
   const segments = useSegments();
   const router = useRouter();
   const { snackbar, hideSnackbar } = useUIStore();
+  const appState = useRef<AppStateStatus>(AppState.currentState);
+
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (nextAppState) => {
+      if (appState.current.match(/inactive|background/) && nextAppState === 'active') {
+        focusManager.setFocused(true);
+      } else {
+        focusManager.setFocused(false);
+      }
+      appState.current = nextAppState;
+    });
+    return () => sub.remove();
+  }, []);
 
   useEffect(() => {
     if (isLoading) return;
@@ -25,8 +38,12 @@ function RootLayoutNav() {
 
     const inAuthGroup = segments[0] === '(auth)';
 
-    if (!isAuthenticated && !inAuthGroup) {
-      router.replace('/(auth)/login');
+    if (!isAuthenticated) {
+      const authPage = (segments as string[])[1];
+      const publicPages = ['login', 'register', 'forgot-password', 'verify-email', 'reset-password'];
+      if (!inAuthGroup || !publicPages.includes(authPage)) {
+        router.replace('/(auth)/login');
+      }
     } else if (isAuthenticated && needsRoleSelection) {
       if ((segments as string[])[1] !== 'role-select') {
         router.replace('/(auth)/role-select');

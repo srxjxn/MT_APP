@@ -1,131 +1,102 @@
 import React, { useState } from 'react';
 import { View, FlatList, StyleSheet, RefreshControl } from 'react-native';
-import { Card, Text, FAB, Portal, Modal, IconButton } from 'react-native-paper';
-import { useCoachAvailability, useCreateAvailability, useDeleteAvailability } from '@/lib/hooks/useCoachAvailability';
-import { AvailabilityForm } from '@/components/coach/AvailabilityForm';
+import { Card, Text, Chip, Portal } from 'react-native-paper';
+import { useCoachLessonHistory, useCompleteLessonWithNotification, CoachLessonHistoryItem } from '@/lib/hooks/useLessonInstances';
 import { LoadingScreen, EmptyState, ConfirmDialog } from '@/components/ui';
 import { useUIStore } from '@/lib/stores/uiStore';
 import { COLORS, SPACING } from '@/constants/theme';
-import { CoachAvailability as AvailabilityType } from '@/lib/types';
-import { AvailabilityFormData } from '@/lib/validation/availability';
-import { DAYS_OF_WEEK } from '@/lib/validation/lessonTemplate';
 import { formatTime } from '@/lib/utils/formatTime';
 
-export default function CoachAvailabilityScreen() {
-  const { data: slots, isLoading, refetch, isRefetching } = useCoachAvailability();
-  const createAvailability = useCreateAvailability();
-  const deleteAvailability = useDeleteAvailability();
+export default function CoachLessonHistoryScreen() {
+  const { data: lessons, isLoading, refetch, isRefetching } = useCoachLessonHistory();
+  const completeLesson = useCompleteLessonWithNotification();
   const showSnackbar = useUIStore((s) => s.showSnackbar);
-  const [showAddForm, setShowAddForm] = useState(false);
-  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [completeId, setCompleteId] = useState<string | null>(null);
 
-  const handleAdd = async (data: AvailabilityFormData) => {
+  const handleComplete = async () => {
+    if (!completeId) return;
     try {
-      await createAvailability.mutateAsync({
-        ...data,
-        specific_date: data.specific_date || null,
-      });
-      showSnackbar('Availability added', 'success');
-      setShowAddForm(false);
+      const result = await completeLesson.mutateAsync(completeId);
+      showSnackbar(
+        `Lesson completed. ${result.notifiedCount} parent${result.notifiedCount !== 1 ? 's' : ''} notified.`,
+        'success'
+      );
+      setCompleteId(null);
     } catch (err: any) {
-      showSnackbar(err.message ?? 'Failed to add availability', 'error');
-    }
-  };
-
-  const handleDelete = async () => {
-    if (!deleteId) return;
-    try {
-      await deleteAvailability.mutateAsync(deleteId);
-      showSnackbar('Availability deleted', 'success');
-      setDeleteId(null);
-    } catch (err: any) {
-      showSnackbar(err.message ?? 'Failed to delete', 'error');
-      setDeleteId(null);
+      showSnackbar(err.message ?? 'Failed to complete lesson', 'error');
+      setCompleteId(null);
     }
   };
 
   if (isLoading) {
-    return <LoadingScreen message="Loading availability..." testID="availability-loading" />;
+    return <LoadingScreen message="Loading lesson history..." testID="history-loading" />;
   }
 
-  const renderSlot = ({ item }: { item: AvailabilityType }) => {
-    const dayLabel = DAYS_OF_WEEK.find((d) => d.value === item.day_of_week)?.label ?? `Day ${item.day_of_week}`;
+  const renderLesson = ({ item }: { item: CoachLessonHistoryItem }) => {
+    const isCompleted = item.status === 'completed';
+    const studentNames = item.enrolledStudentNames?.join(', ') || 'No students';
+
     return (
-      <Card style={styles.card} testID={`availability-${item.id}`}>
-        <Card.Content style={styles.cardContent}>
-          <View style={styles.slotInfo}>
-            <Text variant="titleMedium" style={styles.dayLabel}>{dayLabel}</Text>
-            <Text variant="bodyMedium" style={styles.timeLabel}>
-              {formatTime(item.start_time)} - {formatTime(item.end_time)}
+      <Card
+        style={styles.card}
+        onPress={!isCompleted ? () => setCompleteId(item.id) : undefined}
+        testID={`history-lesson-${item.id}`}
+      >
+        <Card.Content>
+          <View style={styles.cardHeader}>
+            <Text variant="titleMedium" style={styles.lessonName} numberOfLines={1}>
+              {item.name}
             </Text>
-            <Text variant="bodySmall" style={styles.typeLabel}>
-              {item.is_recurring ? 'Recurring' : `Date: ${item.specific_date}`}
-            </Text>
+            <Chip
+              mode="flat"
+              compact
+              style={isCompleted ? styles.completedChip : styles.needsCompletionChip}
+              textStyle={isCompleted ? styles.completedChipText : styles.needsCompletionChipText}
+              icon={isCompleted ? 'check-circle' : 'alert-circle-outline'}
+            >
+              {isCompleted ? 'Completed' : 'Needs Completion'}
+            </Chip>
           </View>
-          <IconButton
-            icon="delete-outline"
-            size={20}
-            onPress={() => setDeleteId(item.id)}
-            testID={`delete-availability-${item.id}`}
-          />
+          <Text variant="bodyMedium" style={styles.studentNames}>{studentNames}</Text>
+          <Text variant="bodySmall" style={styles.details}>
+            {item.date} • {formatTime(item.start_time)} - {formatTime(item.end_time)}
+            {item.court?.name ? ` • ${item.court.name}` : ''}
+          </Text>
         </Card.Content>
       </Card>
     );
   };
 
   return (
-    <View style={styles.container} testID="coach-availability">
+    <View style={styles.container} testID="coach-lesson-history">
       <FlatList
-        data={slots}
-        renderItem={renderSlot}
+        data={lessons}
+        renderItem={renderLesson}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={slots?.length === 0 ? styles.emptyContainer : styles.list}
+        contentContainerStyle={lessons?.length === 0 ? styles.emptyContainer : styles.list}
         refreshControl={
           <RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={COLORS.primary} />
         }
         ListEmptyComponent={
           <EmptyState
-            icon="clock-outline"
-            title="No Availability Set"
-            description="Add your available time slots"
-            actionLabel="Add Availability"
-            onAction={() => setShowAddForm(true)}
+            icon="history"
+            title="No Lesson History"
+            description="Your past private lessons will appear here"
           />
         }
       />
-      <FAB
-        icon="plus"
-        style={styles.fab}
-        onPress={() => setShowAddForm(true)}
-        testID="availability-add-fab"
-      />
 
       <Portal>
-        <Modal
-          visible={showAddForm}
-          onDismiss={() => setShowAddForm(false)}
-          contentContainerStyle={styles.modal}
-        >
-          <Text variant="titleLarge" style={styles.modalTitle}>Add Availability</Text>
-          <AvailabilityForm
-            onSubmit={handleAdd}
-            loading={createAvailability.isPending}
-            submitLabel="Add Slot"
-            testID="add-availability-form"
-          />
-        </Modal>
+        <ConfirmDialog
+          visible={!!completeId}
+          title="Mark Lesson Complete"
+          message="Mark this lesson as completed? Parents will be notified."
+          confirmLabel="Mark Complete"
+          onConfirm={handleComplete}
+          onCancel={() => setCompleteId(null)}
+          testID="complete-lesson-dialog"
+        />
       </Portal>
-
-      <ConfirmDialog
-        visible={!!deleteId}
-        title="Delete Availability"
-        message="Are you sure you want to remove this availability slot?"
-        confirmLabel="Delete"
-        destructive
-        onConfirm={handleDelete}
-        onCancel={() => setDeleteId(null)}
-        testID="delete-availability-dialog"
-      />
     </View>
   );
 }
@@ -145,41 +116,37 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.sm,
     backgroundColor: COLORS.surface,
   },
-  cardContent: {
+  cardHeader: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: SPACING.xs,
   },
-  slotInfo: {
-    flex: 1,
-  },
-  dayLabel: {
+  lessonName: {
     color: COLORS.textPrimary,
     fontWeight: '600',
+    flex: 1,
+    marginRight: SPACING.sm,
   },
-  timeLabel: {
-    color: COLORS.textSecondary,
+  completedChip: {
+    backgroundColor: COLORS.successLight,
   },
-  typeLabel: {
-    color: COLORS.textSecondary,
-    marginTop: SPACING.xs,
+  completedChipText: {
+    color: COLORS.success,
+    fontSize: 11,
   },
-  fab: {
-    position: 'absolute',
-    margin: SPACING.md,
-    right: 0,
-    bottom: 0,
-    backgroundColor: COLORS.primary,
+  needsCompletionChip: {
+    backgroundColor: COLORS.warningLight,
   },
-  modal: {
-    backgroundColor: COLORS.surface,
-    margin: SPACING.md,
-    borderRadius: 12,
-    maxHeight: '80%',
+  needsCompletionChipText: {
+    color: COLORS.warning,
+    fontSize: 11,
   },
-  modalTitle: {
+  studentNames: {
     color: COLORS.textPrimary,
-    padding: SPACING.md,
-    paddingBottom: 0,
+    marginBottom: SPACING.xs,
+  },
+  details: {
+    color: COLORS.textSecondary,
   },
 });

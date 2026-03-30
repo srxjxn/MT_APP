@@ -156,37 +156,61 @@ export async function findActivePackage(studentId: string, coachId: string): Pro
 }
 
 /**
- * Deducts hours from a student package after a private lesson.
+ * Deducts hours from a student package. Standalone async function usable outside React hooks.
+ */
+export async function deductPackageHours(packageId: string, hoursToDeduct: number) {
+  const { data: current, error: fetchError } = await supabase
+    .from('student_packages')
+    .select('hours_used, hours_purchased')
+    .eq('id', packageId)
+    .single();
+
+  if (fetchError) throw fetchError;
+
+  const newHoursUsed = current.hours_used + hoursToDeduct;
+  const isExhausted = newHoursUsed >= current.hours_purchased;
+
+  const { data, error } = await supabase
+    .from('student_packages')
+    .update({
+      hours_used: newHoursUsed,
+      status: isExhausted ? 'exhausted' : 'active',
+    })
+    .eq('id', packageId)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
+/**
+ * React hook wrapper for deductPackageHours.
  */
 export function useDeductPackageHours() {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async ({ packageId, hoursToDeduct }: { packageId: string; hoursToDeduct: number }) => {
-      // First get current hours
-      const { data: current, error: fetchError } = await supabase
+      return deductPackageHours(packageId, hoursToDeduct);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: studentPackageKeys.all });
+    },
+  });
+}
+
+export function useDeleteStudentPackage() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (packageId: string) => {
+      const { error } = await supabase
         .from('student_packages')
-        .select('hours_used, hours_purchased')
-        .eq('id', packageId)
-        .single();
-
-      if (fetchError) throw fetchError;
-
-      const newHoursUsed = current.hours_used + hoursToDeduct;
-      const isExhausted = newHoursUsed >= current.hours_purchased;
-
-      const { data, error } = await supabase
-        .from('student_packages')
-        .update({
-          hours_used: newHoursUsed,
-          status: isExhausted ? 'exhausted' : 'active',
-        })
-        .eq('id', packageId)
-        .select()
-        .single();
+        .delete()
+        .eq('id', packageId);
 
       if (error) throw error;
-      return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: studentPackageKeys.all });

@@ -6,6 +6,7 @@ import { LessonInstance, LessonInstanceInsert, LessonInstanceUpdate, LessonTempl
 import { generateInstancesForTemplates, GenerateResult } from '../helpers/generateInstances';
 import { expandTemplatesToVirtuals, mergeVirtualAndReal } from '../helpers/expandTemplates';
 import { useLessonTemplates } from './useLessonTemplates';
+import { findActivePackage, deductPackageHours, studentPackageKeys } from './useStudentPackages';
 
 export const instanceKeys = {
   all: ['lesson_instances'] as const,
@@ -520,6 +521,151 @@ export function useCoachLessonInstancesWithVirtuals(lessonType?: string) {
     data,
     isLoading: realQuery.isLoading || templatesQuery.isLoading,
   };
+}
+
+export type CoachLessonHistoryItem = LessonInstanceWithJoins & {
+  enrolledStudentNames?: string[];
+};
+
+export function useCoachLessonHistory() {
+  const userProfile = useAuthStore((s) => s.userProfile);
+  const today = todayString();
+
+  return useQuery({
+    queryKey: [...instanceKeys.coach(userProfile?.id ?? ''), 'history'],
+    queryFn: async (): Promise<CoachLessonHistoryItem[]> => {
+      const { data, error } = await supabase
+        .from('lesson_instances')
+        .select(`
+          *,
+          template:lesson_templates!lesson_instances_template_id_fkey(name, lesson_type, max_students, price_cents, description),
+          coach:users!lesson_instances_coach_id_fkey(first_name, last_name),
+          court:courts!lesson_instances_court_id_fkey(name),
+          enrollments(count)
+        `)
+        .eq('coach_id', userProfile!.id)
+        .in('lesson_type', ['private', 'semi_private'])
+        .lte('date', today)
+        .in('status', ['scheduled', 'completed'])
+        .order('date', { ascending: false })
+        .order('start_time', { ascending: false });
+
+      if (error) throw error;
+
+      const instances = (data as any[]).map((item) => ({
+        ...item,
+        enrollment_count: item.enrollments?.[0]?.count ?? 0,
+        enrollments: undefined,
+      }));
+
+      if (!instances.length) return [];
+
+      // Fetch enrolled student names
+      const instanceIds = instances.map((i) => i.id);
+      const { data: enrollments, error: enrollError } = await supabase
+        .from('enrollments')
+        .select('lesson_instance_id, student:students!enrollments_student_id_fkey(first_name, last_name)')
+        .in('lesson_instance_id', instanceIds)
+        .eq('status', 'enrolled');
+
+      if (enrollError) throw enrollError;
+
+      const nameMap = new Map<string, string[]>();
+      for (const e of (enrollments ?? []) as any[]) {
+        const name = e.student ? `${e.student.first_name} ${e.student.last_name}` : 'Unknown';
+        const existing = nameMap.get(e.lesson_instance_id) ?? [];
+        existing.push(name);
+        nameMap.set(e.lesson_instance_id, existing);
+      }
+
+      return instances.map((inst) => ({
+        ...inst,
+        enrolledStudentNames: nameMap.get(inst.id) ?? [],
+      }));
+    },
+    enabled: !!userProfile?.id,
+  });
+}
+
+export function useCompleteLessonWithNotification() {
+  const queryClient = useQueryClient();
+  const userProfile = useAuthStore((s) => s.userProfile);
+  const orgId = useAuthStore((s) => s.userProfile?.org_id);
+
+  return useMutation({
+    mutationFn: async (instanceId: string) => {
+      // 1. Mark as completed
+      const { error: updateError } = await supabase
+        .from('lesson_instances')
+        .update({ status: 'completed' as const })
+        .eq('id', instanceId);
+      if (updateError) throw updateError;
+
+      // 2. Fetch instance details (include duration + coach for package deduction)
+      const { data: instance, error: instError } = await supabase
+        .from('lesson_instances')
+        .select('name, date, duration_minutes, coach_id')
+        .eq('id', instanceId)
+        .single();
+      if (instError) throw instError;
+
+      // 3. Fetch enrollments with student + parent info
+      const { data: enrollments, error: enrollError } = await supabase
+        .from('enrollments')
+        .select('student_id, student:students!enrollments_student_id_fkey(first_name, last_name, parent_id)')
+        .eq('lesson_instance_id', instanceId)
+        .eq('status', 'enrolled');
+      if (enrollError) throw enrollError;
+
+      // 4. Create notifications for each unique parent
+      const coachName = userProfile ? `${userProfile.first_name} ${userProfile.last_name}` : 'Your coach';
+      const parentNotifications = new Map<string, string[]>();
+
+      for (const e of (enrollments ?? []) as any[]) {
+        if (!e.student?.parent_id) continue;
+        const parentId = e.student.parent_id;
+        const studentName = `${e.student.first_name} ${e.student.last_name}`;
+        const existing = parentNotifications.get(parentId) ?? [];
+        existing.push(studentName);
+        parentNotifications.set(parentId, existing);
+      }
+
+      for (const [parentId, studentNames] of parentNotifications) {
+        const studentsStr = studentNames.join(', ');
+        try {
+          await supabase.from('notifications').insert({
+            org_id: orgId!,
+            user_id: parentId,
+            title: 'Lesson Completed',
+            body: `Coach ${coachName} completed a lesson with ${studentsStr} on ${instance.date}.`,
+          });
+        } catch {}
+      }
+
+      // 5. Auto-deduct package hours for each enrolled student
+      let deductedCount = 0;
+      if (instance.coach_id) {
+        const hoursToDeduct = (instance.duration_minutes ?? 60) / 60;
+        for (const e of (enrollments ?? []) as any[]) {
+          const studentId = e.student_id;
+          if (!studentId) continue;
+          try {
+            const pkg = await findActivePackage(studentId, instance.coach_id);
+            if (pkg) {
+              await deductPackageHours(pkg.id, hoursToDeduct);
+              deductedCount++;
+            }
+          } catch {}
+        }
+      }
+
+      return { notifiedCount: parentNotifications.size, deductedCount };
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: instanceKeys.all });
+      queryClient.invalidateQueries({ queryKey: studentPackageKeys.all });
+    },
+  });
 }
 
 export function useMaterializeInstance() {

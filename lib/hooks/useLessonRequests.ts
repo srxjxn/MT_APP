@@ -2,6 +2,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../supabase';
 import { useAuthStore } from '../stores/authStore';
 import { LessonRequest, LessonRequestInsert, LessonRequestUpdate, LessonRequestStatus } from '../types';
+import { instanceKeys } from './useLessonInstances';
+import { enrollmentKeys } from './useEnrollments';
 
 export const lessonRequestKeys = {
   all: ['lesson_requests'] as const,
@@ -194,6 +196,8 @@ export function useApproveAndSchedule() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: lessonRequestKeys.all });
+      queryClient.invalidateQueries({ queryKey: instanceKeys.all });
+      queryClient.invalidateQueries({ queryKey: enrollmentKeys.all });
     },
   });
 }
