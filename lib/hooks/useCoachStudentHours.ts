@@ -31,20 +31,34 @@ export function useCoachStudentPackages() {
       // Get student packages linked to these coach packages
       const { data: studentPkgs, error: spErr } = await supabase
         .from('student_packages')
-        .select('id, hours_purchased, hours_used, status, student:students!student_packages_student_id_fkey(first_name, last_name)')
+        .select('id, student_id, hours_purchased, hours_used, status, student:students!student_packages_student_id_fkey(first_name, last_name)')
         .in('coach_package_id', coachPackageIds)
         .in('status', ['active', 'exhausted']);
 
       if (spErr) throw spErr;
 
-      return (studentPkgs as any[]).map((sp) => ({
-        id: sp.id,
-        studentName: `${sp.student?.first_name ?? ''} ${sp.student?.last_name ?? ''}`.trim(),
-        hoursPurchased: sp.hours_purchased,
-        hoursUsed: sp.hours_used,
-        hoursRemaining: sp.hours_purchased - sp.hours_used,
-        status: sp.status,
-      }));
+      // Aggregate packages by student
+      const grouped = new Map<string, CoachStudentPackage>();
+      for (const sp of studentPkgs as any[]) {
+        const studentId = sp.student_id as string;
+        const existing = grouped.get(studentId);
+        if (existing) {
+          existing.hoursPurchased += sp.hours_purchased;
+          existing.hoursUsed += sp.hours_used;
+          existing.hoursRemaining = existing.hoursPurchased - existing.hoursUsed;
+          if (sp.status === 'active') existing.status = 'active';
+        } else {
+          grouped.set(studentId, {
+            id: studentId,
+            studentName: `${sp.student?.first_name ?? ''} ${sp.student?.last_name ?? ''}`.trim(),
+            hoursPurchased: sp.hours_purchased,
+            hoursUsed: sp.hours_used,
+            hoursRemaining: sp.hours_purchased - sp.hours_used,
+            status: sp.status,
+          });
+        }
+      }
+      return Array.from(grouped.values());
     },
     enabled: !!userProfile?.id,
   });

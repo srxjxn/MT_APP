@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, FlatList, StyleSheet, RefreshControl, ScrollView, TouchableOpacity } from 'react-native';
 import { Text, Portal, Modal, Button, FAB } from 'react-native-paper';
 import { useAuthStore } from '@/lib/stores/authStore';
-import { useCoachLessonInstancesWithVirtuals, useCreateLessonInstance, useCompleteLessonWithNotification, LessonInstanceWithJoins } from '@/lib/hooks/useLessonInstances';
+import { useCoachLessonInstancesWithVirtuals, useCreateLessonInstance, useUpdateLessonInstance, useCompleteLessonWithNotification, useAdditionalCoaches, LessonInstanceWithJoins } from '@/lib/hooks/useLessonInstances';
 import { useCreateStudentNote } from '@/lib/hooks/useStudentNotes';
 import { useCourts } from '@/lib/hooks/useCourts';
 import { useStudents } from '@/lib/hooks/useStudents';
@@ -35,8 +35,11 @@ export default function CoachSchedule() {
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
   const [enrolledStudents, setEnrolledStudents] = useState<{ id: string; name: string }[]>([]);
   const [selectedVirtual, setSelectedVirtual] = useState<LessonInstanceWithJoins | null>(null);
+  const updateInstance = useUpdateLessonInstance();
   const completeLesson = useCompleteLessonWithNotification();
+  const { data: additionalCoaches } = useAdditionalCoaches(selectedId ?? undefined);
   const [showCompleteDialog, setShowCompleteDialog] = useState(false);
+  const [showEditForm, setShowEditForm] = useState(false);
   const selectedInstance = instances?.find((i) => i.id === selectedId);
 
   if (isLoading) {
@@ -78,8 +81,40 @@ export default function CoachSchedule() {
   const today = new Date().toISOString().split('T')[0];
   const canMarkComplete = selectedInstance &&
     selectedInstance.status === 'scheduled' &&
-    selectedInstance.date <= today &&
+    selectedInstance.date <= today;
+
+  const canEditInstance = selectedInstance &&
+    selectedInstance.status === 'scheduled' &&
     (selectedInstance.lesson_type === 'private' || selectedInstance.lesson_type === 'semi_private');
+
+  const handleEditLesson = async (data: CoachPrivateLessonFormData) => {
+    if (!selectedInstance) return;
+    try {
+      const [hours, minutes] = data.start_time.split(':').map(Number);
+      const endMinutes = hours * 60 + minutes + data.duration_minutes;
+      const endHours = Math.floor(endMinutes / 60);
+      const endMins = endMinutes % 60;
+      const endTime = `${String(endHours).padStart(2, '0')}:${String(endMins).padStart(2, '0')}`;
+
+      await updateInstance.mutateAsync({
+        id: selectedInstance.id,
+        date: data.date,
+        start_time: data.start_time,
+        end_time: endTime,
+        name: data.name,
+        duration_minutes: data.duration_minutes,
+        max_students: data.max_students,
+        court_id: data.court_id || null,
+        description: data.description,
+      });
+
+      showSnackbar('Lesson updated', 'success');
+      setShowEditForm(false);
+      refetch();
+    } catch (err: any) {
+      showSnackbar(err.message ?? 'Failed to update lesson', 'error');
+    }
+  };
 
   const handleCreateLesson = async (data: CoachPrivateLessonFormData) => {
     try {
@@ -178,7 +213,7 @@ export default function CoachSchedule() {
 
         <Modal
           visible={!!selectedId}
-          onDismiss={() => { setSelectedId(null); setShowNoteForm(false); setSelectedStudentId(null); }}
+          onDismiss={() => { setSelectedId(null); setShowNoteForm(false); setSelectedStudentId(null); setShowEditForm(false); }}
           contentContainerStyle={styles.modal}
         >
           {selectedInstance && (
@@ -189,6 +224,11 @@ export default function CoachSchedule() {
               <Text variant="bodyMedium" style={styles.modalInfo}>
                 {selectedInstance.date} • {formatTime(selectedInstance.start_time)} - {formatTime(selectedInstance.end_time)}
               </Text>
+              {additionalCoaches && additionalCoaches.length > 0 && (
+                <Text variant="bodyMedium" style={styles.modalInfo}>
+                  Additional Coaches: {additionalCoaches.map((ac) => `${ac.coach.first_name} ${ac.coach.last_name}`).join(', ')}
+                </Text>
+              )}
               <Text variant="titleMedium" style={styles.enrollmentTitle}>
                 Students & Attendance
               </Text>
@@ -198,6 +238,41 @@ export default function CoachSchedule() {
                 onStudentsLoaded={setEnrolledStudents}
                 testID="coach-enrollment-list"
               />
+
+              {canEditInstance && !showEditForm && (
+                <Button
+                  mode="outlined"
+                  icon="pencil"
+                  onPress={() => setShowEditForm(true)}
+                  style={styles.markCompleteButton}
+                  testID="coach-edit-lesson-button"
+                >
+                  Edit Lesson
+                </Button>
+              )}
+
+              {showEditForm && selectedInstance && (
+                <View style={{ marginTop: SPACING.md }}>
+                  <Text variant="titleMedium" style={styles.enrollmentTitle}>Edit Lesson</Text>
+                  <CoachPrivateLessonForm
+                    courts={courts}
+                    onSubmit={handleEditLesson}
+                    loading={updateInstance.isPending}
+                    submitLabel="Save Changes"
+                    initialValues={{
+                      name: selectedInstance.name,
+                      lesson_type: selectedInstance.lesson_type as 'private' | 'semi_private',
+                      date: selectedInstance.date,
+                      start_time: selectedInstance.start_time,
+                      duration_minutes: selectedInstance.duration_minutes,
+                      max_students: selectedInstance.max_students,
+                      court_id: selectedInstance.court_id ?? undefined,
+                      description: selectedInstance.description ?? undefined,
+                    }}
+                    testID="coach-edit-lesson-form"
+                  />
+                </View>
+              )}
 
               {canMarkComplete && (
                 <Button
@@ -251,7 +326,7 @@ export default function CoachSchedule() {
                 )}
               </View>
 
-              <Button mode="outlined" onPress={() => { setSelectedId(null); setShowNoteForm(false); setSelectedStudentId(null); }} style={styles.closeButton}>
+              <Button mode="outlined" onPress={() => { setSelectedId(null); setShowNoteForm(false); setSelectedStudentId(null); setShowEditForm(false); }} style={styles.closeButton}>
                 Close
               </Button>
             </ScrollView>

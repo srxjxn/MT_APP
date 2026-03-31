@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, FlatList, StyleSheet, RefreshControl, TouchableOpacity, ScrollView } from 'react-native';
-import { FAB, SegmentedButtons, Text, Portal, Modal, Menu, Button } from 'react-native-paper';
+import { FAB, SegmentedButtons, Text, Portal, Modal, Menu, Button, Searchbar } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useSubscriptions, useCreateSubscription, SubscriptionWithUser } from '@/lib/hooks/useSubscriptions';
@@ -244,10 +244,19 @@ export default function SubscriptionsListScreen() {
   const showSnackbar = useUIStore((s) => s.showSnackbar);
   const [statusFilter, setStatusFilter] = useState('all');
   const [grantModalVisible, setGrantModalVisible] = useState(false);
+  const [search, setSearch] = useState('');
 
-  const filtered = subscriptions?.filter(
-    (s) => statusFilter === 'all' || s.status === statusFilter
-  );
+  const filtered = subscriptions?.filter((s) => {
+    if (statusFilter !== 'all' && s.status !== statusFilter) return false;
+    if (search) {
+      const q = search.toLowerCase();
+      const parentName = `${s.user?.first_name ?? ''} ${s.user?.last_name ?? ''}`.toLowerCase();
+      const studentName = `${s.student?.first_name ?? ''} ${s.student?.last_name ?? ''}`.toLowerCase();
+      const planName = (s.name ?? '').toLowerCase();
+      if (!parentName.includes(q) && !studentName.includes(q) && !planName.includes(q)) return false;
+    }
+    return true;
+  });
 
   const handleGrantSubscription = async (data: {
     name: string;
@@ -273,6 +282,12 @@ export default function SubscriptionsListScreen() {
 
   return (
     <View style={styles.container} testID="subscriptions-list">
+      <Searchbar
+        placeholder="Search subscriptions..."
+        onChangeText={setSearch}
+        value={search}
+        style={styles.searchbar}
+      />
       <SegmentedButtons
         value={statusFilter}
         onValueChange={setStatusFilter}
@@ -350,8 +365,12 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: COLORS.background,
   },
-  filters: {
+  searchbar: {
     margin: SPACING.md,
+    marginBottom: SPACING.xs,
+  },
+  filters: {
+    marginHorizontal: SPACING.md,
     marginBottom: 0,
   },
   navRow: {

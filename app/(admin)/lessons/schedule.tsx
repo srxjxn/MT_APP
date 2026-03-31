@@ -206,6 +206,7 @@ export default function ScheduleScreen() {
             <LessonCard
               instance={item}
               onPress={() => handleInstancePress(item)}
+              adminCoachManagement
               testID={`instance-card-${item.id}`}
             />
           )}

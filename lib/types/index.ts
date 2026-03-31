@@ -70,6 +70,10 @@ export type Invite = Database['public']['Tables']['invites']['Row'];
 export type InviteInsert = Database['public']['Tables']['invites']['Insert'];
 export type InviteUpdate = Database['public']['Tables']['invites']['Update'];
 
+export type LessonInstanceCoach = Database['public']['Tables']['lesson_instance_coaches']['Row'];
+export type LessonInstanceCoachInsert = Database['public']['Tables']['lesson_instance_coaches']['Insert'];
+export type LessonInstanceCoachUpdate = Database['public']['Tables']['lesson_instance_coaches']['Update'];
+
 export type MembershipPlan = Database['public']['Tables']['membership_plans']['Row'];
 export type MembershipPlanInsert = Database['public']['Tables']['membership_plans']['Insert'];
 export type MembershipPlanUpdate = Database['public']['Tables']['membership_plans']['Update'];

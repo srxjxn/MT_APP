@@ -364,6 +364,52 @@ export type Database = {
           },
         ]
       }
+      lesson_instance_coaches: {
+        Row: {
+          coach_id: string
+          created_at: string
+          id: string
+          lesson_instance_id: string
+          org_id: string
+        }
+        Insert: {
+          coach_id: string
+          created_at?: string
+          id?: string
+          lesson_instance_id: string
+          org_id: string
+        }
+        Update: {
+          coach_id?: string
+          created_at?: string
+          id?: string
+          lesson_instance_id?: string
+          org_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lesson_instance_coaches_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lesson_instance_coaches_lesson_instance_id_fkey"
+            columns: ["lesson_instance_id"]
+            isOneToOne: false
+            referencedRelation: "lesson_instances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lesson_instance_coaches_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lesson_instances: {
         Row: {
           coach_id: string
@@ -1459,4 +1505,3 @@ export const Constants = {
     },
   },
 } as const
-

@@ -26,6 +26,8 @@ interface CoachPrivateLessonFormProps {
   onSubmit: (data: CoachPrivateLessonFormData) => void;
   loading?: boolean;
   testID?: string;
+  initialValues?: Partial<CoachPrivateLessonFormData>;
+  submitLabel?: string;
 }
 
 const PRIVATE_LESSON_TYPES = ['private', 'semi_private'] as const;
@@ -51,20 +53,23 @@ export function CoachPrivateLessonForm({
   onSubmit,
   loading = false,
   testID,
+  initialValues,
+  submitLabel = 'Create Lesson',
 }: CoachPrivateLessonFormProps) {
-  const [name, setName] = useState('');
-  const [lessonType, setLessonType] = useState<'private' | 'semi_private'>('private');
-  const [date, setDate] = useState('');
-  const [startTime, setStartTime] = useState('');
-  const [durationMinutes, setDurationMinutes] = useState(60);
-  const [maxStudents, setMaxStudents] = useState('1');
-  const [courtId, setCourtId] = useState('');
-  const [description, setDescription] = useState('');
+  const isEditMode = !!initialValues;
+  const [name, setName] = useState(initialValues?.name ?? '');
+  const [lessonType, setLessonType] = useState<'private' | 'semi_private'>(initialValues?.lesson_type ?? 'private');
+  const [date, setDate] = useState(initialValues?.date ?? '');
+  const [startTime, setStartTime] = useState(initialValues?.start_time ?? '');
+  const [durationMinutes, setDurationMinutes] = useState(initialValues?.duration_minutes ?? 60);
+  const [maxStudents, setMaxStudents] = useState(String(initialValues?.max_students ?? '1'));
+  const [courtId, setCourtId] = useState(initialValues?.court_id ?? '');
+  const [description, setDescription] = useState(initialValues?.description ?? '');
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [typeMenuVisible, setTypeMenuVisible] = useState(false);
   const [courtMenuVisible, setCourtMenuVisible] = useState(false);
-  const [studentId, setStudentId] = useState('');
+  const [studentId, setStudentId] = useState(initialValues?.student_id ?? '');
   const [studentMenuVisible, setStudentMenuVisible] = useState(false);
 
   const selectedCourt = courts?.find((c) => c.id === courtId);
@@ -228,7 +233,7 @@ export function CoachPrivateLessonForm({
         </>
       )}
 
-      {students && students.length > 0 && (
+      {!isEditMode && students && students.length > 0 && (
         <>
           <Text variant="titleSmall" style={styles.label}>Student (optional)</Text>
           <Menu
@@ -279,7 +284,7 @@ export function CoachPrivateLessonForm({
         contentStyle={styles.submitContent}
         testID="private-lesson-submit"
       >
-        Create Lesson
+        {submitLabel}
       </Button>
     </ScrollView>
   );

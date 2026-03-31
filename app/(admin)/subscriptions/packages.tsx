@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, FlatList, StyleSheet, RefreshControl, ScrollView } from 'react-native';
-import { Card, Text, Button, ProgressBar, Chip, FAB, Portal, Modal, Menu, Dialog, IconButton } from 'react-native-paper';
+import { Card, Text, Button, ProgressBar, Chip, FAB, Portal, Modal, Menu, Dialog, IconButton, Searchbar } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import {
   useAllStudentPackages,
@@ -459,6 +459,15 @@ export default function PackageBillingScreen() {
   const [editHoursPkg, setEditHoursPkg] = useState<AdminStudentPackage | null>(null);
   const [deletePkg, setDeletePkg] = useState<AdminStudentPackage | null>(null);
   const [createModalVisible, setCreateModalVisible] = useState(false);
+  const [search, setSearch] = useState('');
+
+  const filteredPackages = packages?.filter((pkg) => {
+    if (!search) return true;
+    const q = search.toLowerCase();
+    const studentName = `${pkg.student.first_name} ${pkg.student.last_name}`.toLowerCase();
+    const coachName = `${pkg.coach_package.coach.first_name} ${pkg.coach_package.coach.last_name}`.toLowerCase();
+    return studentName.includes(q) || coachName.includes(q);
+  });
 
   const handleBillParent = async (pkg: AdminStudentPackage) => {
     try {
@@ -540,8 +549,14 @@ export default function PackageBillingScreen() {
 
   return (
     <View style={styles.container}>
+      <Searchbar
+        placeholder="Search packages..."
+        onChangeText={setSearch}
+        value={search}
+        style={styles.searchbar}
+      />
       <FlatList
-        data={packages}
+        data={filteredPackages}
         renderItem={({ item }) => (
           <PackageCard
             pkg={item}
@@ -552,7 +567,7 @@ export default function PackageBillingScreen() {
           />
         )}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={packages?.length === 0 ? styles.emptyContainer : styles.list}
+        contentContainerStyle={filteredPackages?.length === 0 ? styles.emptyContainer : styles.list}
         refreshControl={
           <RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={COLORS.primary} />
         }
@@ -596,6 +611,10 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.background,
+  },
+  searchbar: {
+    margin: SPACING.md,
+    marginBottom: SPACING.xs,
   },
   list: {
     padding: SPACING.md,

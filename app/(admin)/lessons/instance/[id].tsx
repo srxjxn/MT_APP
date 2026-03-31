@@ -1,12 +1,15 @@
 import React, { useState } from 'react';
 import { ScrollView, View, StyleSheet, TouchableOpacity } from 'react-native';
-import { Card, Text, Button, Chip, Menu, Portal, Dialog, ProgressBar } from 'react-native-paper';
+import { Card, Text, Button, Chip, Menu, Portal, Dialog, Modal, ProgressBar } from 'react-native-paper';
 import { useLocalSearchParams, router } from 'expo-router';
-import { useLessonInstance, useUpdateLessonInstance } from '@/lib/hooks/useLessonInstances';
+import { useLessonInstance, useUpdateLessonInstance, useAdditionalCoaches, useAddAdditionalCoach, useRemoveAdditionalCoach } from '@/lib/hooks/useLessonInstances';
+import { useCoachUsers } from '@/lib/hooks/useStudents';
 import { useStudents } from '@/lib/hooks/useStudents';
 import { useEnrollStudent } from '@/lib/hooks/useEnrollments';
 import { useCreateNotification } from '@/lib/hooks/useNotifications';
 import { EnrollmentList } from '@/components/lessons/EnrollmentList';
+import { CoachPrivateLessonForm, CoachPrivateLessonFormData } from '@/components/coach/CoachPrivateLessonForm';
+import { useCourts } from '@/lib/hooks/useCourts';
 import { LoadingScreen, StatusBadge, ConfirmDialog } from '@/components/ui';
 import { useUIStore } from '@/lib/stores/uiStore';
 import { COLORS, SPACING } from '@/constants/theme';
@@ -20,6 +23,7 @@ export default function InstanceDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { data: instance, isLoading } = useLessonInstance(id!);
   const { data: allStudents } = useStudents();
+  const { data: courts } = useCourts();
   const updateInstance = useUpdateLessonInstance();
   const enrollStudent = useEnrollStudent();
   const createNotification = useCreateNotification();
@@ -28,6 +32,12 @@ export default function InstanceDetailScreen() {
   const [showAddStudent, setShowAddStudent] = useState(false);
 
   const [showCancelDialog, setShowCancelDialog] = useState(false);
+  const [showEditForm, setShowEditForm] = useState(false);
+  const [showAddCoach, setShowAddCoach] = useState(false);
+  const { data: additionalCoaches } = useAdditionalCoaches(id);
+  const addCoach = useAddAdditionalCoach();
+  const removeCoach = useRemoveAdditionalCoach();
+  const { data: allCoaches } = useCoachUsers();
 
   if (isLoading || !instance) {
     return <LoadingScreen message="Loading lesson..." />;
@@ -72,6 +82,36 @@ export default function InstanceDetailScreen() {
     }
   };
 
+  const canEditInstance = instance.status === 'scheduled' &&
+    (instance.lesson_type === 'private' || instance.lesson_type === 'semi_private');
+
+  const handleEditLesson = async (data: CoachPrivateLessonFormData) => {
+    try {
+      const [hours, minutes] = data.start_time.split(':').map(Number);
+      const endMinutes = hours * 60 + minutes + data.duration_minutes;
+      const endHours = Math.floor(endMinutes / 60);
+      const endMins = endMinutes % 60;
+      const endTime = `${String(endHours).padStart(2, '0')}:${String(endMins).padStart(2, '0')}`;
+
+      await updateInstance.mutateAsync({
+        id: instance.id,
+        date: data.date,
+        start_time: data.start_time,
+        end_time: endTime,
+        name: data.name,
+        duration_minutes: data.duration_minutes,
+        max_students: data.max_students,
+        court_id: data.court_id || null,
+        description: data.description,
+      });
+
+      showSnackbar('Lesson updated', 'success');
+      setShowEditForm(false);
+    } catch (err: any) {
+      showSnackbar(err.message ?? 'Failed to update lesson', 'error');
+    }
+  };
+
   const handleAddStudent = async (studentId: string) => {
     try {
       await enrollStudent.mutateAsync({ lessonInstanceId: instance.id, studentId });
@@ -105,6 +145,35 @@ export default function InstanceDetailScreen() {
           <Text variant="bodyMedium" style={styles.info}>
             Coach: {instance.coach?.first_name} {instance.coach?.last_name}
           </Text>
+          {additionalCoaches && additionalCoaches.length > 0 && (
+            <View style={styles.additionalCoachesRow}>
+              <Text variant="bodySmall" style={styles.additionalCoachesLabel}>Additional Coaches:</Text>
+              <View style={styles.chipRow}>
+                {additionalCoaches.map((ac) => (
+                  <Chip
+                    key={ac.id}
+                    compact
+                    onClose={instance.status === 'scheduled' ? () => removeCoach.mutate({ id: ac.id, instanceId: instance.id }) : undefined}
+                    style={styles.coachChip}
+                    testID={`additional-coach-${ac.coach_id}`}
+                  >
+                    {ac.coach.first_name} {ac.coach.last_name}
+                  </Chip>
+                ))}
+              </View>
+            </View>
+          )}
+          {instance.status === 'scheduled' && (
+            <Button
+              mode="text"
+              icon="account-plus"
+              onPress={() => setShowAddCoach(true)}
+              compact
+              testID="add-coach-button"
+            >
+              Add Coach
+            </Button>
+          )}
           {instance.court && (
             <Text variant="bodyMedium" style={styles.info}>Court: {instance.court.name}</Text>
           )}
@@ -134,6 +203,17 @@ export default function InstanceDetailScreen() {
 
           {instance.status === 'scheduled' && (
             <View style={styles.actionButtons}>
+              {canEditInstance && (
+                <Button
+                  mode="outlined"
+                  icon="pencil"
+                  onPress={() => setShowEditForm(true)}
+                  contentStyle={styles.statusContent}
+                  testID="edit-lesson-button"
+                >
+                  Edit Lesson
+                </Button>
+              )}
               <Button
                 mode="contained"
                 onPress={() => handleStatusChange('completed')}
@@ -220,6 +300,30 @@ export default function InstanceDetailScreen() {
       />
 
       <Portal>
+        <Modal
+          visible={showEditForm}
+          onDismiss={() => setShowEditForm(false)}
+          contentContainerStyle={styles.editModal}
+        >
+          <Text variant="titleLarge" style={styles.editModalTitle}>Edit Lesson</Text>
+          <CoachPrivateLessonForm
+            courts={courts}
+            onSubmit={handleEditLesson}
+            loading={updateInstance.isPending}
+            submitLabel="Save Changes"
+            initialValues={{
+              name: instance.name,
+              lesson_type: instance.lesson_type as 'private' | 'semi_private',
+              date: instance.date,
+              start_time: instance.start_time,
+              duration_minutes: instance.duration_minutes,
+              max_students: instance.max_students ?? undefined,
+              court_id: instance.court_id ?? undefined,
+              description: instance.description ?? undefined,
+            }}
+            testID="admin-edit-lesson-form"
+          />
+        </Modal>
         <Dialog visible={showAddStudent} onDismiss={() => setShowAddStudent(false)}>
           <Dialog.Title>Add Student</Dialog.Title>
           <Dialog.ScrollArea style={{ maxHeight: 350 }}>
@@ -237,6 +341,38 @@ export default function InstanceDetailScreen() {
           </Dialog.ScrollArea>
           <Dialog.Actions>
             <Button onPress={() => setShowAddStudent(false)}>Cancel</Button>
+          </Dialog.Actions>
+        </Dialog>
+        <Dialog visible={showAddCoach} onDismiss={() => setShowAddCoach(false)}>
+          <Dialog.Title>Add Coach</Dialog.Title>
+          <Dialog.ScrollArea style={{ maxHeight: 350 }}>
+            <ScrollView>
+              {allCoaches
+                ?.filter((c) => c.id !== instance?.coach_id && !additionalCoaches?.some((ac) => ac.coach_id === c.id))
+                .map((coach) => (
+                  <TouchableOpacity
+                    key={coach.id}
+                    onPress={async () => {
+                      try {
+                        await addCoach.mutateAsync({ instanceId: instance!.id, coachId: coach.id });
+                        showSnackbar('Coach added', 'success');
+                        setShowAddCoach(false);
+                      } catch (err: any) {
+                        showSnackbar(err.message ?? 'Failed to add coach', 'error');
+                      }
+                    }}
+                  >
+                    <View style={styles.studentRow}>
+                      <Text variant="bodyLarge" style={styles.studentRowText}>
+                        {coach.first_name} {coach.last_name}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                ))}
+            </ScrollView>
+          </Dialog.ScrollArea>
+          <Dialog.Actions>
+            <Button onPress={() => setShowAddCoach(false)}>Cancel</Button>
           </Dialog.Actions>
         </Dialog>
       </Portal>
@@ -336,5 +472,32 @@ const styles = StyleSheet.create({
   },
   studentRowText: {
     color: COLORS.textPrimary,
+  },
+  editModal: {
+    backgroundColor: COLORS.surface,
+    margin: SPACING.md,
+    borderRadius: 12,
+    padding: SPACING.md,
+    maxHeight: '80%',
+  },
+  editModalTitle: {
+    color: COLORS.textPrimary,
+    fontWeight: '600',
+    marginBottom: SPACING.xs,
+  },
+  additionalCoachesRow: {
+    marginBottom: SPACING.xs,
+  },
+  additionalCoachesLabel: {
+    color: COLORS.textSecondary,
+    marginBottom: SPACING.xs,
+  },
+  chipRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: SPACING.xs,
+  },
+  coachChip: {
+    marginBottom: SPACING.xs,
   },
 });

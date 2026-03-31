@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../supabase';
 import { useAuthStore } from '../stores/authStore';
-import { LessonInstance, LessonInstanceInsert, LessonInstanceUpdate, LessonTemplate, UserProfile, Court, LessonStatus } from '../types';
+import { LessonInstance, LessonInstanceInsert, LessonInstanceUpdate, LessonTemplate, UserProfile, Court, LessonStatus, LessonInstanceCoach } from '../types';
 import { generateInstancesForTemplates, GenerateResult } from '../helpers/generateInstances';
 import { expandTemplatesToVirtuals, mergeVirtualAndReal } from '../helpers/expandTemplates';
 import { useLessonTemplates } from './useLessonTemplates';
@@ -544,7 +544,6 @@ export function useCoachLessonHistory() {
           enrollments(count)
         `)
         .eq('coach_id', userProfile!.id)
-        .in('lesson_type', ['private', 'semi_private'])
         .lte('date', today)
         .in('status', ['scheduled', 'completed'])
         .order('date', { ascending: false })
@@ -664,6 +663,7 @@ export function useCompleteLessonWithNotification() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: instanceKeys.all });
       queryClient.invalidateQueries({ queryKey: studentPackageKeys.all });
+      queryClient.invalidateQueries({ queryKey: ['coach_student_packages'] });
     },
   });
 }
@@ -718,6 +718,72 @@ export function useMaterializeInstance() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: instanceKeys.lists() });
       queryClient.invalidateQueries({ queryKey: instanceKeys.all });
+    },
+  });
+}
+
+// --- Additional Coaches hooks ---
+
+export const additionalCoachKeys = {
+  all: ['lesson_instance_coaches'] as const,
+  list: (instanceId: string) => ['lesson_instance_coaches', instanceId] as const,
+};
+
+export type AdditionalCoachWithProfile = LessonInstanceCoach & {
+  coach: Pick<UserProfile, 'first_name' | 'last_name'>;
+};
+
+export function useAdditionalCoaches(instanceId: string | undefined) {
+  return useQuery({
+    queryKey: additionalCoachKeys.list(instanceId ?? ''),
+    queryFn: async (): Promise<AdditionalCoachWithProfile[]> => {
+      const { data, error } = await supabase
+        .from('lesson_instance_coaches')
+        .select('*, coach:users!lesson_instance_coaches_coach_id_fkey(first_name, last_name)')
+        .eq('lesson_instance_id', instanceId!);
+
+      if (error) throw error;
+      return data as any;
+    },
+    enabled: !!instanceId,
+  });
+}
+
+export function useAddAdditionalCoach() {
+  const queryClient = useQueryClient();
+  const orgId = useAuthStore((s) => s.userProfile?.org_id);
+
+  return useMutation({
+    mutationFn: async ({ instanceId, coachId }: { instanceId: string; coachId: string }) => {
+      const { data, error } = await supabase
+        .from('lesson_instance_coaches')
+        .insert({ org_id: orgId!, lesson_instance_id: instanceId, coach_id: coachId })
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: additionalCoachKeys.list(variables.instanceId) });
+    },
+  });
+}
+
+export function useRemoveAdditionalCoach() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ id, instanceId }: { id: string; instanceId: string }) => {
+      const { error } = await supabase
+        .from('lesson_instance_coaches')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: additionalCoachKeys.list(variables.instanceId) });
     },
   });
 }
