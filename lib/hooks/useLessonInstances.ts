@@ -146,6 +146,24 @@ export function useUpdateLessonInstance() {
   });
 }
 
+export function useDeleteLessonInstance() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from('lesson_instances')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: instanceKeys.all });
+    },
+  });
+}
+
 export type { GenerateResult };
 
 export function useGenerateInstances() {
@@ -410,6 +428,36 @@ export function useUncompletedPastLessonsCount(coachId: string, periodEnd: strin
   });
 }
 
+export interface UncompletedLesson {
+  id: string;
+  date: string;
+  start_time: string;
+  end_time: string;
+  name: string | null;
+  lesson_type: string | null;
+  duration_minutes: number | null;
+}
+
+export function useUncompletedPastLessons(coachId: string, periodEnd: string) {
+  return useQuery({
+    queryKey: [...instanceKeys.all, 'uncompleted', coachId, periodEnd],
+    queryFn: async (): Promise<UncompletedLesson[]> => {
+      const { data, error } = await supabase
+        .from('lesson_instances')
+        .select('id, date, start_time, end_time, name, lesson_type, duration_minutes')
+        .eq('coach_id', coachId)
+        .eq('status', 'scheduled')
+        .lte('date', periodEnd)
+        .order('date', { ascending: true })
+        .order('start_time', { ascending: true });
+
+      if (error) throw error;
+      return (data ?? []) as UncompletedLesson[];
+    },
+    enabled: !!coachId && !!periodEnd,
+  });
+}
+
 export function useBulkCompletePastLessons() {
   const queryClient = useQueryClient();
 
@@ -593,12 +641,19 @@ export function useCompleteLessonWithNotification() {
 
   return useMutation({
     mutationFn: async (instanceId: string) => {
-      // 1. Mark as completed
-      const { error: updateError } = await supabase
+      // 1. Mark as completed (only if currently scheduled — prevents double-deduction)
+      const { data: updated, error: updateError } = await supabase
         .from('lesson_instances')
         .update({ status: 'completed' as const })
-        .eq('id', instanceId);
+        .eq('id', instanceId)
+        .eq('status', 'scheduled')
+        .select('id')
+        .maybeSingle();
       if (updateError) throw updateError;
+      if (!updated) {
+        // Already completed (or cancelled) — skip deduction entirely
+        return { notifiedCount: 0, deductedCount: 0 };
+      }
 
       // 2. Fetch instance details (include duration + coach for package deduction)
       const { data: instance, error: instError } = await supabase
@@ -641,13 +696,15 @@ export function useCompleteLessonWithNotification() {
         } catch {}
       }
 
-      // 5. Auto-deduct package hours for each enrolled student
+      // 5. Auto-deduct package hours for each enrolled student (dedup by student_id)
       let deductedCount = 0;
       if (instance.coach_id) {
         const hoursToDeduct = (instance.duration_minutes ?? 60) / 60;
+        const deductedStudents = new Set<string>();
         for (const e of (enrollments ?? []) as any[]) {
           const studentId = e.student_id;
-          if (!studentId) continue;
+          if (!studentId || deductedStudents.has(studentId)) continue;
+          deductedStudents.add(studentId);
           try {
             const pkg = await findActivePackage(studentId, instance.coach_id);
             if (pkg) {

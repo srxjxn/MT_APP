@@ -1,16 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { ScrollView, View, StyleSheet } from 'react-native';
-import { Button, Menu, Text, Banner } from 'react-native-paper';
+import { Button, Menu, Text, TextInput } from 'react-native-paper';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useDashboardCoaches, DashboardCoach } from '@/lib/hooks/useDashboard';
 import { useCoachWorkLog, useGeneratePayroll } from '@/lib/hooks/useCoachPayroll';
-import { useUncompletedPastLessonsCount, useBulkCompletePastLessons } from '@/lib/hooks/useLessonInstances';
+import { useUncompletedPastLessons, useBulkCompletePastLessons, useCompleteLessonWithNotification } from '@/lib/hooks/useLessonInstances';
 import { PayrollSummary } from '@/components/payroll/PayrollSummary';
 import { WorkLogItem } from '@/components/payroll/WorkLogItem';
+import { UncompletedLessonItem } from '@/components/payroll/UncompletedLessonItem';
 import { DatePickerField } from '@/components/ui';
 import { useUIStore } from '@/lib/stores/uiStore';
 import { COLORS, SPACING } from '@/constants/theme';
 import { LAYOUT } from '@/constants/layout';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { supabase } from '@/lib/supabase';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '@/lib/stores/authStore';
@@ -45,7 +47,9 @@ export default function GeneratePayrollScreen() {
   const showSnackbar = useUIStore((s) => s.showSnackbar);
   const generatePayroll = useGeneratePayroll();
   const bulkComplete = useBulkCompletePastLessons();
+  const completeLesson = useCompleteLessonWithNotification();
   const queryClient = useQueryClient();
+  const [completingId, setCompletingId] = useState<string | null>(null);
 
   const [selectedCoach, setSelectedCoach] = useState<DashboardCoach | null>(null);
   const [coachMenuVisible, setCoachMenuVisible] = useState(false);
@@ -81,13 +85,23 @@ export default function GeneratePayrollScreen() {
     calculated ? periodEnd : '',
   );
 
-  const { data: uncompletedCount } = useUncompletedPastLessonsCount(
+  const { data: uncompletedLessons } = useUncompletedPastLessons(
     calculated && selectedCoach ? selectedCoach.id : '',
     calculated ? periodEnd : '',
   );
 
-  const groupRateCents = coachRates?.group_rate_cents ?? 0;
-  const privateRateCents = coachRates?.drop_in_rate_cents ?? 0;
+  const [overrideGroupRate, setOverrideGroupRate] = useState('');
+  const [overridePrivateRate, setOverridePrivateRate] = useState('');
+
+  useEffect(() => {
+    if (coachRates) {
+      setOverrideGroupRate(coachRates.group_rate_cents ? String(coachRates.group_rate_cents / 100) : '0');
+      setOverridePrivateRate(coachRates.drop_in_rate_cents ? String(coachRates.drop_in_rate_cents / 100) : '0');
+    }
+  }, [coachRates]);
+
+  const groupRateCents = Math.round((parseFloat(overrideGroupRate) || 0) * 100);
+  const privateRateCents = Math.round((parseFloat(overridePrivateRate) || 0) * 100);
 
   const handleCalculate = () => {
     if (!selectedCoach) {
@@ -101,6 +115,19 @@ export default function GeneratePayrollScreen() {
     setCalculated(true);
   };
 
+  const handleCompleteOne = async (instanceId: string) => {
+    setCompletingId(instanceId);
+    try {
+      await completeLesson.mutateAsync(instanceId);
+      showSnackbar('Lesson marked as completed', 'success');
+      queryClient.invalidateQueries({ queryKey: ['coach_payouts', 'worklog'] });
+    } catch (err: any) {
+      showSnackbar(err.message ?? 'Failed to complete lesson', 'error');
+    } finally {
+      setCompletingId(null);
+    }
+  };
+
   const handleBulkComplete = async () => {
     if (!selectedCoach) return;
     try {
@@ -109,7 +136,6 @@ export default function GeneratePayrollScreen() {
         coachId: selectedCoach.id,
       });
       showSnackbar(`Marked ${result?.length ?? 0} lesson(s) as completed`, 'success');
-      // Re-trigger worklog query
       queryClient.invalidateQueries({ queryKey: ['coach_payouts', 'worklog'] });
     } catch (err: any) {
       showSnackbar(err.message ?? 'Failed to complete lessons', 'error');
@@ -196,24 +222,64 @@ export default function GeneratePayrollScreen() {
         Calculate Hours
       </Button>
 
-      {calculated && (uncompletedCount ?? 0) > 0 && (
-        <Banner
-          visible
-          icon="alert-circle"
-          style={styles.warningBanner}
-          actions={[
-            {
-              label: 'Complete All Past Lessons',
-              onPress: handleBulkComplete,
-            },
-          ]}
-        >
-          {uncompletedCount} lesson(s) in this period are still "scheduled" and won't count toward payroll.
-        </Banner>
+      {calculated && (uncompletedLessons?.length ?? 0) > 0 && (
+        <View style={styles.warningSection}>
+          <View style={styles.warningHeader}>
+            <MaterialCommunityIcons name="alert-circle" size={20} color={COLORS.warning} />
+            <Text variant="bodyMedium" style={styles.warningText}>
+              {uncompletedLessons!.length} lesson(s) still "scheduled" — won't count toward payroll
+            </Text>
+          </View>
+          {uncompletedLessons!.map((lesson) => (
+            <UncompletedLessonItem
+              key={lesson.id}
+              lesson={lesson}
+              onComplete={handleCompleteOne}
+              completing={completingId === lesson.id}
+            />
+          ))}
+          <Button
+            mode="outlined"
+            onPress={handleBulkComplete}
+            loading={bulkComplete.isPending}
+            style={styles.completeAllButton}
+            icon="check-all"
+          >
+            Complete All ({uncompletedLessons!.length})
+          </Button>
+        </View>
       )}
 
       {calculated && workLog && (
         <View style={styles.results}>
+          <Text variant="titleMedium" style={styles.sectionTitle}>Rates ($/hr)</Text>
+          <View style={styles.rateRow}>
+            <View style={styles.rateField}>
+              <TextInput
+                label="Group Rate"
+                value={overrideGroupRate}
+                onChangeText={setOverrideGroupRate}
+                keyboardType="numeric"
+                mode="outlined"
+                dense
+                left={<TextInput.Affix text="$" />}
+                right={<TextInput.Affix text="/hr" />}
+              />
+            </View>
+            <View style={styles.rateField}>
+              <TextInput
+                label="Private Rate"
+                value={overridePrivateRate}
+                onChangeText={setOverridePrivateRate}
+                keyboardType="numeric"
+                mode="outlined"
+                dense
+                left={<TextInput.Affix text="$" />}
+                right={<TextInput.Affix text="/hr" />}
+              />
+            </View>
+          </View>
+
           <PayrollSummary
             groupHours={workLog.groupHours}
             privateHours={workLog.privateHours}
@@ -279,12 +345,35 @@ const styles = StyleSheet.create({
   buttonContent: {
     height: LAYOUT.buttonHeight,
   },
-  warningBanner: {
+  warningSection: {
     marginTop: SPACING.md,
     backgroundColor: COLORS.warningLight,
+    borderRadius: 8,
+    padding: SPACING.md,
+  },
+  warningHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: SPACING.sm,
+  },
+  warningText: {
+    color: COLORS.textPrimary,
+    marginLeft: SPACING.sm,
+    flex: 1,
+  },
+  completeAllButton: {
+    marginTop: SPACING.sm,
   },
   results: {
     marginTop: SPACING.lg,
+  },
+  rateRow: {
+    flexDirection: 'row',
+    gap: SPACING.md,
+    marginBottom: SPACING.md,
+  },
+  rateField: {
+    flex: 1,
   },
   workLogTitle: {
     color: COLORS.textPrimary,

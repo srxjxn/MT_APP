@@ -14,7 +14,7 @@ export function useAssignedCoachWithPackages() {
       // Fetch the coach
       const { data: coach, error: coachError } = await supabase
         .from('users')
-        .select('id, first_name, last_name, email, drop_in_rate_cents')
+        .select('id, first_name, last_name, email, drop_in_rate_cents, group_rate_cents')
         .eq('id', coachId!)
         .eq('role', 'coach')
         .eq('is_active', true)

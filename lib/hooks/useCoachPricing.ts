@@ -11,6 +11,7 @@ export const coachPricingKeys = {
 
 export type CoachWithPricing = Pick<UserProfile, 'id' | 'first_name' | 'last_name' | 'email'> & {
   drop_in_rate_cents: number | null;
+  group_rate_cents: number | null;
   packages: CoachPackage[];
 };
 
@@ -40,7 +41,7 @@ export function useCoachDirectory() {
       // Fetch coaches
       const { data: coaches, error: coachError } = await supabase
         .from('users')
-        .select('id, first_name, last_name, email, drop_in_rate_cents')
+        .select('id, first_name, last_name, email, drop_in_rate_cents, group_rate_cents')
         .eq('org_id', orgId!)
         .eq('role', 'coach')
         .eq('is_active', true)
@@ -83,6 +84,27 @@ export function useUpdateCoachDropInRate() {
       const { data, error } = await supabase
         .from('users')
         .update({ drop_in_rate_cents: dropInRateCents })
+        .eq('id', coachId)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: coachPricingKeys.all });
+    },
+  });
+}
+
+export function useUpdateCoachGroupRate() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ coachId, groupRateCents }: { coachId: string; groupRateCents: number | null }) => {
+      const { data, error } = await supabase
+        .from('users')
+        .update({ group_rate_cents: groupRateCents })
         .eq('id', coachId)
         .select()
         .single();

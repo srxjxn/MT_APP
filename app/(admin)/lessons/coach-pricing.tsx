@@ -5,6 +5,7 @@ import { COLORS, SPACING } from '@/constants/theme';
 import {
   useCoachDirectory,
   useUpdateCoachDropInRate,
+  useUpdateCoachGroupRate,
   useCreateCoachPackage,
   useUpdateCoachPackage,
   useDeleteCoachPackage,
@@ -17,6 +18,7 @@ import { FormField } from '@/components/ui';
 export default function CoachPricingScreen() {
   const { data: coaches, isLoading } = useCoachDirectory();
   const updateDropIn = useUpdateCoachDropInRate();
+  const updateGroupRate = useUpdateCoachGroupRate();
   const createPackage = useCreateCoachPackage();
   const updatePackage = useUpdateCoachPackage();
   const deletePackage = useDeleteCoachPackage();
@@ -30,9 +32,11 @@ export default function CoachPricingScreen() {
   const [pkgHours, setPkgHours] = useState('');
   const [pkgPrice, setPkgPrice] = useState('');
 
-  // Drop-in editing state
+  // Rate editing state
   const [editingDropIn, setEditingDropIn] = useState<string | null>(null);
   const [dropInValue, setDropInValue] = useState('');
+  const [editingGroupRate, setEditingGroupRate] = useState<string | null>(null);
+  const [groupRateValue, setGroupRateValue] = useState('');
 
   const openPackageModal = useCallback((coachId: string, pkg?: CoachPackage) => {
     setEditingPackage({ coachId, pkg });
@@ -82,6 +86,19 @@ export default function CoachPricingScreen() {
     }
   };
 
+  const handleSaveGroupRate = async (coachId: string) => {
+    const value = groupRateValue.trim();
+    const cents = value ? Math.round(parseFloat(value) * 100) : null;
+    if (value && (isNaN(cents!) || cents! < 0)) return;
+
+    try {
+      await updateGroupRate.mutateAsync({ coachId, groupRateCents: cents });
+      setEditingGroupRate(null);
+    } catch {
+      // Error handled by mutation
+    }
+  };
+
   if (isLoading) {
     return <LoadingScreen message="Loading coaches..." />;
   }
@@ -103,9 +120,9 @@ export default function CoachPricingScreen() {
               {coach.first_name} {coach.last_name}
             </Text>
 
-            {/* Drop-in Rate */}
+            {/* Private Rate */}
             <View style={styles.dropInRow}>
-              <Text variant="bodyMedium" style={styles.label}>Drop-in Rate:</Text>
+              <Text variant="bodyMedium" style={styles.label}>Private Rate:</Text>
               {editingDropIn === coach.id ? (
                 <View style={styles.dropInEdit}>
                   <TextInput
@@ -132,6 +149,41 @@ export default function CoachPricingScreen() {
                     onPress={() => {
                       setEditingDropIn(coach.id);
                       setDropInValue(coach.drop_in_rate_cents ? String(coach.drop_in_rate_cents / 100) : '');
+                    }}
+                  />
+                </View>
+              )}
+            </View>
+
+            {/* Group Rate */}
+            <View style={styles.dropInRow}>
+              <Text variant="bodyMedium" style={styles.label}>Group Rate:</Text>
+              {editingGroupRate === coach.id ? (
+                <View style={styles.dropInEdit}>
+                  <TextInput
+                    value={groupRateValue}
+                    onChangeText={setGroupRateValue}
+                    keyboardType="numeric"
+                    mode="outlined"
+                    dense
+                    style={styles.dropInInput}
+                    left={<TextInput.Affix text="$" />}
+                    right={<TextInput.Affix text="/hr" />}
+                  />
+                  <IconButton icon="check" size={20} onPress={() => handleSaveGroupRate(coach.id)} />
+                  <IconButton icon="close" size={20} onPress={() => setEditingGroupRate(null)} />
+                </View>
+              ) : (
+                <View style={styles.dropInDisplay}>
+                  <Text variant="bodyMedium" style={styles.dropInText}>
+                    {coach.group_rate_cents ? `$${(coach.group_rate_cents / 100).toFixed(0)}/hr` : 'Not set'}
+                  </Text>
+                  <IconButton
+                    icon="pencil"
+                    size={18}
+                    onPress={() => {
+                      setEditingGroupRate(coach.id);
+                      setGroupRateValue(coach.group_rate_cents ? String(coach.group_rate_cents / 100) : '');
                     }}
                   />
                 </View>
