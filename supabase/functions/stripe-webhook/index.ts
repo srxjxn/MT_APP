@@ -56,6 +56,7 @@ async function executePostAction(
   supabase: ReturnType<typeof createClient>,
   postAction: { type: string; [key: string]: unknown },
   paymentId: string,
+  orgId: string,
 ) {
   switch (postAction.type) {
     case 'enroll': {
@@ -133,6 +134,7 @@ async function executePostAction(
             hours_used: 0,
             status: 'active',
             purchased_at: new Date().toISOString(),
+            org_id: orgId,
           });
         }
       }
@@ -393,7 +395,7 @@ serve(async (req) => {
             if (paymentId && meta.post_action) {
               try {
                 const postAction = JSON.parse(meta.post_action);
-                await executePostAction(supabase, postAction, paymentId);
+                await executePostAction(supabase, postAction, paymentId, meta.org_id);
               } catch (e) {
                 console.error('Failed to execute post_action:', e);
               }

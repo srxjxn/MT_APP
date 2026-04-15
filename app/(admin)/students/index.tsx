@@ -82,15 +82,15 @@ export default function StudentsListScreen() {
         testID="students-search"
       />
       <View style={styles.filters}>
-        {(['beginner', 'intermediate', 'advanced', 'elite'] as const).map((level) => (
+        {([{ value: 'under_4_utr', label: 'Under 4 UTR' }, { value: 'over_4_utr', label: 'Over 4 UTR' }] as const).map(({ value, label }) => (
           <Chip
-            key={level}
-            selected={skillFilter === level}
-            onPress={() => setSkillFilter(skillFilter === level ? null : level)}
+            key={value}
+            selected={skillFilter === value}
+            onPress={() => setSkillFilter(skillFilter === value ? null : value)}
             style={styles.chip}
-            testID={`filter-${level}`}
+            testID={`filter-${value}`}
           >
-            {level.charAt(0).toUpperCase() + level.slice(1)}
+            {label}
           </Chip>
         ))}
       </View>

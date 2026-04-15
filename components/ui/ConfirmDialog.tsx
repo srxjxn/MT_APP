@@ -10,6 +10,7 @@ interface ConfirmDialogProps {
   confirmLabel?: string;
   cancelLabel?: string;
   destructive?: boolean;
+  loading?: boolean;
   onConfirm: () => void;
   onCancel: () => void;
   testID?: string;
@@ -22,21 +23,24 @@ export function ConfirmDialog({
   confirmLabel = 'Confirm',
   cancelLabel = 'Cancel',
   destructive = false,
+  loading = false,
   onConfirm,
   onCancel,
   testID,
 }: ConfirmDialogProps) {
   return (
     <Portal>
-      <Dialog visible={visible} onDismiss={onCancel} testID={testID ?? 'confirm-dialog'}>
+      <Dialog visible={visible} onDismiss={loading ? undefined : onCancel} testID={testID ?? 'confirm-dialog'}>
         <Dialog.Title>{title}</Dialog.Title>
         <Dialog.Content>
           <Text variant="bodyMedium">{message}</Text>
         </Dialog.Content>
         <Dialog.Actions>
-          <Button onPress={onCancel} testID="confirm-dialog-cancel">{cancelLabel}</Button>
+          <Button onPress={onCancel} disabled={loading} testID="confirm-dialog-cancel">{cancelLabel}</Button>
           <Button
             onPress={onConfirm}
+            loading={loading}
+            disabled={loading}
             textColor={destructive ? COLORS.error : COLORS.primary}
             testID="confirm-dialog-confirm"
           >

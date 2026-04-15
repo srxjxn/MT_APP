@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { View, FlatList, StyleSheet, RefreshControl, ScrollView, TouchableOpacity } from 'react-native';
 import { Text, Portal, Modal, Button, FAB } from 'react-native-paper';
 import { useAuthStore } from '@/lib/stores/authStore';
-import { useCoachLessonInstancesWithVirtuals, useCreateLessonInstance, useUpdateLessonInstance, useCompleteLessonWithNotification, useAdditionalCoaches, LessonInstanceWithJoins } from '@/lib/hooks/useLessonInstances';
+import { useCoachLessonInstancesWithVirtuals, useCreateLessonInstance, useUpdateLessonInstance, useDeleteLessonInstance, useCompleteLessonWithNotification, useAdditionalCoaches, LessonInstanceWithJoins } from '@/lib/hooks/useLessonInstances';
 import { useCreateStudentNote } from '@/lib/hooks/useStudentNotes';
 import { useCourts } from '@/lib/hooks/useCourts';
 import { useStudents } from '@/lib/hooks/useStudents';
@@ -37,9 +37,12 @@ export default function CoachSchedule() {
   const [selectedVirtual, setSelectedVirtual] = useState<LessonInstanceWithJoins | null>(null);
   const updateInstance = useUpdateLessonInstance();
   const completeLesson = useCompleteLessonWithNotification();
+  const deleteInstance = useDeleteLessonInstance();
   const { data: additionalCoaches } = useAdditionalCoaches(selectedId ?? undefined);
   const [showCompleteDialog, setShowCompleteDialog] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showEditForm, setShowEditForm] = useState(false);
+  const completingRef = useRef(false);
   const selectedInstance = instances?.find((i) => i.id === selectedId);
 
   if (isLoading) {
@@ -62,7 +65,8 @@ export default function CoachSchedule() {
   };
 
   const handleMarkComplete = async () => {
-    if (!selectedInstance) return;
+    if (!selectedInstance || completingRef.current) return;
+    completingRef.current = true;
     try {
       const result = await completeLesson.mutateAsync(selectedInstance.id);
       showSnackbar(
@@ -75,6 +79,8 @@ export default function CoachSchedule() {
     } catch (err: any) {
       showSnackbar(err.message ?? 'Failed to complete lesson', 'error');
       setShowCompleteDialog(false);
+    } finally {
+      completingRef.current = false;
     }
   };
 
@@ -86,6 +92,22 @@ export default function CoachSchedule() {
   const canEditInstance = selectedInstance &&
     selectedInstance.status === 'scheduled' &&
     (selectedInstance.lesson_type === 'private' || selectedInstance.lesson_type === 'semi_private');
+
+  const canDeleteInstance = canEditInstance;
+
+  const handleDeleteLesson = async () => {
+    if (!selectedInstance) return;
+    try {
+      await deleteInstance.mutateAsync(selectedInstance.id);
+      showSnackbar('Lesson deleted', 'success');
+      setShowDeleteDialog(false);
+      setSelectedId(null);
+      refetch();
+    } catch (err: any) {
+      showSnackbar(err.message ?? 'Failed to delete lesson', 'error');
+      setShowDeleteDialog(false);
+    }
+  };
 
   const handleEditLesson = async (data: CoachPrivateLessonFormData) => {
     if (!selectedInstance) return;
@@ -282,9 +304,23 @@ export default function CoachSchedule() {
                   style={styles.markCompleteButton}
                   buttonColor={COLORS.success}
                   textColor="#FFFFFF"
+                  disabled={completeLesson.isPending}
                   testID="coach-mark-complete-button"
                 >
                   Mark Complete
+                </Button>
+              )}
+
+              {canDeleteInstance && !selectedInstance.template_id && (
+                <Button
+                  mode="outlined"
+                  icon="delete"
+                  onPress={() => setShowDeleteDialog(true)}
+                  style={styles.markCompleteButton}
+                  textColor={COLORS.error}
+                  testID="coach-delete-lesson-button"
+                >
+                  Delete Lesson
                 </Button>
               )}
 
@@ -365,9 +401,20 @@ export default function CoachSchedule() {
           title="Mark Lesson Complete"
           message="Mark this lesson as completed? Parents will be notified."
           confirmLabel="Mark Complete"
+          loading={completeLesson.isPending}
           onConfirm={handleMarkComplete}
           onCancel={() => setShowCompleteDialog(false)}
           testID="schedule-complete-lesson-dialog"
+        />
+        <ConfirmDialog
+          visible={showDeleteDialog}
+          title="Delete Lesson"
+          message="Are you sure you want to delete this lesson? This cannot be undone."
+          confirmLabel="Delete"
+          destructive
+          onConfirm={handleDeleteLesson}
+          onCancel={() => setShowDeleteDialog(false)}
+          testID="schedule-delete-lesson-dialog"
         />
       </Portal>
     </View>

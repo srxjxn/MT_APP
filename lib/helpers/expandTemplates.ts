@@ -52,6 +52,7 @@ export function expandTemplatesToVirtuals(
         max_students: template.max_students,
         price_cents: template.price_cents,
         description: template.description,
+        skill_level: template.skill_level,
         notes: null,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),

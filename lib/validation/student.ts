@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-export const SKILL_LEVELS = ['beginner', 'intermediate', 'advanced', 'elite'] as const;
+export const SKILL_LEVELS = ['under_4_utr', 'over_4_utr'] as const;
 
 export const studentSchema = z.object({
   first_name: z.string().min(1, 'First name is required'),

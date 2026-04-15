@@ -7,6 +7,8 @@ import { LAYOUT } from '@/constants/layout';
 import {
   LESSON_TYPES,
   LESSON_TYPE_LABELS,
+  LESSON_SKILL_LEVELS,
+  LESSON_SKILL_LEVEL_LABELS,
 } from '@/lib/validation/lessonTemplate';
 import { UserProfile, Court } from '@/lib/types';
 
@@ -22,6 +24,7 @@ export interface LessonInstanceFormData {
   price_cents: number;
   description?: string;
   notes?: string;
+  skill_level?: 'under_4_utr' | 'over_4_utr' | null;
 }
 
 interface LessonInstanceFormProps {
@@ -51,11 +54,13 @@ export function LessonInstanceForm({
   const [maxStudents, setMaxStudents] = useState('6');
   const [description, setDescription] = useState('');
   const [notes, setNotes] = useState('');
+  const [skillLevel, setSkillLevel] = useState<'under_4_utr' | 'over_4_utr' | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const [typeMenuVisible, setTypeMenuVisible] = useState(false);
   const [coachMenuVisible, setCoachMenuVisible] = useState(false);
   const [courtMenuVisible, setCourtMenuVisible] = useState(false);
+  const [skillMenuVisible, setSkillMenuVisible] = useState(false);
 
   const selectedCoach = coaches?.find((c) => c.id === coachId);
   const selectedCourt = courts?.find((c) => c.id === courtId);
@@ -90,6 +95,7 @@ export function LessonInstanceForm({
       price_cents: 0,
       description: description || undefined,
       notes: notes || undefined,
+      skill_level: skillLevel,
     });
   };
 
@@ -115,6 +121,22 @@ export function LessonInstanceForm({
       >
         {LESSON_TYPES.map((type) => (
           <Menu.Item key={type} onPress={() => { setLessonType(type); setTypeMenuVisible(false); }} title={LESSON_TYPE_LABELS[type]} />
+        ))}
+      </Menu>
+
+      <Text variant="titleSmall" style={styles.label}>UTR Category (optional)</Text>
+      <Menu
+        visible={skillMenuVisible}
+        onDismiss={() => setSkillMenuVisible(false)}
+        anchor={
+          <Button mode="outlined" onPress={() => setSkillMenuVisible(true)} style={styles.dropdown} contentStyle={styles.dropdownContent}>
+            {skillLevel ? LESSON_SKILL_LEVEL_LABELS[skillLevel] : 'None'}
+          </Button>
+        }
+      >
+        <Menu.Item onPress={() => { setSkillLevel(null); setSkillMenuVisible(false); }} title="None" />
+        {LESSON_SKILL_LEVELS.map((s) => (
+          <Menu.Item key={s} onPress={() => { setSkillLevel(s); setSkillMenuVisible(false); }} title={LESSON_SKILL_LEVEL_LABELS[s]} />
         ))}
       </Menu>
 

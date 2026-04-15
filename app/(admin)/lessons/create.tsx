@@ -7,6 +7,7 @@ import { LessonTemplateForm } from '@/components/lessons/LessonTemplateForm';
 import { LessonInstanceForm, LessonInstanceFormData } from '@/components/lessons/LessonInstanceForm';
 import { useCreateLessonTemplate } from '@/lib/hooks/useLessonTemplates';
 import { useCreateLessonInstance, instanceKeys } from '@/lib/hooks/useLessonInstances';
+import { useBulkEnrollByUTR } from '@/lib/hooks/useEnrollments';
 import { useCoachUsers } from '@/lib/hooks/useStudents';
 import { useCourts } from '@/lib/hooks/useCourts';
 import { useUIStore } from '@/lib/stores/uiStore';
@@ -22,6 +23,7 @@ type CreateMode = 'recurring' | 'single';
 export default function CreateLessonScreen() {
   const createTemplate = useCreateLessonTemplate();
   const createInstance = useCreateLessonInstance();
+  const bulkEnroll = useBulkEnrollByUTR();
   const { data: coaches } = useCoachUsers();
   const { data: courts } = useCourts();
   const showSnackbar = useUIStore((s) => s.showSnackbar);
@@ -96,7 +98,7 @@ export default function CreateLessonScreen() {
       const endMins = endMinutes % 60;
       const endTime = `${String(endHours).padStart(2, '0')}:${String(endMins).padStart(2, '0')}`;
 
-      await createInstance.mutateAsync({
+      const newInstance = await createInstance.mutateAsync({
         template_id: null,
         coach_id: data.coach_id,
         court_id: data.court_id || null,
@@ -111,9 +113,23 @@ export default function CreateLessonScreen() {
         description: data.description,
         notes: data.notes,
         status: 'scheduled',
+        skill_level: data.skill_level ?? null,
       });
 
-      showSnackbar('Lesson created', 'success');
+      let message = 'Lesson created';
+      if (data.skill_level) {
+        try {
+          const result = await bulkEnroll.mutateAsync({
+            lessonInstanceId: newInstance.id,
+            skillLevel: data.skill_level,
+          });
+          const parts: string[] = [];
+          if (result.enrolledCount > 0) parts.push(`${result.enrolledCount} enrolled`);
+          if (result.waitlistedCount > 0) parts.push(`${result.waitlistedCount} waitlisted`);
+          if (parts.length > 0) message += ` (${parts.join(', ')})`;
+        } catch {}
+      }
+      showSnackbar(message, 'success');
       router.back();
     } catch (err: any) {
       showSnackbar(err.message ?? 'Failed to create lesson', 'error');

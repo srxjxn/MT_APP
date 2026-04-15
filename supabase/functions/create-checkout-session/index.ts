@@ -60,10 +60,11 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
+    const redirectBaseUrl = `${supabaseUrl}/functions/v1/payment-redirect`;
     const params = new URLSearchParams();
     params.append('customer', customer_id);
-    params.append('success_url', 'modern-tennis://billing?checkout_success=true');
-    params.append('cancel_url', 'modern-tennis://billing?checkout_cancelled=true');
+    params.append('success_url', `${redirectBaseUrl}?status=success`);
+    params.append('cancel_url', `${redirectBaseUrl}?status=cancelled`);
     if (mode === 'subscription') {
       // Subscription mode — requires price_id and subscription_id
       if (!price_id || !subscription_id) {

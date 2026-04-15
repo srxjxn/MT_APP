@@ -189,20 +189,20 @@ export default function ParentBilling() {
   const hasUnsubscribedStudents = unsubscribedStudents.length > 0;
 
   const handlePlanSubscribe = (plan: MembershipPlan) => {
-    setSelectedPlan(plan);
-    if (unsubscribedStudents.length > 0) {
-      setSelectedPlanStudentId(unsubscribedStudents[0].id);
-      setShowPlanStudentPicker(true);
-    } else {
-      confirmPlanSubscription(plan, undefined);
+    if (unsubscribedStudents.length === 0) {
+      showSnackbar('Add a child first before subscribing', 'error');
+      return;
     }
+    setSelectedPlan(plan);
+    setSelectedPlanStudentId('');
+    setShowPlanStudentPicker(true);
   };
 
   const confirmPlanSubscription = async (plan: MembershipPlan, studentId?: string) => {
     setShowPlanStudentPicker(false);
     try {
       // Determine tiered pricing
-      const existingCount = activeSubs.filter((s) => s.name === plan.name).length;
+      const existingCount = activeSubs.filter((s) => s.stripe_price_id === plan.stripe_price_id).length;
       const isAdditional = existingCount > 0;
       const effectivePrice = isAdditional && plan.price_cents_additional
         ? plan.price_cents_additional : plan.price_cents;
@@ -452,12 +452,10 @@ export default function ParentBilling() {
           <Dialog.Actions>
             <Button onPress={() => setShowPlanStudentPicker(false)}>Cancel</Button>
             <Button
+              disabled={!selectedPlanStudentId}
               onPress={() => {
-                if (selectedPlan) {
-                  confirmPlanSubscription(
-                    selectedPlan,
-                    selectedPlanStudentId || undefined,
-                  );
+                if (selectedPlan && selectedPlanStudentId) {
+                  confirmPlanSubscription(selectedPlan, selectedPlanStudentId);
                 }
               }}
               testID="confirm-plan-subscribe"

@@ -110,3 +110,4 @@ tennis-crm/
 
 ## Communication Preferences
 - Always explain SQL migrations when asking to run them on production
+- **SQL queries must be single-line** — when providing SQL for the user to run (e.g., in Supabase Dashboard SQL Editor), write each query on a single line. Do not break SQL statements across multiple lines.

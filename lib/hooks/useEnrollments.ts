@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../supabase';
 import { useAuthStore } from '../stores/authStore';
-import { Enrollment, EnrollmentInsert, Student } from '../types';
+import { Enrollment, EnrollmentInsert, Student, SkillLevel } from '../types';
 import { instanceKeys } from './useLessonInstances';
 import { paymentKeys } from './usePayments';
 
@@ -32,25 +32,61 @@ export function useEnrollments(lessonInstanceId: string) {
   });
 }
 
+export type EnrollStudentResult =
+  | { action: 'enrolled'; lesson_instance_id: string }
+  | { action: 'revived'; lesson_instance_id: string }
+  | { action: 'already_registered'; lesson_instance_id: string; status: 'enrolled' | 'waitlisted' };
+
 export function useEnrollStudent() {
   const queryClient = useQueryClient();
   const orgId = useAuthStore((s) => s.userProfile?.org_id);
 
   return useMutation({
-    mutationFn: async ({ lessonInstanceId, studentId }: { lessonInstanceId: string; studentId: string }) => {
-      const { data, error } = await supabase
+    mutationFn: async ({
+      lessonInstanceId,
+      studentId,
+    }: {
+      lessonInstanceId: string;
+      studentId: string;
+    }): Promise<EnrollStudentResult> => {
+      // Look up any existing enrollment row regardless of status (unique constraint
+      // is status-agnostic).
+      const { data: existing, error: existingError } = await supabase
         .from('enrollments')
-        .insert({
-          org_id: orgId!,
-          lesson_instance_id: lessonInstanceId,
-          student_id: studentId,
-          status: 'enrolled',
-        })
-        .select()
-        .single();
+        .select('id, status')
+        .eq('lesson_instance_id', lessonInstanceId)
+        .eq('student_id', studentId)
+        .maybeSingle();
+      if (existingError) throw existingError;
 
-      if (error) throw error;
-      return data;
+      if (!existing) {
+        const { error } = await supabase
+          .from('enrollments')
+          .insert({
+            org_id: orgId!,
+            lesson_instance_id: lessonInstanceId,
+            student_id: studentId,
+            status: 'enrolled',
+          });
+        if (error) throw error;
+        return { action: 'enrolled', lesson_instance_id: lessonInstanceId };
+      }
+
+      if (existing.status === 'enrolled' || existing.status === 'waitlisted') {
+        return {
+          action: 'already_registered',
+          lesson_instance_id: lessonInstanceId,
+          status: existing.status,
+        };
+      }
+
+      // dropped or completed → revive
+      const { error: updateError } = await supabase
+        .from('enrollments')
+        .update({ status: 'enrolled', attended: null })
+        .eq('id', existing.id);
+      if (updateError) throw updateError;
+      return { action: 'revived', lesson_instance_id: lessonInstanceId };
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: enrollmentKeys.list(data.lesson_instance_id) });
@@ -299,6 +335,151 @@ export function useEnrollWithPayment() {
       queryClient.invalidateQueries({ queryKey: enrollmentKeys.list(data.lesson_instance_id) });
       queryClient.invalidateQueries({ queryKey: instanceKeys.all });
       queryClient.invalidateQueries({ queryKey: paymentKeys.all });
+    },
+  });
+}
+
+export function useBulkEnrollByUTR() {
+  const queryClient = useQueryClient();
+  const orgId = useAuthStore((s) => s.userProfile?.org_id);
+
+  return useMutation({
+    mutationFn: async ({
+      lessonInstanceId,
+      skillLevel,
+    }: {
+      lessonInstanceId: string;
+      skillLevel: SkillLevel;
+    }) => {
+      // 1. Get instance capacity
+      const { data: instance, error: instanceError } = await supabase
+        .from('lesson_instances')
+        .select('id, max_students')
+        .eq('id', lessonInstanceId)
+        .single();
+      if (instanceError) throw instanceError;
+
+      // 2. Get current enrolled count
+      const { count: enrolledCount, error: countError } = await supabase
+        .from('enrollments')
+        .select('id', { count: 'exact', head: true })
+        .eq('lesson_instance_id', lessonInstanceId)
+        .eq('status', 'enrolled');
+      if (countError) throw countError;
+
+      // 3. Get all org students matching skill_level
+      const { data: matchingStudents, error: studentsError } = await supabase
+        .from('students')
+        .select('id')
+        .eq('org_id', orgId!)
+        .eq('skill_level', skillLevel);
+      if (studentsError) throw studentsError;
+      if (!matchingStudents?.length) {
+        return { enrolledCount: 0, revivedCount: 0, waitlistedCount: 0, skippedCount: 0 };
+      }
+
+      // 4. Partition existing rows: active ones get skipped, dropped/completed
+      // get revived in place (unique constraint forbids inserting a new row).
+      const { data: existingEnrollments, error: existingError } = await supabase
+        .from('enrollments')
+        .select('id, student_id, status')
+        .eq('lesson_instance_id', lessonInstanceId);
+      if (existingError) throw existingError;
+
+      const matchingStudentIdSet = new Set(matchingStudents.map((s) => s.id));
+      const existingByStudent = new Map<string, { id: string; status: string }>();
+      for (const e of existingEnrollments ?? []) {
+        existingByStudent.set(e.student_id, { id: e.id, status: e.status });
+      }
+
+      const activeIds: string[] = [];
+      const revivableIds: { id: string; studentId: string }[] = [];
+      const newIds: string[] = [];
+
+      for (const studentId of matchingStudentIdSet) {
+        const existing = existingByStudent.get(studentId);
+        if (!existing) {
+          newIds.push(studentId);
+        } else if (existing.status === 'enrolled' || existing.status === 'waitlisted') {
+          activeIds.push(studentId);
+        } else {
+          revivableIds.push({ id: existing.id, studentId });
+        }
+      }
+
+      const skippedCount = activeIds.length;
+
+      if (revivableIds.length === 0 && newIds.length === 0) {
+        return { enrolledCount: 0, revivedCount: 0, waitlistedCount: 0, skippedCount, lessonInstanceId };
+      }
+
+      // 5. Capacity: fill from revivable first (already-on-roster history),
+      // then new inserts. Overflow becomes waitlisted.
+      const maxStudents = instance.max_students;
+      const currentEnrolled = enrolledCount ?? 0;
+      let spotsLeft =
+        maxStudents != null
+          ? Math.max(0, maxStudents - currentEnrolled)
+          : revivableIds.length + newIds.length;
+
+      const reviveToEnrolled = revivableIds.slice(0, spotsLeft);
+      const reviveToWaitlist = revivableIds.slice(reviveToEnrolled.length);
+      spotsLeft -= reviveToEnrolled.length;
+
+      const insertEnrolled = newIds.slice(0, spotsLeft);
+      const insertWaitlist = newIds.slice(insertEnrolled.length);
+
+      // Revives: per-row updates (different target statuses).
+      for (const r of reviveToEnrolled) {
+        const { error } = await supabase
+          .from('enrollments')
+          .update({ status: 'enrolled', attended: null })
+          .eq('id', r.id);
+        if (error) throw error;
+      }
+      for (const r of reviveToWaitlist) {
+        const { error } = await supabase
+          .from('enrollments')
+          .update({ status: 'waitlisted', attended: null })
+          .eq('id', r.id);
+        if (error) throw error;
+      }
+
+      const inserts = [
+        ...insertEnrolled.map((studentId) => ({
+          org_id: orgId!,
+          lesson_instance_id: lessonInstanceId,
+          student_id: studentId,
+          status: 'enrolled' as const,
+        })),
+        ...insertWaitlist.map((studentId) => ({
+          org_id: orgId!,
+          lesson_instance_id: lessonInstanceId,
+          student_id: studentId,
+          status: 'waitlisted' as const,
+        })),
+      ];
+
+      if (inserts.length > 0) {
+        const { error: insertError } = await supabase
+          .from('enrollments')
+          .insert(inserts);
+        if (insertError) throw insertError;
+      }
+
+      return {
+        enrolledCount: insertEnrolled.length,
+        revivedCount: reviveToEnrolled.length,
+        waitlistedCount: insertWaitlist.length + reviveToWaitlist.length,
+        skippedCount,
+        lessonInstanceId,
+      };
+    },
+    onSuccess: (data) => {
+      if (data.lessonInstanceId) {
+        queryClient.invalidateQueries({ queryKey: enrollmentKeys.list(data.lessonInstanceId) });
+      }
+      queryClient.invalidateQueries({ queryKey: instanceKeys.all });
     },
   });
 }

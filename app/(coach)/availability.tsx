@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { View, FlatList, StyleSheet, RefreshControl } from 'react-native';
 import { Card, Text, Chip, Portal } from 'react-native-paper';
 import { useCoachLessonHistory, useCompleteLessonWithNotification, CoachLessonHistoryItem } from '@/lib/hooks/useLessonInstances';
@@ -12,9 +12,11 @@ export default function CoachLessonHistoryScreen() {
   const completeLesson = useCompleteLessonWithNotification();
   const showSnackbar = useUIStore((s) => s.showSnackbar);
   const [completeId, setCompleteId] = useState<string | null>(null);
+  const completingRef = useRef(false);
 
   const handleComplete = async () => {
-    if (!completeId) return;
+    if (!completeId || completingRef.current) return;
+    completingRef.current = true;
     try {
       const result = await completeLesson.mutateAsync(completeId);
       showSnackbar(
@@ -25,6 +27,8 @@ export default function CoachLessonHistoryScreen() {
     } catch (err: any) {
       showSnackbar(err.message ?? 'Failed to complete lesson', 'error');
       setCompleteId(null);
+    } finally {
+      completingRef.current = false;
     }
   };
 
@@ -92,6 +96,7 @@ export default function CoachLessonHistoryScreen() {
           title="Mark Lesson Complete"
           message="Mark this lesson as completed? Parents will be notified."
           confirmLabel="Mark Complete"
+          loading={completeLesson.isPending}
           onConfirm={handleComplete}
           onCancel={() => setCompleteId(null)}
           testID="complete-lesson-dialog"

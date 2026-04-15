@@ -86,6 +86,7 @@ export default function EditLessonTemplateScreen() {
           max_students: template.max_students,
           price_cents: template.price_cents,
           description: template.description ?? undefined,
+          skill_level: template.skill_level,
         }}
         coaches={coaches}
         courts={courts}

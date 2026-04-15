@@ -1,5 +1,6 @@
 import React, { useState, useCallback } from 'react';
-import { View, StyleSheet, RefreshControl, ScrollView } from 'react-native';
+import { View, StyleSheet, RefreshControl, ScrollView, ActivityIndicator } from 'react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Card, Text, Button, Portal, Modal, Dialog, RadioButton } from 'react-native-paper';
 import { useAuthStore } from '@/lib/stores/authStore';
 import { useParentStudents, useCreateStudent } from '@/lib/hooks/useStudents';
@@ -90,18 +91,13 @@ export default function ParentHome() {
   const handleBuyPackage = useCallback((pkg: CoachPackage, coachName: string) => {
     setBuyingPackage(pkg);
     setBuyingCoachName(coachName);
-    setSelectedBuyStudentId('');
+    setSelectedBuyStudentId(students?.length === 1 ? students[0].id : '');
     setShowStudentPicker(true);
-  }, []);
+  }, [students]);
 
-  const handleConfirmStudentForPackage = useCallback(() => {
-    if (!selectedBuyStudentId) return;
+  const handleConfirmStudentForPackage = useCallback(async () => {
+    if (!selectedBuyStudentId || !buyingPackage) return;
     setShowStudentPicker(false);
-    handleBuyStripePayment();
-  }, [selectedBuyStudentId]);
-
-  const handleBuyStripePayment = async () => {
-    if (!buyingPackage || !selectedBuyStudentId) return;
     try {
       const result = await checkoutPayment.mutateAsync({
         amount_cents: buyingPackage.price_cents,
@@ -121,7 +117,7 @@ export default function ParentHome() {
     } catch (err: any) {
       showSnackbar(err.message ?? 'Payment failed', 'error');
     }
-  };
+  }, [selectedBuyStudentId, buyingPackage, buyingCoachName, checkoutPayment, showSnackbar]);
 
 
   // Owned packages from assigned coach
@@ -181,6 +177,7 @@ export default function ParentHome() {
   return (
     <View style={styles.container} testID="parent-home">
       <ScrollView
+        keyboardShouldPersistTaps="handled"
         refreshControl={
           <RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={COLORS.primary} />
         }
@@ -315,14 +312,19 @@ export default function ParentHome() {
       {/* Student picker for package purchase */}
       <Portal>
         <Dialog visible={showStudentPicker} onDismiss={() => setShowStudentPicker(false)}>
-          <Dialog.Title>Select Child</Dialog.Title>
-          <Dialog.Content>
+          <Dialog.Content style={styles.studentPickerContent}>
+            <MaterialCommunityIcons
+              name="account-child-circle"
+              size={48}
+              color={COLORS.primary}
+              style={styles.studentPickerIcon}
+            />
             {buyingPackage && (
               <Text variant="bodyMedium" style={styles.confirmText}>
                 Buy {buyingPackage.name} ({buyingPackage.num_hours}hrs) from {buyingCoachName} for ${(buyingPackage.price_cents / 100).toFixed(0)}?
               </Text>
             )}
-            <Text variant="bodySmall" style={styles.selectLabel}>Which child is this package for?</Text>
+            <Text variant="bodySmall" style={styles.selectLabel}>Who is this package for?</Text>
             <RadioButton.Group onValueChange={setSelectedBuyStudentId} value={selectedBuyStudentId}>
               {(students ?? []).map((s) => (
                 <RadioButton.Item
@@ -336,11 +338,12 @@ export default function ParentHome() {
             </RadioButton.Group>
           </Dialog.Content>
           <Dialog.Actions>
-            <Button onPress={() => setShowStudentPicker(false)}>Cancel</Button>
+            <Button onPress={() => setShowStudentPicker(false)} disabled={checkoutPayment.isPending}>Cancel</Button>
             <Button
               mode="contained"
               onPress={handleConfirmStudentForPackage}
-              disabled={!selectedBuyStudentId}
+              disabled={!selectedBuyStudentId || checkoutPayment.isPending}
+              loading={checkoutPayment.isPending}
               style={styles.continueButton}
             >
               Continue to Payment
@@ -468,5 +471,11 @@ const styles = StyleSheet.create({
   },
   continueButton: {
     backgroundColor: COLORS.primary,
+  },
+  studentPickerContent: {
+    alignItems: 'center',
+  },
+  studentPickerIcon: {
+    marginBottom: 8,
   },
 });

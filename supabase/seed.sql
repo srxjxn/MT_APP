@@ -150,16 +150,16 @@ BEGIN
   -- ============================================================
   INSERT INTO students (id, org_id, parent_id, first_name, last_name, date_of_birth, skill_level)
   VALUES
-    (student_1, v_org_id, parent_johnson_uid, 'Emma', 'Johnson', '2015-03-15', 'intermediate'),
-    (student_2, v_org_id, parent_johnson_uid, 'Liam', 'Johnson', '2017-07-22', 'beginner'),
-    (student_3, v_org_id, parent_williams_uid, 'Sophia', 'Williams', '2014-11-08', 'advanced'),
-    (student_4, v_org_id, parent_williams_uid, 'Noah', 'Williams', '2016-05-30', 'intermediate'),
-    (student_5, v_org_id, parent_garcia_uid, 'Isabella', 'Garcia', '2015-09-12', 'intermediate'),
-    (student_6, v_org_id, parent_garcia_uid, 'Lucas', 'Garcia', '2018-01-25', 'beginner'),
-    (student_7, v_org_id, parent_chen_uid, 'Mia', 'Chen', '2013-06-18', 'elite'),
-    (student_8, v_org_id, parent_chen_uid, 'Oliver', 'Chen', '2016-12-03', 'intermediate'),
-    (student_9, v_org_id, parent_patel_uid, 'Ava', 'Patel', '2014-04-07', 'advanced'),
-    (student_10, v_org_id, parent_patel_uid, 'Ethan', 'Patel', '2017-08-14', 'beginner');
+    (student_1, v_org_id, parent_johnson_uid, 'Emma', 'Johnson', '2015-03-15', 'under_4_utr'),
+    (student_2, v_org_id, parent_johnson_uid, 'Liam', 'Johnson', '2017-07-22', 'under_4_utr'),
+    (student_3, v_org_id, parent_williams_uid, 'Sophia', 'Williams', '2014-11-08', 'over_4_utr'),
+    (student_4, v_org_id, parent_williams_uid, 'Noah', 'Williams', '2016-05-30', 'under_4_utr'),
+    (student_5, v_org_id, parent_garcia_uid, 'Isabella', 'Garcia', '2015-09-12', 'under_4_utr'),
+    (student_6, v_org_id, parent_garcia_uid, 'Lucas', 'Garcia', '2018-01-25', 'under_4_utr'),
+    (student_7, v_org_id, parent_chen_uid, 'Mia', 'Chen', '2013-06-18', 'over_4_utr'),
+    (student_8, v_org_id, parent_chen_uid, 'Oliver', 'Chen', '2016-12-03', 'under_4_utr'),
+    (student_9, v_org_id, parent_patel_uid, 'Ava', 'Patel', '2014-04-07', 'over_4_utr'),
+    (student_10, v_org_id, parent_patel_uid, 'Ethan', 'Patel', '2017-08-14', 'under_4_utr');
 
   -- ============================================================
   -- Courts

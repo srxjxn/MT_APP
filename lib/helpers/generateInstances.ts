@@ -1,6 +1,7 @@
 import { SupabaseClient } from '@supabase/supabase-js';
 import { Database } from '../types/database.types';
 import { LessonTemplate, LessonInstance, LessonInstanceInsert } from '../types';
+import { enrollStudentsByUTR } from './enrollByUTR';
 
 export interface GenerateResult {
   created: LessonInstance[];
@@ -59,6 +60,7 @@ export async function generateInstancesForTemplates(
             max_students: template.max_students,
             price_cents: template.price_cents,
             description: template.description,
+            skill_level: template.skill_level,
           },
           templateName: template.name,
           date: dateStr,
@@ -137,5 +139,19 @@ export async function generateInstancesForTemplates(
     .select();
 
   if (error) throw error;
+
+  // Auto-enroll students by UTR category for instances whose template has a skill_level
+  const idsByLevel = new Map<string, string[]>();
+  for (const inst of data) {
+    const level = (inst as any).skill_level as string | null;
+    if (!level) continue;
+    const arr = idsByLevel.get(level) ?? [];
+    arr.push(inst.id);
+    idsByLevel.set(level, arr);
+  }
+  for (const [level, ids] of idsByLevel.entries()) {
+    await enrollStudentsByUTR(client, ids, level, orgId);
+  }
+
   return { created: data, skipped };
 }

@@ -426,6 +426,7 @@ export type Database = {
           notes: string | null
           org_id: string
           price_cents: number
+          skill_level: Database["public"]["Enums"]["skill_level"] | null
           start_time: string
           status: Database["public"]["Enums"]["lesson_status"]
           template_id: string | null
@@ -446,6 +447,7 @@ export type Database = {
           notes?: string | null
           org_id: string
           price_cents?: number
+          skill_level?: Database["public"]["Enums"]["skill_level"] | null
           start_time: string
           status?: Database["public"]["Enums"]["lesson_status"]
           template_id?: string | null
@@ -466,6 +468,7 @@ export type Database = {
           notes?: string | null
           org_id?: string
           price_cents?: number
+          skill_level?: Database["public"]["Enums"]["skill_level"] | null
           start_time?: string
           status?: Database["public"]["Enums"]["lesson_status"]
           template_id?: string | null
@@ -608,6 +611,7 @@ export type Database = {
           name: string
           org_id: string
           price_cents: number
+          skill_level: Database["public"]["Enums"]["skill_level"] | null
           start_time: string
           updated_at: string
         }
@@ -625,6 +629,7 @@ export type Database = {
           name: string
           org_id: string
           price_cents?: number
+          skill_level?: Database["public"]["Enums"]["skill_level"] | null
           start_time: string
           updated_at?: string
         }
@@ -642,6 +647,7 @@ export type Database = {
           name?: string
           org_id?: string
           price_cents?: number
+          skill_level?: Database["public"]["Enums"]["skill_level"] | null
           start_time?: string
           updated_at?: string
         }
@@ -1343,7 +1349,7 @@ export type Database = {
       payment_status: "pending" | "completed" | "failed" | "refunded"
       payment_type: "lesson" | "subscription" | "drop_in" | "other"
       payout_status: "draft" | "approved" | "paid"
-      skill_level: "beginner" | "intermediate" | "advanced" | "elite"
+      skill_level: "under_4_utr" | "over_4_utr"
       subscription_status:
         | "pending"
         | "active"
@@ -1493,7 +1499,7 @@ export const Constants = {
       payment_status: ["pending", "completed", "failed", "refunded"],
       payment_type: ["lesson", "subscription", "drop_in", "other"],
       payout_status: ["draft", "approved", "paid"],
-      skill_level: ["beginner", "intermediate", "advanced", "elite"],
+      skill_level: ["under_4_utr", "over_4_utr"],
       subscription_status: [
         "pending",
         "active",
@@ -1505,3 +1511,4 @@ export const Constants = {
     },
   },
 } as const
+

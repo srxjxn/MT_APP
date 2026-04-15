@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { View, FlatList, StyleSheet, RefreshControl } from 'react-native';
+import { View, FlatList, StyleSheet, RefreshControl, ActivityIndicator } from 'react-native';
 import { SegmentedButtons, Text, Portal, Dialog, Button, RadioButton } from 'react-native-paper';
 import { COLORS, SPACING } from '@/constants/theme';
 import { useParentStudents } from '@/lib/hooks/useStudents';
@@ -398,11 +398,12 @@ export function PrivateLessonsContent() {
             </RadioButton.Group>
           </Dialog.Content>
           <Dialog.Actions>
-            <Button onPress={() => setShowStudentPicker(false)}>Cancel</Button>
+            <Button onPress={() => setShowStudentPicker(false)} disabled={checkoutPayment.isPending}>Cancel</Button>
             <Button
               mode="contained"
               onPress={handleConfirmStudentForPackage}
-              disabled={!selectedBuyStudentId}
+              disabled={!selectedBuyStudentId || checkoutPayment.isPending}
+              loading={checkoutPayment.isPending}
               style={pkgStyles.continueButton}
             >
               Continue to Payment

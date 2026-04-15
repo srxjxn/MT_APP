@@ -23,6 +23,8 @@ const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
   exhausted: { bg: '#F5F5F5', text: COLORS.textSecondary },
   failed: { bg: '#FFEBEE', text: COLORS.error },
   refunded: { bg: '#E3F2FD', text: COLORS.info },
+  under_4_utr: { bg: '#E3F2FD', text: COLORS.info },
+  over_4_utr: { bg: '#E8F5E9', text: COLORS.primary },
 };
 
 interface StatusBadgeProps {
@@ -38,7 +40,7 @@ export function StatusBadge({ status, testID }: StatusBadgeProps) {
       textStyle={[styles.text, { color: colors.text }]}
       testID={testID ?? 'status-badge'}
     >
-      {status.charAt(0).toUpperCase() + status.slice(1)}
+      {status === 'under_4_utr' ? 'Under 4 UTR' : status === 'over_4_utr' ? 'Over 4 UTR' : status.charAt(0).toUpperCase() + status.slice(1)}
     </Chip>
   );
 }

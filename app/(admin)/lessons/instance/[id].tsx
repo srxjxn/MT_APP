@@ -2,10 +2,10 @@ import React, { useState } from 'react';
 import { ScrollView, View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Card, Text, Button, Chip, Menu, Portal, Dialog, Modal, ProgressBar } from 'react-native-paper';
 import { useLocalSearchParams, router } from 'expo-router';
-import { useLessonInstance, useUpdateLessonInstance, useAdditionalCoaches, useAddAdditionalCoach, useRemoveAdditionalCoach } from '@/lib/hooks/useLessonInstances';
+import { useLessonInstance, useUpdateLessonInstance, useDeleteLessonInstance, useAdditionalCoaches, useAddAdditionalCoach, useRemoveAdditionalCoach } from '@/lib/hooks/useLessonInstances';
 import { useCoachUsers } from '@/lib/hooks/useStudents';
 import { useStudents } from '@/lib/hooks/useStudents';
-import { useEnrollStudent } from '@/lib/hooks/useEnrollments';
+import { useEnrollStudent, useBulkEnrollByUTR } from '@/lib/hooks/useEnrollments';
 import { useCreateNotification } from '@/lib/hooks/useNotifications';
 import { EnrollmentList } from '@/components/lessons/EnrollmentList';
 import { CoachPrivateLessonForm, CoachPrivateLessonFormData } from '@/components/coach/CoachPrivateLessonForm';
@@ -16,6 +16,7 @@ import { COLORS, SPACING } from '@/constants/theme';
 import { LAYOUT } from '@/constants/layout';
 import { LESSON_TYPE_LABELS } from '@/lib/validation/lessonTemplate';
 import { formatTime } from '@/lib/utils/formatTime';
+import { SkillLevel } from '@/lib/types';
 
 const STATUSES = ['scheduled', 'in_progress', 'completed', 'cancelled'] as const;
 
@@ -25,13 +26,16 @@ export default function InstanceDetailScreen() {
   const { data: allStudents } = useStudents();
   const { data: courts } = useCourts();
   const updateInstance = useUpdateLessonInstance();
+  const deleteInstance = useDeleteLessonInstance();
   const enrollStudent = useEnrollStudent();
+  const bulkEnroll = useBulkEnrollByUTR();
   const createNotification = useCreateNotification();
   const showSnackbar = useUIStore((s) => s.showSnackbar);
   const [statusMenuVisible, setStatusMenuVisible] = useState(false);
   const [showAddStudent, setShowAddStudent] = useState(false);
 
   const [showCancelDialog, setShowCancelDialog] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showEditForm, setShowEditForm] = useState(false);
   const [showAddCoach, setShowAddCoach] = useState(false);
   const { data: additionalCoaches } = useAdditionalCoaches(id);
@@ -114,11 +118,46 @@ export default function InstanceDetailScreen() {
 
   const handleAddStudent = async (studentId: string) => {
     try {
-      await enrollStudent.mutateAsync({ lessonInstanceId: instance.id, studentId });
-      showSnackbar('Student enrolled', 'success');
+      const result = await enrollStudent.mutateAsync({ lessonInstanceId: instance.id, studentId });
+      if (result.action === 'enrolled') {
+        showSnackbar('Student enrolled', 'success');
+        setShowAddStudent(false);
+      } else if (result.action === 'revived') {
+        showSnackbar('Student added back to the roster', 'success');
+        setShowAddStudent(false);
+      } else {
+        showSnackbar('Student is already on the roster', 'info');
+      }
+    } catch {
+      showSnackbar('Failed to add student', 'error');
+    }
+  };
+
+  const handleBulkEnroll = async (skillLevel: SkillLevel) => {
+    try {
+      const result = await bulkEnroll.mutateAsync({
+        lessonInstanceId: instance.id,
+        skillLevel,
+      });
+      const label = skillLevel === 'under_4_utr' ? 'Under 4 UTR' : 'Over 4 UTR';
+      if (
+        result.enrolledCount === 0 &&
+        result.revivedCount === 0 &&
+        result.waitlistedCount === 0 &&
+        result.skippedCount === 0
+      ) {
+        showSnackbar('No new students to enroll', 'info');
+      } else {
+        const parts: string[] = [];
+        if (result.enrolledCount > 0) parts.push(`${result.enrolledCount} enrolled`);
+        if (result.revivedCount > 0) parts.push(`${result.revivedCount} re-added`);
+        if (result.waitlistedCount > 0) parts.push(`${result.waitlistedCount} waitlisted`);
+        if (result.skippedCount > 0) parts.push(`${result.skippedCount} already enrolled`);
+        showSnackbar(`${label}: ${parts.join(', ')}`, 'success');
+      }
       setShowAddStudent(false);
-    } catch (err: any) {
-      showSnackbar(err.message ?? 'Failed to enroll student', 'error');
+    } catch {
+      showSnackbar('Failed to add students', 'error');
     }
   };
 
@@ -234,6 +273,19 @@ export default function InstanceDetailScreen() {
               >
                 Cancel Class
               </Button>
+              {!instance.template_id && (
+                <Button
+                  mode="outlined"
+                  icon="delete"
+                  onPress={() => setShowDeleteDialog(true)}
+                  textColor={COLORS.error}
+                  style={styles.cancelButton}
+                  contentStyle={styles.statusContent}
+                  testID="delete-lesson-button"
+                >
+                  Delete Lesson
+                </Button>
+              )}
             </View>
           )}
 
@@ -298,6 +350,26 @@ export default function InstanceDetailScreen() {
         onCancel={() => setShowCancelDialog(false)}
         testID="cancel-class-dialog"
       />
+      <ConfirmDialog
+        visible={showDeleteDialog}
+        title="Delete Lesson"
+        message="Are you sure you want to permanently delete this lesson? This cannot be undone."
+        confirmLabel="Delete"
+        destructive
+        onConfirm={async () => {
+          try {
+            await deleteInstance.mutateAsync(instance.id);
+            showSnackbar('Lesson deleted', 'success');
+            setShowDeleteDialog(false);
+            router.back();
+          } catch (err: any) {
+            showSnackbar(err.message ?? 'Failed to delete lesson', 'error');
+            setShowDeleteDialog(false);
+          }
+        }}
+        onCancel={() => setShowDeleteDialog(false)}
+        testID="delete-lesson-dialog"
+      />
 
       <Portal>
         <Modal
@@ -326,9 +398,55 @@ export default function InstanceDetailScreen() {
         </Modal>
         <Dialog visible={showAddStudent} onDismiss={() => setShowAddStudent(false)}>
           <Dialog.Title>Add Student</Dialog.Title>
-          <Dialog.ScrollArea style={{ maxHeight: 350 }}>
+          <Dialog.Content>
+            <View style={styles.bulkEnrollRow}>
+              {instance?.skill_level ? (
+                <Button
+                  mode="contained-tonal"
+                  onPress={() => handleBulkEnroll(instance.skill_level!)}
+                  loading={bulkEnroll.isPending}
+                  style={styles.bulkEnrollButton}
+                  compact
+                  testID="bulk-enroll-matching"
+                >
+                  {instance.skill_level === 'under_4_utr'
+                    ? 'Enroll all Under 4 UTR'
+                    : 'Enroll all Over 4 UTR'}
+                </Button>
+              ) : (
+                <>
+                  <Button
+                    mode="contained-tonal"
+                    onPress={() => handleBulkEnroll('under_4_utr')}
+                    loading={bulkEnroll.isPending}
+                    style={styles.bulkEnrollButton}
+                    compact
+                    testID="bulk-enroll-under-4"
+                  >
+                    Under 4 UTR
+                  </Button>
+                  <Button
+                    mode="contained-tonal"
+                    onPress={() => handleBulkEnroll('over_4_utr')}
+                    loading={bulkEnroll.isPending}
+                    style={styles.bulkEnrollButton}
+                    compact
+                    testID="bulk-enroll-over-4"
+                  >
+                    Over 4 UTR
+                  </Button>
+                </>
+              )}
+            </View>
+            <Text variant="labelMedium" style={styles.orLabel}>Or add individually</Text>
+          </Dialog.Content>
+          <Dialog.ScrollArea style={{ maxHeight: 300 }}>
             <ScrollView>
-              {allStudents?.map((student) => (
+              {allStudents
+                ?.filter((student) =>
+                  instance?.skill_level ? student.skill_level === instance.skill_level : true
+                )
+                .map((student) => (
                 <TouchableOpacity key={student.id} onPress={() => handleAddStudent(student.id)}>
                   <View style={styles.studentRow}>
                     <Text variant="bodyLarge" style={styles.studentRowText}>
@@ -499,5 +617,17 @@ const styles = StyleSheet.create({
   },
   coachChip: {
     marginBottom: SPACING.xs,
+  },
+  bulkEnrollRow: {
+    flexDirection: 'row',
+    gap: SPACING.sm,
+    marginBottom: SPACING.sm,
+  },
+  bulkEnrollButton: {
+    flex: 1,
+  },
+  orLabel: {
+    color: COLORS.textSecondary,
+    textAlign: 'center',
   },
 });

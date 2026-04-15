@@ -19,6 +19,13 @@ export const DAYS_OF_WEEK = [
   { value: 6, label: 'Saturday' },
 ] as const;
 
+export const LESSON_SKILL_LEVELS = ['under_4_utr', 'over_4_utr'] as const;
+
+export const LESSON_SKILL_LEVEL_LABELS: Record<string, string> = {
+  under_4_utr: 'Under 4 UTR',
+  over_4_utr: 'Over 4 UTR',
+};
+
 export const lessonTemplateSchema = z.object({
   name: z.string().min(1, 'Lesson name is required'),
   lesson_type: z.enum(LESSON_TYPES),
@@ -30,6 +37,7 @@ export const lessonTemplateSchema = z.object({
   max_students: z.number().min(1, 'Must allow at least 1 student').max(50),
   price_cents: z.number().min(0, 'Price cannot be negative'),
   description: z.string().optional(),
+  skill_level: z.enum(LESSON_SKILL_LEVELS).nullable().optional(),
 });
 
 export type LessonTemplateFormData = z.infer<typeof lessonTemplateSchema>;

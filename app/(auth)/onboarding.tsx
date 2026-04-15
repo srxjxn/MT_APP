@@ -162,7 +162,7 @@ export default function OnboardingScreen() {
             first_name: c.firstName.trim(),
             last_name: c.lastName.trim(),
             date_of_birth: c.dob || null,
-            skill_level: 'beginner' as const,
+            skill_level: 'under_4_utr' as const,
             assigned_coach_id: selectedCoachId,
           }))
         );

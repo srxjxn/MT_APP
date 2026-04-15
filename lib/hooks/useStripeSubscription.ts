@@ -86,9 +86,13 @@ export function useStripeSubscription() {
       }
 
       // Open Stripe Checkout in an in-app browser session
+      //   Use the HTTPS redirect page so Safari can render a success screen
+      //   instead of failing on the custom scheme.
+      const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL!;
+      const redirectBase = `${supabaseUrl}/functions/v1/payment-redirect`;
       const result = await WebBrowser.openAuthSessionAsync(
         checkoutData.checkoutUrl,
-        'modern-tennis://billing'
+        redirectBase
       );
       if (result.type === 'cancel' || result.type === 'dismiss') {
         throw new Error('Payment cancelled');

@@ -108,7 +108,7 @@ export function EnrollmentList({ lessonInstanceId, canEdit = false, onStudentsLo
                     {enrollment.student?.first_name} {enrollment.student?.last_name}
                   </Text>
                   <Text variant="bodySmall" style={styles.studentDetail}>
-                    {enrollment.student?.skill_level}
+                    {enrollment.student?.skill_level === 'under_4_utr' ? 'Under 4 UTR' : enrollment.student?.skill_level === 'over_4_utr' ? 'Over 4 UTR' : enrollment.student?.skill_level}
                   </Text>
                   {enrollment.notes && (
                     <Text variant="bodySmall" style={styles.enrollmentNotes}>

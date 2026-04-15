@@ -96,17 +96,14 @@ export default function LessonTemplatesScreen() {
           <Menu.Item onPress={() => { setLessonTypeFilter('private'); setMenuVisible(false); }} title="Private" />
         </Menu>
 
-        <SegmentedButtons
-          value="list"
-          onValueChange={(v) => {
-            if (v === 'calendar') router.push('/(admin)/lessons/schedule');
-          }}
-          buttons={[
-            { value: 'list', label: 'List', icon: 'format-list-bulleted' },
-            { value: 'calendar', label: 'Calendar', icon: 'calendar' },
-          ]}
-          style={styles.viewToggle}
-        />
+        <Button
+          mode="contained-tonal"
+          icon="calendar"
+          onPress={() => router.push('/(admin)/lessons/schedule')}
+          compact
+        >
+          Schedule
+        </Button>
       </View>
       <SectionList
         sections={sections}

@@ -184,24 +184,21 @@ export function useAuth() {
         const invite = await checkPendingInvite(user.email!);
 
         if (invite) {
-          // Invite exists — auto-create with invite role
-          const { error: insertError } = await supabase
-            .from('users')
-            .insert({
-              auth_id: userId,
-              org_id: invite.org_id,
-              role: invite.role,
-              first_name: extractFirstName(user),
-              last_name: extractLastName(user),
-              email: user.email!,
-              phone: user.user_metadata?.phone ?? null,
-              is_active: true,
-            });
-          if (!insertError) {
+          // Invite exists — auto-create with invite role via RPC (bypasses RLS)
+          const { data: newProfile, error: insertError } = await supabase
+            .rpc('create_user_profile', {
+              p_auth_id: userId,
+              p_org_id: invite.org_id,
+              p_role: invite.role,
+              p_first_name: extractFirstName(user),
+              p_last_name: extractLastName(user),
+              p_email: user.email!,
+              p_is_active: true,
+            })
+            .maybeSingle();
+          if (!insertError && newProfile) {
             await acceptInvite(invite.id);
-            const { data: newProfile } = await supabase
-              .from('users').select('*').eq('auth_id', userId).maybeSingle();
-            if (newProfile?.role === 'parent') {
+            if (newProfile.role === 'parent') {
               const { data: students } = await supabase
                 .from('students')
                 .select('id')
@@ -216,27 +213,24 @@ export function useAuth() {
           }
           console.error('Error auto-creating user profile:', insertError);
         } else if (user.user_metadata?.role) {
-          // Email registration — role set in metadata
+          // Email registration — role set in metadata, use RPC (bypasses RLS)
           const selfRole = user.user_metadata.role as 'parent' | 'coach';
           const isActive = selfRole === 'coach' ? false : true;
 
-          const { error: insertError } = await supabase
-            .from('users')
-            .insert({
-              auth_id: userId,
-              org_id: DEFAULT_ORG_ID,
-              role: selfRole,
-              first_name: extractFirstName(user),
-              last_name: extractLastName(user),
-              email: user.email!,
-              phone: user.user_metadata?.phone ?? null,
-              is_active: isActive,
-            });
-          if (!insertError) {
-            const { data: newProfile } = await supabase
-              .from('users').select('*').eq('auth_id', userId).maybeSingle();
+          const { data: newProfile, error: insertError } = await supabase
+            .rpc('create_user_profile', {
+              p_auth_id: userId,
+              p_org_id: DEFAULT_ORG_ID,
+              p_role: selfRole,
+              p_first_name: extractFirstName(user),
+              p_last_name: extractLastName(user),
+              p_email: user.email!,
+              p_is_active: isActive,
+            })
+            .maybeSingle();
+          if (!insertError && newProfile) {
             setUserProfile(newProfile);
-            if (newProfile?.role === 'parent') {
+            if (newProfile.role === 'parent') {
               setNeedsOnboarding(true);
             }
             return;
@@ -327,28 +321,26 @@ export function useAuth() {
           const orgId = invite ? invite.org_id : DEFAULT_ORG_ID;
           const isActive = role === 'coach' && !invite ? false : true;
 
-          const { error: profileError } = await supabase.from('users').insert({
-            auth_id: authData.user.id,
-            org_id: orgId,
-            role,
-            first_name: metadata.firstName,
-            last_name: metadata.lastName,
-            email,
-            phone: metadata.phone ?? null,
-            is_active: isActive,
-          });
+          // Use RPC to bypass RLS (raw .insert() triggers UPSERT which needs UPDATE policies)
+          const { data: newProfile, error: profileError } = await supabase
+            .rpc('create_user_profile', {
+              p_auth_id: authData.user.id,
+              p_org_id: orgId,
+              p_role: role,
+              p_first_name: metadata.firstName,
+              p_last_name: metadata.lastName,
+              p_email: email,
+              p_is_active: isActive,
+            })
+            .maybeSingle();
 
-          // If row already exists (race with onAuthStateChange listener), that's OK
-          if (profileError && profileError.code !== '23505') {
+          if (profileError) {
             console.error('Error creating user profile:', profileError);
             throw profileError;
           }
 
           if (invite) await acceptInvite(invite.id);
 
-          // Fetch and set profile so layout routes correctly
-          const { data: newProfile } = await supabase
-            .from('users').select('*').eq('auth_id', authData.user.id).maybeSingle();
           if (newProfile) setUserProfile(newProfile);
 
           if (role === 'parent') {

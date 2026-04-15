@@ -28,7 +28,7 @@ export default function ScheduleScreen() {
   const [filterCoachId, setFilterCoachId] = useState('');
   const [filterLessonType, setFilterLessonType] = useState('all');
   const [coachMenuVisible, setCoachMenuVisible] = useState(false);
-  const [viewMode, setViewMode] = useState<'calendar' | 'list'>('calendar');
+  const [viewMode, setViewMode] = useState<'calendar' | 'list'>('list');
   const [calendarDate, setCalendarDate] = useState(todayStr());
   const [fabOpen, setFabOpen] = useState(false);
 

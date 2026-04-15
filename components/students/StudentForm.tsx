@@ -29,7 +29,7 @@ export function StudentForm({
   const [firstName, setFirstName] = useState(initialValues?.first_name ?? '');
   const [lastName, setLastName] = useState(initialValues?.last_name ?? '');
   const [dateOfBirth, setDateOfBirth] = useState(initialValues?.date_of_birth ?? '');
-  const [skillLevel, setSkillLevel] = useState<string>(initialValues?.skill_level ?? 'beginner');
+  const [skillLevel, setSkillLevel] = useState<string>(initialValues?.skill_level ?? 'under_4_utr');
   const [medicalNotes, setMedicalNotes] = useState(initialValues?.medical_notes ?? '');
   const [parentId, setParentId] = useState(initialValues?.parent_id ?? '');
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -100,7 +100,7 @@ export function StudentForm({
             contentStyle={styles.dropdownContent}
             testID="student-skill-dropdown"
           >
-            {skillLevel.charAt(0).toUpperCase() + skillLevel.slice(1)}
+            {skillLevel === 'under_4_utr' ? 'Under 4 UTR' : skillLevel === 'over_4_utr' ? 'Over 4 UTR' : skillLevel}
           </Button>
         }
       >
@@ -111,7 +111,7 @@ export function StudentForm({
               setSkillLevel(level);
               setSkillMenuVisible(false);
             }}
-            title={level.charAt(0).toUpperCase() + level.slice(1)}
+            title={level === 'under_4_utr' ? 'Under 4 UTR' : 'Over 4 UTR'}
           />
         ))}
       </Menu>
