@@ -697,6 +697,7 @@ export function useCompleteLessonWithNotification() {
       }
 
       // 5. Auto-deduct package hours for each enrolled student (dedup by student_id)
+      // Uses atomic RPC with UNIQUE(package, lesson_instance) to prevent double-deduction.
       let deductedCount = 0;
       if (instance.coach_id) {
         const hoursToDeduct = (instance.duration_minutes ?? 60) / 60;
@@ -708,8 +709,9 @@ export function useCompleteLessonWithNotification() {
           try {
             const pkg = await findActivePackage(studentId, instance.coach_id);
             if (pkg) {
-              await deductPackageHours(pkg.id, hoursToDeduct);
-              deductedCount++;
+              const result = await deductPackageHours(pkg.id, hoursToDeduct, instanceId);
+              if (result) deductedCount++;
+              // result is null if already deducted for this lesson — skip silently
             }
           } catch {}
         }

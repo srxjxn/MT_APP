@@ -156,30 +156,41 @@ export async function findActivePackage(studentId: string, coachId: string): Pro
 }
 
 /**
- * Deducts hours from a student package. Standalone async function usable outside React hooks.
+ * Deducts hours from a student package.
+ * When lessonInstanceId is provided, uses an atomic database function with a
+ * UNIQUE(package, lesson_instance) constraint to prevent double-deduction.
+ * Without lessonInstanceId, falls back to a direct update (for parent-initiated
+ * deductions that aren't tied to a specific lesson instance).
  */
-export async function deductPackageHours(packageId: string, hoursToDeduct: number) {
+export async function deductPackageHours(packageId: string, hoursToDeduct: number, lessonInstanceId?: string) {
+  if (lessonInstanceId) {
+    const { data, error } = await supabase.rpc('deduct_package_hours', {
+      p_package_id: packageId,
+      p_hours: hoursToDeduct,
+      p_lesson_instance_id: lessonInstanceId,
+    });
+    if (error) throw error;
+    return data; // null if already deducted for this lesson
+  }
+
+  // Fallback: direct update (no duplicate protection)
   const { data: current, error: fetchError } = await supabase
     .from('student_packages')
     .select('hours_used, hours_purchased')
     .eq('id', packageId)
     .single();
-
   if (fetchError) throw fetchError;
 
   const newHoursUsed = current.hours_used + hoursToDeduct;
-  const isExhausted = newHoursUsed >= current.hours_purchased;
-
   const { data, error } = await supabase
     .from('student_packages')
     .update({
       hours_used: newHoursUsed,
-      status: isExhausted ? 'exhausted' : 'active',
+      status: newHoursUsed >= current.hours_purchased ? 'exhausted' : 'active',
     })
     .eq('id', packageId)
     .select()
     .single();
-
   if (error) throw error;
   return data;
 }
@@ -191,8 +202,8 @@ export function useDeductPackageHours() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ packageId, hoursToDeduct }: { packageId: string; hoursToDeduct: number }) => {
-      return deductPackageHours(packageId, hoursToDeduct);
+    mutationFn: async ({ packageId, hoursToDeduct, lessonInstanceId }: { packageId: string; hoursToDeduct: number; lessonInstanceId?: string }) => {
+      return deductPackageHours(packageId, hoursToDeduct, lessonInstanceId);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: studentPackageKeys.all });

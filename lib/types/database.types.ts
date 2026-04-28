@@ -988,6 +988,45 @@ export type Database = {
           },
         ]
       }
+      package_deductions: {
+        Row: {
+          created_at: string
+          hours_deducted: number
+          id: string
+          lesson_instance_id: string
+          student_package_id: string
+        }
+        Insert: {
+          created_at?: string
+          hours_deducted: number
+          id?: string
+          lesson_instance_id: string
+          student_package_id: string
+        }
+        Update: {
+          created_at?: string
+          hours_deducted?: number
+          id?: string
+          lesson_instance_id?: string
+          student_package_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "package_deductions_lesson_instance_id_fkey"
+            columns: ["lesson_instance_id"]
+            isOneToOne: false
+            referencedRelation: "lesson_instances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "package_deductions_student_package_id_fkey"
+            columns: ["student_package_id"]
+            isOneToOne: false
+            referencedRelation: "student_packages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       student_packages: {
         Row: {
           billed_at: string | null
@@ -1293,6 +1332,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      deduct_package_hours: {
+        Args: {
+          p_package_id: string
+          p_hours: number
+          p_lesson_instance_id: string
+        }
+        Returns: Json
+      }
       create_user_profile: {
         Args: {
           p_auth_id: string

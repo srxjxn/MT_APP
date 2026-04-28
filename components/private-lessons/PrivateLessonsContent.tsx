@@ -118,8 +118,8 @@ export function PrivateLessonsContent() {
     if (!pkg) return;
 
     try {
-      // Deduct 1 hour from package
-      await deductHours.mutateAsync({ packageId: pkg.id, hoursToDeduct: 1 });
+      // Deduct 1 hour from package (atomic RPC prevents double-deduction when lesson instance exists)
+      await deductHours.mutateAsync({ packageId: pkg.id, hoursToDeduct: 1, lessonInstanceId: request.lesson_instance_id ?? undefined });
 
       // Record as a "paid" request (package deduction, no actual payment)
       const payment = await recordExternal.mutateAsync({
