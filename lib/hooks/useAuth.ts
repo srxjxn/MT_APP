@@ -211,7 +211,10 @@ export function useAuth() {
             setUserProfile(newProfile);
             return;
           }
-          console.error('Error auto-creating user profile:', insertError);
+          console.error('Error auto-creating user profile (invite):', insertError);
+          await supabase.auth.signOut();
+          reset();
+          return;
         } else if (user.user_metadata?.role) {
           // Email registration — role set in metadata, use RPC (bypasses RLS)
           const selfRole = user.user_metadata.role as 'parent' | 'coach';
@@ -235,7 +238,10 @@ export function useAuth() {
             }
             return;
           }
-          console.error('Error auto-creating user profile:', insertError);
+          console.error('Error auto-creating user profile (email):', insertError);
+          await supabase.auth.signOut();
+          reset();
+          return;
         } else {
           // Social sign-in, no invite, no role metadata — need role selection
           setNeedsRoleSelection(true);
@@ -243,12 +249,13 @@ export function useAuth() {
           return;
         }
 
-        setUserProfile(null);
-        return;
       }
 
       if (error) {
         console.error('Error fetching user profile:', error);
+        await supabase.auth.signOut();
+        reset();
+        return;
       }
       if (data?.role === 'parent') {
         const { data: students } = await supabase
@@ -352,6 +359,7 @@ export function useAuth() {
         }
         // If no session (email confirmation on), fetchUserProfile will
         // auto-create the profile from auth metadata after confirmation.
+        setIsLoading(false);
         return { hasSession: false };
       } finally {
         useAuthStore.getState().setIsCreatingProfile(false);
@@ -431,8 +439,9 @@ export function useAuth() {
         }
       }
     } catch (err) {
-      setIsLoading(false);
       throw err;
+    } finally {
+      setIsLoading(false);
     }
   }, []);
 

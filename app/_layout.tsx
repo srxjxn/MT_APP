@@ -13,7 +13,7 @@ import { useUIStore } from '@/lib/stores/uiStore';
 SplashScreen.preventAutoHideAsync();
 
 function RootLayoutNav() {
-  const { isLoading, isAuthenticated, userRole, userProfile, needsRoleSelection, needsOnboarding } = useAuth();
+  const { isLoading, isAuthenticated, userRole, userProfile, needsRoleSelection, needsOnboarding, signOut } = useAuth();
   const segments = useSegments();
   const router = useRouter();
   const { snackbar, hideSnackbar } = useUIStore();
@@ -57,6 +57,10 @@ function RootLayoutNav() {
       if ((segments as string[])[1] !== 'pending-approval') {
         router.replace('/(auth)/pending-approval');
       }
+    } else if (isAuthenticated && !userProfile && !needsRoleSelection) {
+      // Authenticated but no profile and not awaiting role selection — sign out
+      // so the user lands on login and can retry cleanly
+      signOut();
     } else if (isAuthenticated && inAuthGroup && userProfile) {
       // Route based on role
       switch (userRole) {
