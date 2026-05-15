@@ -396,14 +396,17 @@ export function useAuth() {
             },
           });
         }
+        // Success — onAuthStateChange → fetchUserProfile will clear isLoading
+        return;
       }
+      // No identity token — clear loading
+      setIsLoading(false);
     } catch (err: unknown) {
+      setIsLoading(false);
       const error = err as { code?: string };
       if (error.code !== 'ERR_REQUEST_CANCELED') {
         throw err;
       }
-    } finally {
-      setIsLoading(false);
     }
   }, []);
 
@@ -435,13 +438,16 @@ export function useAuth() {
               access_token: accessToken,
               refresh_token: refreshToken,
             });
+            // Success — onAuthStateChange → fetchUserProfile will clear isLoading
+            return;
           }
         }
       }
-    } catch (err) {
-      throw err;
-    } finally {
+      // Sign-in didn't complete (user canceled, no tokens, etc.) — clear loading
       setIsLoading(false);
+    } catch (err) {
+      setIsLoading(false);
+      throw err;
     }
   }, []);
 
