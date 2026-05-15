@@ -157,10 +157,15 @@ export function useAuth() {
   const fetchUserProfile = async (userId: string) => {
     if (fetchInFlight) return;
     fetchInFlight = true;
+    let shouldClearLoading = true;
     try {
       // Skip if createSocialProfile is in progress (prevents race condition
-      // where this overwrites state with null before the insert completes)
-      if (useAuthStore.getState().isCreatingProfile) return;
+      // where this overwrites state with null before the insert completes).
+      // Don't clear isLoading — the profile creation flow will handle it.
+      if (useAuthStore.getState().isCreatingProfile) {
+        shouldClearLoading = false;
+        return;
+      }
 
       // Skip if profile already loaded (prevents race with createSocialProfile)
       const currentProfile = useAuthStore.getState().userProfile;
@@ -272,7 +277,7 @@ export function useAuth() {
       console.error('Error fetching user profile:', err);
     } finally {
       fetchInFlight = false;
-      setIsLoading(false);
+      if (shouldClearLoading) setIsLoading(false);
     }
   };
 
@@ -363,6 +368,7 @@ export function useAuth() {
         return { hasSession: false };
       } finally {
         useAuthStore.getState().setIsCreatingProfile(false);
+        setIsLoading(false);
       }
     },
     []
