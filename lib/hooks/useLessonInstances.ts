@@ -700,7 +700,7 @@ export function useCompleteLessonWithNotification() {
       // Uses atomic RPC with UNIQUE(package, lesson_instance) to prevent double-deduction.
       let deductedCount = 0;
       if (instance.coach_id) {
-        const hoursToDeduct = (instance.duration_minutes ?? 60) / 60;
+        const hoursToDeduct = Math.round(((instance.duration_minutes ?? 60) / 60) * 100) / 100;
         const deductedStudents = new Set<string>();
         for (const e of (enrollments ?? []) as any[]) {
           const studentId = e.student_id;
@@ -713,7 +713,9 @@ export function useCompleteLessonWithNotification() {
               if (result) deductedCount++;
               // result is null if already deducted for this lesson — skip silently
             }
-          } catch {}
+          } catch (err) {
+            console.error('Auto-deduct failed for student', studentId, err);
+          }
         }
       }
 

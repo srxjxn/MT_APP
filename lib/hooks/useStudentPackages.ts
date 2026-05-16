@@ -173,24 +173,13 @@ export async function deductPackageHours(packageId: string, hoursToDeduct: numbe
     return data; // null if already deducted for this lesson
   }
 
-  // Fallback: direct update (no duplicate protection)
-  const { data: current, error: fetchError } = await supabase
-    .from('student_packages')
-    .select('hours_used, hours_purchased')
-    .eq('id', packageId)
-    .single();
-  if (fetchError) throw fetchError;
-
-  const newHoursUsed = current.hours_used + hoursToDeduct;
-  const { data, error } = await supabase
-    .from('student_packages')
-    .update({
-      hours_used: newHoursUsed,
-      status: newHoursUsed >= current.hours_purchased ? 'exhausted' : 'active',
-    })
-    .eq('id', packageId)
-    .select()
-    .single();
+  // Fallback: atomic server-side update (no lesson instance to track, but at least
+  // uses server-side arithmetic to avoid read-then-write race conditions)
+  console.warn('deductPackageHours: using fallback path without lessonInstanceId for package', packageId);
+  const { data, error } = await supabase.rpc('deduct_package_hours_manual', {
+    p_package_id: packageId,
+    p_hours: hoursToDeduct,
+  });
   if (error) throw error;
   return data;
 }
