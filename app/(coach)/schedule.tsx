@@ -34,6 +34,7 @@ export default function CoachSchedule() {
   const [showNoteForm, setShowNoteForm] = useState(false);
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
   const [enrolledStudents, setEnrolledStudents] = useState<{ id: string; name: string }[]>([]);
+  const [noShowStudentIds, setNoShowStudentIds] = useState<string[]>([]);
   const [selectedVirtual, setSelectedVirtual] = useState<LessonInstanceWithJoins | null>(null);
   const updateInstance = useUpdateLessonInstance();
   const completeLesson = useCompleteLessonWithNotification();
@@ -68,9 +69,12 @@ export default function CoachSchedule() {
     if (!selectedInstance || completingRef.current) return;
     completingRef.current = true;
     try {
-      const result = await completeLesson.mutateAsync(selectedInstance.id);
+      const result = await completeLesson.mutateAsync({
+        instanceId: selectedInstance.id,
+        noShowStudentIds,
+      });
       showSnackbar(
-        `Lesson completed. ${result.notifiedCount} parent${result.notifiedCount !== 1 ? 's' : ''} notified.`,
+        `Lesson confirmed. ${result.notifiedCount} parent${result.notifiedCount !== 1 ? 's' : ''} notified.`,
         'success'
       );
       setShowCompleteDialog(false);
@@ -258,6 +262,7 @@ export default function CoachSchedule() {
                 lessonInstanceId={selectedInstance.id}
                 canEdit
                 onStudentsLoaded={setEnrolledStudents}
+                onNoShowChange={setNoShowStudentIds}
                 testID="coach-enrollment-list"
               />
 
@@ -307,7 +312,7 @@ export default function CoachSchedule() {
                   disabled={completeLesson.isPending}
                   testID="coach-mark-complete-button"
                 >
-                  Mark Complete
+                  Confirm lesson
                 </Button>
               )}
 
@@ -398,9 +403,9 @@ export default function CoachSchedule() {
 
         <ConfirmDialog
           visible={showCompleteDialog}
-          title="Mark Lesson Complete"
-          message="Mark this lesson as completed? Parents will be notified."
-          confirmLabel="Mark Complete"
+          title="Confirm Lesson"
+          message="Confirm this lesson happened? Parents are notified and package hours are deducted for students who attended (no-shows are skipped)."
+          confirmLabel="Confirm lesson"
           loading={completeLesson.isPending}
           onConfirm={handleMarkComplete}
           onCancel={() => setShowCompleteDialog(false)}

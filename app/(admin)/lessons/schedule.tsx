@@ -84,7 +84,7 @@ export default function ScheduleScreen() {
   const handleBulkComplete = async () => {
     try {
       const result = await bulkComplete.mutateAsync({ beforeDate: today });
-      showSnackbar(`Marked ${result?.length ?? 0} past lesson(s) as completed`, 'success');
+      showSnackbar(`Confirmed ${result.completedCount} past lesson(s)`, 'success');
     } catch (err: any) {
       showSnackbar(err.message ?? 'Failed to complete lessons', 'error');
     }

@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet } from 'react-native';
-import { Card, Text, Checkbox, Button, IconButton } from 'react-native-paper';
+import { View, StyleSheet, Pressable } from 'react-native';
+import { Card, Text, Checkbox, IconButton } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useEnrollments, useMarkAttendance, useDropStudent, usePromoteFromWaitlist, EnrollmentWithStudent } from '@/lib/hooks/useEnrollments';
+import { useEnrollments, useDropStudent, usePromoteFromWaitlist } from '@/lib/hooks/useEnrollments';
 import { StatusBadge } from '@/components/ui';
 import { useUIStore } from '@/lib/stores/uiStore';
 import { COLORS, SPACING } from '@/constants/theme';
@@ -11,62 +11,65 @@ interface EnrollmentListProps {
   lessonInstanceId: string;
   canEdit?: boolean;
   onStudentsLoaded?: (students: { id: string; name: string }[]) => void;
+  /** Emits the set of no-show student ids whenever the coach/admin toggles attendance. */
+  onNoShowChange?: (noShowStudentIds: string[]) => void;
   testID?: string;
 }
 
-export function EnrollmentList({ lessonInstanceId, canEdit = false, onStudentsLoaded, testID }: EnrollmentListProps) {
+export function EnrollmentList({
+  lessonInstanceId,
+  canEdit = false,
+  onStudentsLoaded,
+  onNoShowChange,
+  testID,
+}: EnrollmentListProps) {
   const { data: enrollments } = useEnrollments(lessonInstanceId);
-  const markAttendance = useMarkAttendance();
   const dropStudent = useDropStudent();
   const promoteFromWaitlist = usePromoteFromWaitlist();
   const showSnackbar = useUIStore((s) => s.showSnackbar);
-  const [attendance, setAttendance] = useState<Record<string, boolean>>({});
+  // Keyed by student_id. true = marked no-show (won't be charged a package hour).
+  const [noShow, setNoShow] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
-    if (enrollments) {
-      const initial: Record<string, boolean> = {};
-      enrollments.forEach((e) => {
-        if (e.status === 'enrolled') {
-          initial[e.id] = e.attended ?? false;
-        }
-      });
-      setAttendance(initial);
-      if (onStudentsLoaded) {
-        const students = enrollments
-          .filter((e) => e.status === 'enrolled' && e.student)
-          .map((e) => ({
-            id: e.student_id,
-            name: `${e.student?.first_name ?? ''} ${e.student?.last_name ?? ''}`.trim(),
-          }));
-        onStudentsLoaded(students);
-      }
+    if (!enrollments) return;
+    const initial: Record<string, boolean> = {};
+    enrollments.forEach((e) => {
+      if (e.status === 'enrolled') initial[e.student_id] = e.attended === false;
+    });
+    setNoShow(initial);
+    onNoShowChange?.(Object.keys(initial).filter((id) => initial[id]));
+    if (onStudentsLoaded) {
+      const students = enrollments
+        .filter((e) => e.status === 'enrolled' && e.student)
+        .map((e) => ({
+          id: e.student_id,
+          name: `${e.student?.first_name ?? ''} ${e.student?.last_name ?? ''}`.trim(),
+        }));
+      onStudentsLoaded(students);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enrollments]);
 
   const enrolledList = enrollments?.filter((e) => e.status === 'enrolled') ?? [];
   const waitlistedList = enrollments?.filter((e) => e.status === 'waitlisted') ?? [];
 
-  const handleSaveAttendance = async () => {
-    const updates = Object.entries(attendance).map(([id, attended]) => ({ id, attended }));
-    try {
-      await markAttendance.mutateAsync(updates);
-      showSnackbar('Attendance saved', 'success');
-    } catch (err: any) {
-      showSnackbar(err.message ?? 'Failed to save attendance', 'error');
-    }
+  const toggleNoShow = (studentId: string) => {
+    setNoShow((prev) => {
+      const next = { ...prev, [studentId]: !prev[studentId] };
+      onNoShowChange?.(Object.keys(next).filter((id) => next[id]));
+      return next;
+    });
   };
 
   const handleDrop = async (enrollmentId: string, wasEnrolled: boolean) => {
     try {
       await dropStudent.mutateAsync(enrollmentId);
-      // If an enrolled student was dropped, promote from waitlist
       if (wasEnrolled) {
         const promoted = await promoteFromWaitlist.mutateAsync(lessonInstanceId);
-        if (promoted) {
-          showSnackbar('Student dropped. Waitlisted student promoted.', 'success');
-        } else {
-          showSnackbar('Student dropped from lesson', 'success');
-        }
+        showSnackbar(
+          promoted ? 'Student dropped. Waitlisted student promoted.' : 'Student dropped from lesson',
+          'success',
+        );
       } else {
         showSnackbar('Student removed from waitlist', 'success');
       }
@@ -85,61 +88,52 @@ export function EnrollmentList({ lessonInstanceId, canEdit = false, onStudentsLo
 
   return (
     <View testID={testID}>
-      {enrolledList.length > 0 && (
-        <>
-          {enrolledList.map((enrollment) => (
-            <Card key={enrollment.id} style={styles.card}>
-              <Card.Content style={styles.row}>
-                {canEdit && (
-                  <Checkbox
-                    status={attendance[enrollment.id] ? 'checked' : 'unchecked'}
-                    onPress={() =>
-                      setAttendance((prev) => ({
-                        ...prev,
-                        [enrollment.id]: !prev[enrollment.id],
-                      }))
-                    }
-                    color={COLORS.primary}
-                    testID={`attendance-${enrollment.id}`}
-                  />
-                )}
-                <View style={styles.studentInfo}>
-                  <Text variant="bodyLarge" style={styles.studentName}>
-                    {enrollment.student?.first_name} {enrollment.student?.last_name}
-                  </Text>
-                  <Text variant="bodySmall" style={styles.studentDetail}>
-                    {enrollment.student?.skill_level === 'under_4_utr' ? 'Under 4 UTR' : enrollment.student?.skill_level === 'over_4_utr' ? 'Over 4 UTR' : enrollment.student?.skill_level}
-                  </Text>
-                  {enrollment.notes && (
-                    <Text variant="bodySmall" style={styles.enrollmentNotes}>
-                      {enrollment.notes}
-                    </Text>
-                  )}
-                </View>
-                {canEdit && (
-                  <IconButton
-                    icon="close"
-                    size={20}
-                    onPress={() => handleDrop(enrollment.id, true)}
-                    testID={`drop-${enrollment.id}`}
-                  />
-                )}
-              </Card.Content>
-            </Card>
-          ))}
-          {canEdit && (
-            <Button
-              mode="contained"
-              onPress={handleSaveAttendance}
-              loading={markAttendance.isPending}
-              style={styles.saveButton}
-              testID="save-attendance"
-            >
-              Save Attendance
-            </Button>
-          )}
-        </>
-      )}
+      {enrolledList.map((enrollment) => (
+        <Card key={enrollment.id} style={styles.card}>
+          <Card.Content style={styles.row}>
+            <View style={styles.studentInfo}>
+              <Text variant="bodyLarge" style={styles.studentName}>
+                {enrollment.student?.first_name} {enrollment.student?.last_name}
+              </Text>
+              <Text variant="bodySmall" style={styles.studentDetail}>
+                {enrollment.student?.skill_level === 'under_4_utr'
+                  ? 'Under 4 UTR'
+                  : enrollment.student?.skill_level === 'over_4_utr'
+                    ? 'Over 4 UTR'
+                    : enrollment.student?.skill_level}
+              </Text>
+              {enrollment.notes && (
+                <Text variant="bodySmall" style={styles.enrollmentNotes}>
+                  {enrollment.notes}
+                </Text>
+              )}
+            </View>
+            {canEdit && (
+              <Pressable
+                style={styles.noShowToggle}
+                onPress={() => toggleNoShow(enrollment.student_id)}
+                testID={`noshow-${enrollment.student_id}`}
+              >
+                <Checkbox
+                  status={noShow[enrollment.student_id] ? 'checked' : 'unchecked'}
+                  color={COLORS.warning}
+                />
+                <Text variant="bodySmall" style={styles.noShowLabel}>
+                  No-show
+                </Text>
+              </Pressable>
+            )}
+            {canEdit && (
+              <IconButton
+                icon="close"
+                size={20}
+                onPress={() => handleDrop(enrollment.id, true)}
+                testID={`drop-${enrollment.id}`}
+              />
+            )}
+          </Card.Content>
+        </Card>
+      ))}
 
       {waitlistedList.length > 0 && (
         <>
@@ -206,8 +200,12 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
     marginTop: 2,
   },
-  saveButton: {
-    marginTop: SPACING.md,
+  noShowToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  noShowLabel: {
+    color: COLORS.textSecondary,
   },
   waitlistHeader: {
     color: COLORS.textPrimary,

@@ -841,6 +841,45 @@ export type Database = {
           },
         ]
       }
+      package_deductions: {
+        Row: {
+          created_at: string
+          hours_deducted: number
+          id: string
+          lesson_instance_id: string
+          student_package_id: string
+        }
+        Insert: {
+          created_at?: string
+          hours_deducted: number
+          id?: string
+          lesson_instance_id: string
+          student_package_id: string
+        }
+        Update: {
+          created_at?: string
+          hours_deducted?: number
+          id?: string
+          lesson_instance_id?: string
+          student_package_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "package_deductions_lesson_instance_id_fkey"
+            columns: ["lesson_instance_id"]
+            isOneToOne: false
+            referencedRelation: "lesson_instances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "package_deductions_student_package_id_fkey"
+            columns: ["student_package_id"]
+            isOneToOne: false
+            referencedRelation: "student_packages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       payments: {
         Row: {
           amount_cents: number
@@ -984,45 +1023,6 @@ export type Database = {
             columns: ["student_id"]
             isOneToOne: false
             referencedRelation: "students"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      package_deductions: {
-        Row: {
-          created_at: string
-          hours_deducted: number
-          id: string
-          lesson_instance_id: string
-          student_package_id: string
-        }
-        Insert: {
-          created_at?: string
-          hours_deducted: number
-          id?: string
-          lesson_instance_id: string
-          student_package_id: string
-        }
-        Update: {
-          created_at?: string
-          hours_deducted?: number
-          id?: string
-          lesson_instance_id?: string
-          student_package_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "package_deductions_lesson_instance_id_fkey"
-            columns: ["lesson_instance_id"]
-            isOneToOne: false
-            referencedRelation: "lesson_instances"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "package_deductions_student_package_id_fkey"
-            columns: ["student_package_id"]
-            isOneToOne: false
-            referencedRelation: "student_packages"
             referencedColumns: ["id"]
           },
         ]
@@ -1332,14 +1332,6 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      deduct_package_hours: {
-        Args: {
-          p_package_id: string
-          p_hours: number
-          p_lesson_instance_id: string
-        }
-        Returns: Json
-      }
       create_user_profile: {
         Args: {
           p_auth_id: string
@@ -1375,6 +1367,33 @@ export type Database = {
           isOneToOne: false
           isSetofReturn: true
         }
+      }
+      deduct_package_hours: {
+        Args: {
+          p_hours: number
+          p_lesson_instance_id: string
+          p_package_id: string
+        }
+        Returns: Json
+      }
+      deduct_package_hours_manual: {
+        Args: { p_hours: number; p_package_id: string }
+        Returns: Json
+      }
+      get_payroll_period: {
+        Args: { p_end: string; p_org_id: string; p_start: string }
+        Returns: {
+          coach_id: string
+          existing_payout_id: string
+          existing_payout_status: Database["public"]["Enums"]["payout_status"]
+          first_name: string
+          group_hours: number
+          group_rate_cents: number
+          last_name: string
+          lesson_count: number
+          private_hours: number
+          private_rate_cents: number
+        }[]
       }
       get_user_id: { Args: never; Returns: string }
       get_user_org_id: { Args: never; Returns: string }

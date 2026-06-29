@@ -458,27 +458,60 @@ export function useUncompletedPastLessons(coachId: string, periodEnd: string) {
   });
 }
 
+export interface BulkCompleteResult {
+  completedCount: number;
+  deductedCount: number;
+  failedDeductions: number;
+}
+
 export function useBulkCompletePastLessons() {
   const queryClient = useQueryClient();
+  const userProfile = useAuthStore((s) => s.userProfile);
+  const orgId = useAuthStore((s) => s.userProfile?.org_id);
 
   return useMutation({
-    mutationFn: async ({ beforeDate, coachId }: { beforeDate: string; coachId?: string }) => {
+    mutationFn: async ({
+      beforeDate,
+      coachId,
+    }: {
+      beforeDate: string;
+      coachId?: string;
+    }): Promise<BulkCompleteResult> => {
+      // Find the scheduled past lessons to confirm.
       let query = supabase
         .from('lesson_instances')
-        .update({ status: 'completed' as const })
+        .select('id')
         .eq('status', 'scheduled')
         .lte('date', beforeDate);
-
       if (coachId) {
         query = query.eq('coach_id', coachId);
       }
-
-      const { data, error } = await query.select();
+      const { data: rows, error } = await query;
       if (error) throw error;
-      return data;
+
+      // Confirm each through the same helper. Bulk can't capture no-shows, so everyone is
+      // treated as present (deducted) — consistent with single-lesson confirmation.
+      const coachName = userProfile ? `${userProfile.first_name} ${userProfile.last_name}` : 'Your coach';
+      let completedCount = 0;
+      let deductedCount = 0;
+      let failedDeductions = 0;
+      for (const row of rows ?? []) {
+        const r = await completeLessonInstance({
+          instanceId: row.id,
+          noShowStudentIds: [],
+          coachName,
+          orgId: orgId!,
+        });
+        if (!r.alreadyCompleted) completedCount++;
+        deductedCount += r.deductedCount;
+        failedDeductions += r.failedDeductions;
+      }
+      return { completedCount, deductedCount, failedDeductions };
     },
-    onSuccess: () => {
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: instanceKeys.all });
+      queryClient.invalidateQueries({ queryKey: studentPackageKeys.all });
+      queryClient.invalidateQueries({ queryKey: ['coach_student_packages'] });
     },
   });
 }
@@ -634,94 +667,151 @@ export function useCoachLessonHistory() {
   });
 }
 
+export interface CompleteLessonResult {
+  alreadyCompleted: boolean;
+  notifiedCount: number;
+  deductedCount: number;
+  failedDeductions: number;
+}
+
+/**
+ * The single source of truth for confirming a lesson. Always, in order:
+ *   1. Marks the lesson completed (idempotent — only if currently 'scheduled').
+ *   2. Records attendance (no-show students => attended=false, the rest => true).
+ *   3. Notifies each enrolled student's parent.
+ *   4. Deducts package hours for ATTENDING students only (no-shows are not charged).
+ * Deduction failures are collected and reported (the lesson stays completed) instead of
+ * being silently swallowed. Every confirmation path (coach, admin, bulk) routes through here.
+ */
+export async function completeLessonInstance({
+  instanceId,
+  noShowStudentIds = [],
+  coachName,
+  orgId,
+}: {
+  instanceId: string;
+  noShowStudentIds?: string[];
+  coachName: string;
+  orgId: string;
+}): Promise<CompleteLessonResult> {
+  // 1. Idempotent complete (guard prevents double-processing on re-tap / admin backfill)
+  const { data: updated, error: updateError } = await supabase
+    .from('lesson_instances')
+    .update({ status: 'completed' as const })
+    .eq('id', instanceId)
+    .eq('status', 'scheduled')
+    .select('id')
+    .maybeSingle();
+  if (updateError) throw updateError;
+  if (!updated) {
+    return { alreadyCompleted: true, notifiedCount: 0, deductedCount: 0, failedDeductions: 0 };
+  }
+
+  // 2. Instance details (duration + coach for deduction)
+  const { data: instance, error: instError } = await supabase
+    .from('lesson_instances')
+    .select('name, date, duration_minutes, coach_id')
+    .eq('id', instanceId)
+    .single();
+  if (instError) throw instError;
+
+  // 3. Enrolled roster (enrollment id + student + parent)
+  const { data: enrollments, error: enrollError } = await supabase
+    .from('enrollments')
+    .select('id, student_id, student:students!enrollments_student_id_fkey(first_name, last_name, parent_id)')
+    .eq('lesson_instance_id', instanceId)
+    .eq('status', 'enrolled');
+  if (enrollError) throw enrollError;
+
+  const roster = (enrollments ?? []) as any[];
+  const noShowSet = new Set(noShowStudentIds);
+
+  // 3b. Persist attendance: no-show => false, everyone else => true
+  for (const e of roster) {
+    if (!e.id) continue;
+    try {
+      await supabase
+        .from('enrollments')
+        .update({ attended: !noShowSet.has(e.student_id) })
+        .eq('id', e.id);
+    } catch {}
+  }
+
+  // 4. Notify each unique parent
+  const parentNotifications = new Map<string, string[]>();
+  for (const e of roster) {
+    if (!e.student?.parent_id) continue;
+    const studentName = `${e.student.first_name} ${e.student.last_name}`;
+    const existing = parentNotifications.get(e.student.parent_id) ?? [];
+    existing.push(studentName);
+    parentNotifications.set(e.student.parent_id, existing);
+  }
+  for (const [parentId, studentNames] of parentNotifications) {
+    try {
+      await supabase.from('notifications').insert({
+        org_id: orgId,
+        user_id: parentId,
+        title: 'Lesson Completed',
+        body: `Coach ${coachName} completed a lesson with ${studentNames.join(', ')} on ${instance.date}.`,
+      });
+    } catch {}
+  }
+
+  // 5. Deduct package hours for ATTENDING students only (dedup by student_id).
+  // Uses the idempotent deduct_package_hours RPC keyed by lesson instance, so a lesson
+  // can never be double-charged even on re-confirm (preserves the prior double-deduction fix).
+  let deductedCount = 0;
+  let failedDeductions = 0;
+  if (instance.coach_id) {
+    const hoursToDeduct = Math.round(((instance.duration_minutes ?? 60) / 60) * 100) / 100;
+    const seen = new Set<string>();
+    for (const e of roster) {
+      const studentId = e.student_id;
+      if (!studentId || seen.has(studentId)) continue;
+      seen.add(studentId);
+      if (noShowSet.has(studentId)) continue; // no-show: not charged
+      try {
+        const pkg = await findActivePackage(studentId, instance.coach_id);
+        if (pkg) {
+          const result = await deductPackageHours(pkg.id, hoursToDeduct, instanceId);
+          if (result) deductedCount++;
+          // result is null if already deducted for this lesson — skip silently
+        }
+      } catch (err) {
+        console.error('Auto-deduct failed for student', studentId, err);
+        failedDeductions++;
+      }
+    }
+  }
+
+  return { alreadyCompleted: false, notifiedCount: parentNotifications.size, deductedCount, failedDeductions };
+}
+
 export function useCompleteLessonWithNotification() {
   const queryClient = useQueryClient();
   const userProfile = useAuthStore((s) => s.userProfile);
   const orgId = useAuthStore((s) => s.userProfile?.org_id);
 
   return useMutation({
-    mutationFn: async (instanceId: string) => {
-      // 1. Mark as completed (only if currently scheduled — prevents double-deduction)
-      const { data: updated, error: updateError } = await supabase
-        .from('lesson_instances')
-        .update({ status: 'completed' as const })
-        .eq('id', instanceId)
-        .eq('status', 'scheduled')
-        .select('id')
-        .maybeSingle();
-      if (updateError) throw updateError;
-      if (!updated) {
-        // Already completed (or cancelled) — skip deduction entirely
-        return { notifiedCount: 0, deductedCount: 0 };
-      }
-
-      // 2. Fetch instance details (include duration + coach for package deduction)
-      const { data: instance, error: instError } = await supabase
-        .from('lesson_instances')
-        .select('name, date, duration_minutes, coach_id')
-        .eq('id', instanceId)
-        .single();
-      if (instError) throw instError;
-
-      // 3. Fetch enrollments with student + parent info
-      const { data: enrollments, error: enrollError } = await supabase
-        .from('enrollments')
-        .select('student_id, student:students!enrollments_student_id_fkey(first_name, last_name, parent_id)')
-        .eq('lesson_instance_id', instanceId)
-        .eq('status', 'enrolled');
-      if (enrollError) throw enrollError;
-
-      // 4. Create notifications for each unique parent
+    mutationFn: async ({
+      instanceId,
+      noShowStudentIds,
+    }: {
+      instanceId: string;
+      noShowStudentIds?: string[];
+    }) => {
       const coachName = userProfile ? `${userProfile.first_name} ${userProfile.last_name}` : 'Your coach';
-      const parentNotifications = new Map<string, string[]>();
-
-      for (const e of (enrollments ?? []) as any[]) {
-        if (!e.student?.parent_id) continue;
-        const parentId = e.student.parent_id;
-        const studentName = `${e.student.first_name} ${e.student.last_name}`;
-        const existing = parentNotifications.get(parentId) ?? [];
-        existing.push(studentName);
-        parentNotifications.set(parentId, existing);
+      const result = await completeLessonInstance({ instanceId, noShowStudentIds, coachName, orgId: orgId! });
+      if (result.failedDeductions > 0) {
+        // Lesson is confirmed, but surface the deduction problem instead of hiding it.
+        throw new Error(
+          `Lesson confirmed, but ${result.failedDeductions} package deduction(s) failed. Check the student's package.`,
+        );
       }
-
-      for (const [parentId, studentNames] of parentNotifications) {
-        const studentsStr = studentNames.join(', ');
-        try {
-          await supabase.from('notifications').insert({
-            org_id: orgId!,
-            user_id: parentId,
-            title: 'Lesson Completed',
-            body: `Coach ${coachName} completed a lesson with ${studentsStr} on ${instance.date}.`,
-          });
-        } catch {}
-      }
-
-      // 5. Auto-deduct package hours for each enrolled student (dedup by student_id)
-      // Uses atomic RPC with UNIQUE(package, lesson_instance) to prevent double-deduction.
-      let deductedCount = 0;
-      if (instance.coach_id) {
-        const hoursToDeduct = Math.round(((instance.duration_minutes ?? 60) / 60) * 100) / 100;
-        const deductedStudents = new Set<string>();
-        for (const e of (enrollments ?? []) as any[]) {
-          const studentId = e.student_id;
-          if (!studentId || deductedStudents.has(studentId)) continue;
-          deductedStudents.add(studentId);
-          try {
-            const pkg = await findActivePackage(studentId, instance.coach_id);
-            if (pkg) {
-              const result = await deductPackageHours(pkg.id, hoursToDeduct, instanceId);
-              if (result) deductedCount++;
-              // result is null if already deducted for this lesson — skip silently
-            }
-          } catch (err) {
-            console.error('Auto-deduct failed for student', studentId, err);
-          }
-        }
-      }
-
-      return { notifiedCount: parentNotifications.size, deductedCount };
+      return result;
     },
-    onSuccess: () => {
+    // onSettled (not onSuccess) so the cache refreshes even when we throw the deduction warning.
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: instanceKeys.all });
       queryClient.invalidateQueries({ queryKey: studentPackageKeys.all });
       queryClient.invalidateQueries({ queryKey: ['coach_student_packages'] });

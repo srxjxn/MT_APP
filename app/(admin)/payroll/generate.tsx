@@ -118,8 +118,8 @@ export default function GeneratePayrollScreen() {
   const handleCompleteOne = async (instanceId: string) => {
     setCompletingId(instanceId);
     try {
-      await completeLesson.mutateAsync(instanceId);
-      showSnackbar('Lesson marked as completed', 'success');
+      await completeLesson.mutateAsync({ instanceId });
+      showSnackbar('Lesson confirmed', 'success');
       queryClient.invalidateQueries({ queryKey: ['coach_payouts', 'worklog'] });
     } catch (err: any) {
       showSnackbar(err.message ?? 'Failed to complete lesson', 'error');
@@ -135,7 +135,7 @@ export default function GeneratePayrollScreen() {
         beforeDate: periodEnd,
         coachId: selectedCoach.id,
       });
-      showSnackbar(`Marked ${result?.length ?? 0} lesson(s) as completed`, 'success');
+      showSnackbar(`Confirmed ${result.completedCount} lesson(s)`, 'success');
       queryClient.invalidateQueries({ queryKey: ['coach_payouts', 'worklog'] });
     } catch (err: any) {
       showSnackbar(err.message ?? 'Failed to complete lessons', 'error');

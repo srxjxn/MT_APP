@@ -18,9 +18,9 @@ export default function CoachLessonHistoryScreen() {
     if (!completeId || completingRef.current) return;
     completingRef.current = true;
     try {
-      const result = await completeLesson.mutateAsync(completeId);
+      const result = await completeLesson.mutateAsync({ instanceId: completeId });
       showSnackbar(
-        `Lesson completed. ${result.notifiedCount} parent${result.notifiedCount !== 1 ? 's' : ''} notified.`,
+        `Lesson confirmed. ${result.notifiedCount} parent${result.notifiedCount !== 1 ? 's' : ''} notified.`,
         'success'
       );
       setCompleteId(null);

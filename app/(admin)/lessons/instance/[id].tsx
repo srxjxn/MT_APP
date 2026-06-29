@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { ScrollView, View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Card, Text, Button, Chip, Menu, Portal, Dialog, Modal, ProgressBar } from 'react-native-paper';
 import { useLocalSearchParams, router } from 'expo-router';
-import { useLessonInstance, useUpdateLessonInstance, useDeleteLessonInstance, useAdditionalCoaches, useAddAdditionalCoach, useRemoveAdditionalCoach } from '@/lib/hooks/useLessonInstances';
+import { useLessonInstance, useUpdateLessonInstance, useDeleteLessonInstance, useAdditionalCoaches, useAddAdditionalCoach, useRemoveAdditionalCoach, useCompleteLessonWithNotification } from '@/lib/hooks/useLessonInstances';
 import { useCoachUsers } from '@/lib/hooks/useStudents';
 import { useStudents } from '@/lib/hooks/useStudents';
 import { useEnrollStudent, useBulkEnrollByUTR } from '@/lib/hooks/useEnrollments';
@@ -18,7 +18,9 @@ import { LESSON_TYPE_LABELS } from '@/lib/validation/lessonTemplate';
 import { formatTime } from '@/lib/utils/formatTime';
 import { SkillLevel } from '@/lib/types';
 
-const STATUSES = ['scheduled', 'in_progress', 'completed', 'cancelled'] as const;
+// 'completed' is intentionally NOT here — lessons are completed only via "Confirm Class"
+// (the unified flow that notifies + deducts package hours), never as a bare status change.
+const STATUSES = ['scheduled', 'in_progress', 'cancelled'] as const;
 
 export default function InstanceDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -27,6 +29,8 @@ export default function InstanceDetailScreen() {
   const { data: courts } = useCourts();
   const updateInstance = useUpdateLessonInstance();
   const deleteInstance = useDeleteLessonInstance();
+  const completeLesson = useCompleteLessonWithNotification();
+  const [noShowStudentIds, setNoShowStudentIds] = useState<string[]>([]);
   const enrollStudent = useEnrollStudent();
   const bulkEnroll = useBulkEnrollByUTR();
   const createNotification = useCreateNotification();
@@ -51,6 +55,18 @@ export default function InstanceDetailScreen() {
   const maxStudents = instance.max_students;
   const capacityRatio = maxStudents ? enrolledCount / maxStudents : 0;
   const capacityColor = capacityRatio >= 1 ? COLORS.error : capacityRatio >= 0.8 ? COLORS.warning : COLORS.success;
+
+  const handleConfirmClass = async () => {
+    try {
+      const result = await completeLesson.mutateAsync({ instanceId: instance.id, noShowStudentIds });
+      showSnackbar(
+        `Lesson confirmed. ${result.notifiedCount} parent${result.notifiedCount !== 1 ? 's' : ''} notified.`,
+        'success',
+      );
+    } catch (err: any) {
+      showSnackbar(err.message ?? 'Failed to confirm lesson', 'error');
+    }
+  };
 
   const handleStatusChange = async (status: string) => {
     try {
@@ -255,8 +271,8 @@ export default function InstanceDetailScreen() {
               )}
               <Button
                 mode="contained"
-                onPress={() => handleStatusChange('completed')}
-                loading={updateInstance.isPending}
+                onPress={handleConfirmClass}
+                loading={completeLesson.isPending}
                 style={styles.confirmButton}
                 contentStyle={styles.statusContent}
                 testID="confirm-class-button"
@@ -333,6 +349,7 @@ export default function InstanceDetailScreen() {
         <EnrollmentList
           lessonInstanceId={instance.id}
           canEdit
+          onNoShowChange={setNoShowStudentIds}
           testID="instance-enrollment-list"
         />
       </View>
