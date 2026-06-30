@@ -37,15 +37,15 @@ serve(async (req) => {
     if (!caller) return json({ error: 'Unauthorized' }, 401);
 
     const admin = createClient(supabaseUrl, serviceKey);
-    const { data: callerRow } = await admin.from('users').select('role').eq('auth_id', caller.id).single();
+    const { data: callerRow } = await admin.from('users').select('role, org_id').eq('auth_id', caller.id).single();
     if (!callerRow || (callerRow.role !== 'owner' && callerRow.role !== 'admin')) {
       return json({ error: 'Forbidden' }, 403);
     }
 
     // --- Input ---
-    const { targetUserId, amountCents, description, paymentType, studentPackageId, subscriptionId } = await req.json();
-    if (!targetUserId || !amountCents || amountCents <= 0 || !paymentType) {
-      return json({ error: 'targetUserId, positive amountCents, and paymentType are required' }, 400);
+    const { targetUserId, description, paymentType, studentPackageId, subscriptionId } = await req.json();
+    if (!targetUserId || !paymentType) {
+      return json({ error: 'targetUserId and paymentType are required' }, 400);
     }
 
     // --- Load the target parent ---
@@ -55,6 +55,32 @@ serve(async (req) => {
       .eq('id', targetUserId)
       .single();
     if (pErr || !parent) return json({ error: 'Target user not found' }, 404);
+
+    // Defense-in-depth: the target must be in the caller's org.
+    if (callerRow.org_id && parent.org_id !== callerRow.org_id) {
+      return json({ error: 'Forbidden' }, 403);
+    }
+
+    // --- Derive the amount server-side from the item being paid (never trust a client amount). ---
+    let amountCents: number;
+    if (paymentType === 'package') {
+      if (!studentPackageId) return json({ error: 'studentPackageId is required for a package' }, 400);
+      const { data: sp } = await admin
+        .from('student_packages')
+        .select('coach_package:coach_packages!student_packages_coach_package_id_fkey(price_cents)')
+        .eq('id', studentPackageId)
+        .single();
+      const price = (sp?.coach_package as { price_cents: number } | null)?.price_cents;
+      if (!price || price <= 0) return json({ error: 'Could not determine package price' }, 400);
+      amountCents = price;
+    } else if (paymentType === 'subscription') {
+      if (!subscriptionId) return json({ error: 'subscriptionId is required for a subscription' }, 400);
+      const { data: sub } = await admin.from('subscriptions').select('price_cents').eq('id', subscriptionId).single();
+      if (!sub?.price_cents || sub.price_cents <= 0) return json({ error: 'Could not determine subscription price' }, 400);
+      amountCents = sub.price_cents;
+    } else {
+      return json({ error: 'invalid paymentType' }, 400);
+    }
 
     // --- Ensure a Stripe customer exists ---
     let customerId: string | null = parent.stripe_customer_id;
