@@ -224,6 +224,7 @@ serve(async (req) => {
               payment_status: 'completed',
               stripe_payment_intent_id: paymentIntent.id,
               subscription_id: meta.subscription_id || null,
+              student_package_id: meta.student_package_id || null,
               description: paymentIntent.description || meta.description || null,
               paid_at: new Date().toISOString(),
             });
@@ -382,6 +383,7 @@ serve(async (req) => {
                   payment_status: 'completed',
                   stripe_payment_intent_id: paymentIntentId,
                   subscription_id: meta.subscription_id || null,
+                  student_package_id: meta.student_package_id || null,
                   description: meta.description || null,
                   paid_at: new Date().toISOString(),
                 })
