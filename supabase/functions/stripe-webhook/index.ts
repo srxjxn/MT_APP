@@ -194,6 +194,7 @@ serve(async (req) => {
     switch (event.type) {
       case 'payment_intent.succeeded': {
         const paymentIntent = event.data.object;
+        const meta = paymentIntent.metadata || {};
 
         // Try to update existing payment record first (idempotency)
         const { data: existing } = await supabase
@@ -213,7 +214,6 @@ serve(async (req) => {
             .eq('stripe_payment_intent_id', paymentIntent.id);
         } else {
           // Create payment record from PaymentIntent metadata
-          const meta = paymentIntent.metadata || {};
           if (meta.user_id && meta.org_id) {
             await supabase.from('payments').insert({
               org_id: meta.org_id,
@@ -229,6 +229,16 @@ serve(async (req) => {
               paid_at: new Date().toISOString(),
             });
           }
+        }
+
+        // Admin-sent membership signup link: the first payment activates the
+        // pending subscription (idempotent — only flips rows still 'pending').
+        if (meta.payment_type === 'subscription' && meta.subscription_id) {
+          await supabase
+            .from('subscriptions')
+            .update({ status: 'active' })
+            .eq('id', meta.subscription_id)
+            .eq('status', 'pending');
         }
         break;
       }
@@ -401,6 +411,16 @@ serve(async (req) => {
               } catch (e) {
                 console.error('Failed to execute post_action:', e);
               }
+            }
+
+            // Admin-sent membership signup link: the first payment activates the
+            // pending subscription (idempotent — only flips rows still 'pending').
+            if (meta.payment_type === 'subscription' && meta.subscription_id) {
+              await supabase
+                .from('subscriptions')
+                .update({ status: 'active' })
+                .eq('id', meta.subscription_id)
+                .eq('status', 'pending');
             }
           }
         }
